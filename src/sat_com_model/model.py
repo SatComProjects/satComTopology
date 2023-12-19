@@ -37,6 +37,10 @@ class TopologyObject(SpatialPoint):
 
     object_name: str
     id: int
+    type = "TypologyObject"
+
+    def get_type(self) -> str:
+        return self.type
 
 
 class OrbitalObject(TopologyObject):
@@ -51,6 +55,7 @@ class OrbitalObject(TopologyObject):
 class Satellite(OrbitalObject):
     satellite_name: str
     satellite_id: int
+    type = "Satellite"
 
 
 class GroundObject(TopologyObject):
@@ -61,10 +66,14 @@ class GroundStation(GroundObject):
     ground_station_id: int
     city: str
 
+    type = "GroundStation"
+
 
 class UserTerminal(GroundObject):
     user_id: int
     user_name: str
+
+    type = "UserTerminal"
 
 
 class Link:
@@ -78,7 +87,9 @@ class Link:
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         if source == destination:
-            raise ConnectionBetweenSameSatelliteForbiddenError()
+            raise ConnectionBetweenSameSatelliteForbiddenError(
+                "You cannot connect with same source and destination"
+            )
         self.source = source
         self.destination = destination
 
@@ -89,7 +100,11 @@ class InterSatelliteLink(Link):
             destination, Satellite
         )
         if not object_are_both_satellites:
-            raise InterSatelliteConnectionError()
+            raise InterSatelliteConnectionError(
+                "You cannot use InterSatellite connection between these two object : {source} - {destination} ".format(
+                    source=source.get_type(), destination=destination.get_type()
+                )
+            )
 
         super().connect(source, destination)
 
