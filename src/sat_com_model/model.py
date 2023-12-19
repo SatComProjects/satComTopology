@@ -16,6 +16,10 @@ class SpatialPoint:
     latitude: float
     altitude: float
 
+    def __str__(self):
+        coordinate = f"Coordinate : Longitude: {self.longitude}, Latitude: {self.latitude} Altitude: {self.altitude}"
+        return coordinate
+
     def get_position(self) -> (float, float, float):
         return self.longitude, self.latitude, self.altitude
 
@@ -42,6 +46,14 @@ class TopologyObject(SpatialPoint):
     def get_type(self) -> str:
         return self.type
 
+    def __str__(self):
+        topology_object_info = (
+            "id: {id}, object_name: {object_name}, type: {type}".format(
+                id=self.id, object_name=self.object_name, type=self.type
+            )
+        )
+        return super().__str__().join(topology_object_info)
+
 
 class OrbitalObject(TopologyObject):
     """
@@ -49,13 +61,23 @@ class OrbitalObject(TopologyObject):
     """
 
     tle: str
-    orbital_object_id: int
+
+    def __str__(self):
+        return super().__str__()
 
 
 class Satellite(OrbitalObject):
     satellite_name: str
     satellite_id: int
     type = "Satellite"
+
+    def __str__(self):
+        return (
+            super().__str__()
+            + "Satellite name: {satellite_name} satellite_id: {satellite_id} ".format(
+                satellite_name=self.satellite_name, satellite_id=self.satellite_id
+            )
+        )
 
 
 class GroundObject(TopologyObject):
@@ -67,6 +89,14 @@ class GroundStation(GroundObject):
     city: str
 
     type = "GroundStation"
+
+    def __str__(self):
+        return (
+            super().__str__()
+            + "Ground station id: {ground_station_id} city: {city} ".format(
+                ground_station_id=self.ground_station_id, city=self.city
+            )
+        )
 
 
 class UserTerminal(GroundObject):
