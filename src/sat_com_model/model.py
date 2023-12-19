@@ -4,6 +4,7 @@ from .exception import (
     UserTerminalConnectionError,
     SimulationContextError,
     ConnectionBetweenSameSatelliteForbiddenError,
+    TopologyObjectNotFoundError,
 )
 
 
@@ -195,17 +196,26 @@ class Simulation:
 
         return attributed_id
 
-    def get_object_from_type(self, object_type):
-        return filter(
-            lambda t_object: isinstance(t_object, object_type),
-            self.topology_objects,
+    def get_objects_from_type(self, object_type) -> list:
+        return list(
+            filter(
+                lambda t_object: isinstance(t_object, object_type),
+                self.topology_objects,
+            )
         )
 
-    def get_satellites(self, satellite_id: int) -> Satellite:
-        return filter(
-            lambda t_object: t_object.satellite_id == satellite_id,
-            self.get_object_from_type(Satellite),
+    def get_satellite(self, satellite_id) -> Satellite:
+        matched_satellite = list(
+            filter(
+                lambda t_object: t_object.satellite_id == satellite_id,
+                self.get_objects_from_type(Satellite),
+            )
         )
+
+        if len(matched_satellite) < 1:
+            raise TopologyObjectNotFoundError()
+
+        return matched_satellite[0]
 
     def create_bi_directional_connection(self, satellite_a, satellite_b):
         isl = InterSatelliteLink()
