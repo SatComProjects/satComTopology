@@ -42,6 +42,11 @@ class TopologyObject(SpatialPoint):
     def get_type(self) -> str:
         return self.type
 
+    def __eq__(self, __value):
+        if isinstance(__value, self.__class__) and self.id == __value.id:
+            return True
+        return False
+
 
 class OrbitalObject(TopologyObject):
     """
