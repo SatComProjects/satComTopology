@@ -39,7 +39,6 @@ class TopologyObject(SpatialPoint):
     Any Object in the topology
     """
 
-    object_name: str
     id: int
     type = "TypologyObject"
 
@@ -47,10 +46,8 @@ class TopologyObject(SpatialPoint):
         return self.type
 
     def __str__(self):
-        topology_object_info = (
-            "id: {id}, object_name: {object_name}, type: {type}".format(
-                id=self.id, object_name=self.object_name, type=self.type
-            )
+        topology_object_info = "id: {id}, type: {type}".format(
+            id=self.id, type=self.type
         )
         return super().__str__().join(topology_object_info)
 
