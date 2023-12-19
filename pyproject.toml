@@ -26,3 +26,5 @@ Issues = "https://github.com/elbarbi/satComTopology/issues"
 pythonpath = [
   "."
 ]
+[tool.hatch.build.targets.wheel]
+packages = ["src/sat_com_model"]
