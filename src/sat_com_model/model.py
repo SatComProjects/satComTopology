@@ -19,6 +19,16 @@ class SpatialPoint:
     def get_position(self) -> (float, float, float):
         return self.longitude, self.latitude, self.altitude
 
+    def set_position(self, **kwargs):
+        """
+        Set the position of the spatial point
+        :param kwargs: latitude, longitude, altitude. If one of them is empty, value will remain the same
+        :return:
+        """
+        self.latitude = kwargs.get("latitude", self.latitude)
+        self.longitude = kwargs.get("longitude", self.longitude)
+        self.altitude = kwargs.get("altitude", self.altitude)
+
 
 class TopologyObject(SpatialPoint):
     """
@@ -133,11 +143,35 @@ class Simulation:
 
     connection_links: list[Link]
 
+    def __init__(self):
+        self.topology_objects = []
+        self.connection_links = []
+
     def request_an_id(self):
         attributed_id = self.available_id_index
         self.available_id_index += 1
 
         return attributed_id
+
+    def get_object_from_type(self, object_type):
+        return filter(
+            lambda t_object: isinstance(t_object, object_type),
+            self.topology_objects,
+        )
+
+    def get_satellites(self, satellite_id: int) -> Satellite:
+        return filter(
+            lambda t_object: t_object.satellite_id == satellite_id,
+            self.get_object_from_type(Satellite),
+        )
+
+    def create_bi_directional_connection(self, satellite_a, satellite_b):
+        isl = InterSatelliteLink()
+        isl.connect(satellite_a, satellite_b)
+        isl.connect(satellite_b, satellite_a)
+
+        self.connection_links.append(isl)
+        return isl
 
 
 def create_satellite(
