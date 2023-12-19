@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sat_com_topology"
-version = "0.0.1"
+version = "1.0"
 authors = [
   { name="Louis BARBIER", email="louis.barbier@isae-supaero.fr" },
 ]
@@ -23,7 +23,6 @@ Issues = "https://github.com/elbarbi/satComTopology/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sat_com_model"]
-
 
 [tool.pytest.ini_options]
 pythonpath = [
