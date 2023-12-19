@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "sat_com_topology"
@@ -21,8 +21,6 @@ classifiers = [
 Homepage = "https://github.com/elbarbi/satComTopology"
 Issues = "https://github.com/elbarbi/satComTopology/issues"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/sat_com_model"]
 
 [tool.pytest.ini_options]
 pythonpath = [
