@@ -1,4 +1,4 @@
-from src.sat_com_model.exception import (
+from .exception import (
     InterSatelliteConnectionError,
     GroundStationConnectionError,
     UserTerminalConnectionError,
