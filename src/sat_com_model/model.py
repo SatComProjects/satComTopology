@@ -130,7 +130,7 @@ class InterSatelliteLink(Link):
         if not object_are_both_satellites:
             raise InterSatelliteConnectionError(
                 "You cannot use InterSatellite connection between these two object : {source} - {destination} ".format(
-                    source=source.get_type(), destination=destination.get_type()
+                    source=source.__class__, destination=destination.__class__
                 )
             )
 
