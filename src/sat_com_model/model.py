@@ -119,7 +119,7 @@ class OrbitalObject(TopologyObject):
         return self.movement_model
 
     def is_ascending(self, date) -> bool:
-        return self.get_movement_model().is_ascending()
+        return self.get_movement_model().is_ascending(date)
 
 
 class Satellite(OrbitalObject):
