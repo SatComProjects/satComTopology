@@ -64,7 +64,7 @@ class MovementModel:
     def __init__(self, tle: str) -> None:
         self.tle = tle
 
-    def is_ascending(self) -> bool:
+    def is_ascending(self, date) -> bool:
         """
         Return True if the Orbital object is in its ascending phase.
         :return:
@@ -79,7 +79,7 @@ class MovementModel:
         """
         pass
 
-    def get_position_earth_general_inertial(self) -> (float, float, float):
+    def get_position_earth_general_inertial(self, date) -> (float, float, float):
         """
         This method returns the position of the orbital object in the referential of EGI.
         It can be used in the is_ascending method.
@@ -118,7 +118,7 @@ class OrbitalObject(TopologyObject):
             )
         return self.movement_model
 
-    def is_ascending(self) -> bool:
+    def is_ascending(self, date) -> bool:
         return self.get_movement_model().is_ascending()
 
 
