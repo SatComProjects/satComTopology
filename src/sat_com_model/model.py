@@ -53,6 +53,41 @@ class TopologyObject(SpatialPoint):
         return super().__str__().join(topology_object_info)
 
 
+class MovementModel:
+    """
+    This is the movement model class. This abstract class should be implemented using a orbit trajectory
+    library. You have to respect 2 things: Giving TLE in entry, and implementing methods.
+    """
+
+    tle: str
+
+    def __init__(self, tle: str) -> None:
+        self.tle = tle
+
+    def is_ascending(self) -> bool:
+        """
+        Return True if the Orbital object is in its ascending phase.
+        :return:
+        """
+        pass
+
+    def get_longitude_latitude(self, date) -> (float, float, float):
+        """
+        Return the longitude, latitude  and elevation on ground of the orbital object
+        :param date: Specify the date at which time you want the position
+        :return:
+        """
+        pass
+
+    def get_position_earth_general_inertial(self) -> (float, float, float):
+        """
+        This method returns the position of the orbital object in the referential of EGI.
+        It can be used in the is_ascending method.
+        :return:
+        """
+        pass
+
+
 class OrbitalObject(TopologyObject):
     """
     Any object in orbit
@@ -60,8 +95,31 @@ class OrbitalObject(TopologyObject):
 
     tle: str
 
+    movement_model: MovementModel
+
     def __str__(self):
         return super().__str__()
+
+    def set_movement_model(self, movement_model: MovementModel):
+        """
+        Movement model is an abstract class. You have to implement your movement model class depending on
+        what library you want to use. For example : pyorbital. The objective is to define a class that will
+        give the MovementModel methods
+
+        :param movement_model: Your implementation of MovementModel
+        :return:
+        """
+        self.movement_model = movement_model
+
+    def get_movement_model(self) -> MovementModel:
+        if self.movement_model is None:
+            raise ValueError(
+                "You can't use movement features because you didn't specify a movement model"
+            )
+        return self.movement_model
+
+    def is_ascending(self) -> bool:
+        return self.get_movement_model().is_ascending()
 
 
 class Satellite(OrbitalObject):
