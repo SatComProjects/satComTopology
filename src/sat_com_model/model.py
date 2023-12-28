@@ -1,3 +1,5 @@
+from enum import Enum
+
 from .exception import (
     InterSatelliteConnectionError,
     GroundStationConnectionError,
@@ -6,6 +8,8 @@ from .exception import (
     ConnectionBetweenSameSatelliteForbiddenError,
     TopologyObjectNotFoundError,
 )
+
+IslDirection = Enum("IslDirection", ["TOP", "BACK", "ADJACENT", "UNDEFINED"])
 
 
 class SpatialPoint:
@@ -275,7 +279,9 @@ class Simulation:
 
         return matched_satellite[0]
 
-    def create_bi_directional_connection(self, satellite_a, satellite_b):
+    def create_bi_directional_isl_connection(
+        self, satellite_a: Satellite, satellite_b: Satellite
+    ):
         isl = InterSatelliteLink()
         isl.connect(satellite_a, satellite_b)
         isl.connect(satellite_b, satellite_a)
