@@ -21,6 +21,8 @@ class SpatialPoint:
     latitude: float
     altitude: float
 
+    simulation_context: "Simulation"
+
     def __str__(self):
         coordinate = f"Coordinate : Longitude: {self.longitude}, Latitude: {self.latitude} Altitude: {self.altitude}"
         return coordinate
@@ -68,14 +70,14 @@ class MovementModel:
     def __init__(self, tle: str) -> None:
         self.tle = tle
 
-    def is_ascending(self, date) -> bool:
+    def is_ascending(self) -> bool:
         """
         Return True if the Orbital object is in its ascending phase.
         :return:
         """
         pass
 
-    def get_longitude_latitude(self, date) -> (float, float, float):
+    def get_longitude_latitude(self) -> (float, float, float):
         """
         Return the longitude, latitude  and elevation on ground of the orbital object
         :param date: Specify the date at which time you want the position
@@ -83,7 +85,7 @@ class MovementModel:
         """
         pass
 
-    def get_position_earth_general_inertial(self, date) -> (float, float, float):
+    def get_position_earth_general_inertial(self) -> (float, float, float):
         """
         This method returns the position of the orbital object in the referential of EGI.
         It can be used in the is_ascending method.
@@ -122,8 +124,11 @@ class OrbitalObject(TopologyObject):
             )
         return self.movement_model
 
-    def is_ascending(self, date) -> bool:
-        return self.get_movement_model().is_ascending(date)
+    def is_ascending(self) -> bool:
+        return self.get_movement_model().is_ascending()
+
+    def get_position(self) -> (float, float, float):
+        return self.get_movement_model().get_longitude_latitude()
 
 
 class Satellite(OrbitalObject):
