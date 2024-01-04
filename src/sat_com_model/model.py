@@ -59,6 +59,13 @@ class TopologyObject(SpatialPoint):
         )
         return super().__str__().join(topology_object_info)
 
+    def update(self):
+        """
+        Update everything who need to be updated on the topology. Ex: coordinates
+        :return:
+        """
+        pass
+
 
 class MovementModel:
     """
@@ -110,6 +117,7 @@ class OrbitalObject(TopologyObject):
         :return:
         """
         self.movement_model = movement_model
+        self.update()
 
     def get_movement_model(self) -> MovementModel:
         if self.movement_model is None:
@@ -123,6 +131,9 @@ class OrbitalObject(TopologyObject):
 
     def get_position(self) -> (float, float, float):
         return self.get_movement_model().get_longitude_latitude()
+
+    def update(self):
+        self.longitude, self.latitude, self.altitude = self.get_position()
 
 
 class Satellite(OrbitalObject):
