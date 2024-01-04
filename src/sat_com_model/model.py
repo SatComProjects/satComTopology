@@ -65,11 +65,6 @@ class MovementModel:
     library. You have to respect 2 things: Giving TLE in entry, and implementing methods.
     """
 
-    tle: str
-
-    def __init__(self, tle: str) -> None:
-        self.tle = tle
-
     def is_ascending(self) -> bool:
         """
         Return True if the Orbital object is in its ascending phase.
@@ -98,8 +93,6 @@ class OrbitalObject(TopologyObject):
     """
     Any object in orbit
     """
-
-    tle: str
 
     movement_model: MovementModel
 
