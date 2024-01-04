@@ -24,7 +24,8 @@ class SpatialPoint:
     simulation_context: "Simulation"
 
     def __str__(self):
-        coordinate = f"Coordinate : Longitude: {self.longitude}, Latitude: {self.latitude} Altitude: {self.altitude}"
+        longitude, latitude, altitude = self.get_position()
+        coordinate = f"Coordinate : Longitude: {longitude}, Latitude: {latitude} Altitude: {altitude}"
         return coordinate
 
     def get_position(self) -> (float, float, float):
@@ -62,7 +63,7 @@ class TopologyObject(SpatialPoint):
 class MovementModel:
     """
     This is the movement model class. This abstract class should be implemented using a orbit trajectory
-    library. You have to respect 2 things: Giving TLE in entry, and implementing methods.
+    library.
     """
 
     def is_ascending(self) -> bool:
