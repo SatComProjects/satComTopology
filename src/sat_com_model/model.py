@@ -160,6 +160,12 @@ class GroundStation(GroundObject):
 
     type = "GroundStation"
 
+    def __init__(self, city_name: str = "unknown"):
+        self.city = city_name
+        self.longitude = 0
+        self.latitude = 0
+        self.altitude = 0
+
     def __str__(self):
         return (
             super().__str__()
