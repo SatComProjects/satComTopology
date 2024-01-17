@@ -57,7 +57,7 @@ class TopologyObject(SpatialPoint):
         topology_object_info = "id: {id}, type: {type}".format(
             id=self.id, type=self.type
         )
-        return super().__str__().join(topology_object_info)
+        return super().__str__() + topology_object_info
 
     def update(self):
         """
