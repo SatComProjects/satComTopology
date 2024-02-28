@@ -1,11 +1,11 @@
-from datetime import date
+from datetime import datetime
 
 from sat_com_model.model import Simulation, Satellite, create_satellite
 from sat_com_trajectopy.orbital_models import PyOrbitalModel
 
 
 def generate_satellites_from_two_line_elements_with_pyorbital_model(
-    two_line_elements: [], simulation_context: Simulation, start_date: date
+    two_line_elements: [], simulation_context: Simulation, start_date: datetime
 ) -> [Satellite]:
     id_index = 0
     satellites = []
@@ -25,3 +25,5 @@ def generate_satellites_from_two_line_elements_with_pyorbital_model(
             satellites.append(satellite)
 
         id_index += 1
+
+    return satellites
