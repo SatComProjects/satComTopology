@@ -16,16 +16,14 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+    'networkx>=3.2.1',
+    'pyorbital>=1.8.2'
+]
 
 [project.urls]
 Homepage = "https://github.com/elbarbi/satComTopology"
 Issues = "https://github.com/elbarbi/satComTopology/issues"
-
-dependencies = [
-    'networkx~=3.2.1',
-    'pyorbital~=1.8.2'
-]
-
 
 [tool.pytest.ini_options]
 pythonpath = [
