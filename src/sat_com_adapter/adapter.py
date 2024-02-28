@@ -1,7 +1,9 @@
 import datetime
+import json
 import os
 
 import networkx as nx
+from networkx.readwrite import json_graph
 
 from sat_com_model.model import Simulation
 
@@ -41,6 +43,6 @@ class NetworkXAdapter(Adapter):
         if not os.path.exists(output_path):
             os.makedirs(output_path)
 
-        output_path = os.path.join(output_path, "topology.graphml")
-
-        nx.write_graphml(G, output_path)
+        output_path = os.path.join(output_path, "topology.json")
+        with open(output_path, "w") as file:
+            file.write(json.dumps(json_graph.node_link_data(G)))
