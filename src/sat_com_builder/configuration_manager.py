@@ -1,16 +1,16 @@
 from datetime import datetime
 
-from ..sat_com_builder.isl.isl_generator import (
+from sat_com_builder.isl.isl_generator import (
     create_inter_satellite_link_from_two_line_element,
 )
-from ..sat_com_builder.tle.two_line_element_file import (
+from sat_com_builder.tle.two_line_element_file import (
     parse_two_line_element_to_instance,
     TwoLineElementFile,
 )
-from ..sat_com_model.model import Simulation
+from sat_com_model.model import Simulation
 import yaml
 
-from ..sat_com_trajectopy.satellites.generate_satellite import (
+from sat_com_trajectopy.satellites.generate_satellite import (
     generate_satellites_from_two_line_elements_with_pyorbital_model,
 )
 
