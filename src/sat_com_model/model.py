@@ -188,6 +188,7 @@ class Link:
     Todo: maybe we should directly connect interface here
     """
 
+    type: str
     source: TopologyObject = None
     destination: TopologyObject = None
 
@@ -201,6 +202,8 @@ class Link:
 
 
 class InterSatelliteLink(Link):
+    type = "InterSatelliteLink"
+
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_are_both_satellites = isinstance(source, Satellite) and isinstance(
             destination, Satellite
@@ -216,6 +219,8 @@ class InterSatelliteLink(Link):
 
 
 class GroundStationLink(Link):
+    type = "GroundStationLink"
+
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_source_is_a_gsl_and_destination_a_satellite = isinstance(
             source, GroundStation
@@ -237,6 +242,8 @@ class GroundStationLink(Link):
 
 
 class UserTerminalLink(Link):
+    link = "UserTerminalLink"
+
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_source_is_a_user_and_destination_a_satellite = isinstance(
             source, UserTerminal
@@ -258,6 +265,8 @@ class UserTerminalLink(Link):
 
 
 class Simulation:
+    simulation_name: str = "Unnamed Simulation"
+
     available_id_index: int = 0
 
     topology_objects: list[TopologyObject]

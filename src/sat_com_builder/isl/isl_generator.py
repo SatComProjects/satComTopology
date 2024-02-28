@@ -1,0 +1,125 @@
+# The MIT License (MIT)
+#
+# Copyright (c) 2020 ETH Zurich
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# Modifications :
+# - Created transform_text_to_isl
+# - create_isls_from_tles
+# - Refactor and renamed functions (generate_plus_grid_isls)
+
+# Source: https://github.com/snkas/hypatia
+
+from src.sat_com_model.exception import (
+    TopologyObjectNotFoundError,
+    TopologyConnectionError,
+)
+from src.sat_com_model.model import Simulation, Satellite, InterSatelliteLink
+
+from src.sat_com_builder.tle.two_line_element_file import TwoLineElementFile
+
+
+def generate_inter_satellite_links_grid_from_two_line_element_file(
+    number_orbits, number_satellites_per_orbit, isl_shift, idx_offset=0
+) -> []:
+    """
+    This code generate a grid that represent inter-satellite links. This code come from Hypatia software.
+
+
+    :param number_orbits:                Number of orbits
+    :param number_satellites_per_orbit:        Number of satellites per orbit
+    :param isl_shift:               ISL shift between orbits (e.g., if satellite id in orbit is X,
+                                    does it also connect to the satellite at X in the adjacent orbit)
+    :param idx_offset:              Index offset (e.g., if you have multiple shells)
+    """
+
+    if number_orbits < 3 or number_satellites_per_orbit < 3:
+        raise ValueError("Number of x and y must each be at least 3")
+
+    list_inter_satellite_links = []
+    for i in range(number_orbits):
+        for j in range(number_satellites_per_orbit):
+            sat = i * number_satellites_per_orbit + j
+
+            # Link to the next in the orbit
+            sat_same_orbit = i * number_satellites_per_orbit + (
+                (j + 1) % number_satellites_per_orbit
+            )
+            sat_adjacent_orbit = (
+                (i + 1) % number_orbits
+            ) * number_satellites_per_orbit + (
+                (j + isl_shift) % number_satellites_per_orbit
+            )
+
+            # Same orbit
+            list_inter_satellite_links.append(
+                (
+                    idx_offset + min(sat, sat_same_orbit),
+                    idx_offset + max(sat, sat_same_orbit),
+                )
+            )
+
+            # Adjacent orbit
+            list_inter_satellite_links.append(
+                (
+                    idx_offset + min(sat, sat_adjacent_orbit),
+                    idx_offset + max(sat, sat_adjacent_orbit),
+                )
+            )
+    return list_inter_satellite_links
+
+
+def transform_grid_to_inter_satellite_links(
+    simulation_context: Simulation, list_isl: list
+):
+    for a, b in list_isl:
+        satellite_a = None
+        satellite_b = None
+        try:
+            satellite_a = simulation_context.get_satellite(a)
+        except TopologyObjectNotFoundError:
+            print("Satellite {sat_id} not found".format(sat_id=a))
+
+        try:
+            satellite_b = simulation_context.get_satellite(b)
+
+        except TopologyObjectNotFoundError:
+            print("Satellite {sat_id} not found".format(sat_id=b))
+
+        if satellite_a is not None and satellite_b is not None:
+            try:
+                simulation_context.create_bi_directional_isl_connection(
+                    satellite_a, satellite_b
+                )
+            except TopologyConnectionError as tpe:
+                print(
+                    "Failed to connect {sat_a} and {sat_b} : {message}".format(
+                        sat_a=str(satellite_a), sat_b=str(satellite_b), message=tpe
+                    )
+                )
+
+
+def create_inter_satellite_link_from_two_line_element(
+    simulation_context: Simulation, two_line_element: TwoLineElementFile
+):
+    isl_list = generate_inter_satellite_links_grid_from_two_line_element_file(
+        two_line_element.count_of_orbit, two_line_element.satellite_count_per_orbit, 1
+    )
+    transform_grid_to_inter_satellite_links(simulation_context, isl_list)
