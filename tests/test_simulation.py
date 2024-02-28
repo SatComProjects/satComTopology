@@ -1,5 +1,5 @@
 import pytest
-from ..sat_com_model.model import (
+from sat_com_model.model import (
     Simulation,
     TopologyObject,
     Link,
@@ -8,7 +8,7 @@ from ..sat_com_model.model import (
     UserTerminal,
 )
 
-from ..sat_com_model.exception import TopologyObjectNotFoundError
+from sat_com_model.exception import TopologyObjectNotFoundError
 from tests.model_helper import create_fake_satellite_with_satellite_id
 
 
