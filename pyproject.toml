@@ -21,6 +21,11 @@ classifiers = [
 Homepage = "https://github.com/elbarbi/satComTopology"
 Issues = "https://github.com/elbarbi/satComTopology/issues"
 
+dependencies = [
+    'networkx~=3.2.1',
+    'pyorbital~=1.8.2'
+]
+
 
 [tool.pytest.ini_options]
 pythonpath = [
