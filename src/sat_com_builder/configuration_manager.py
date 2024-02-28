@@ -45,7 +45,9 @@ class YamlConfigurationManager(ConfigurationManager):
 
         ground_station_file = self.plain_configuration.get("ground_station_file")
 
-        start_date = self.plain_configuration.get("start_date")
+        plain_start_date = self.plain_configuration.get("start_date")
+
+        start_date = datetime.strptime(plain_start_date, "%d/%m/%Y %H:%M:%S")
 
         simulation = Simulation()
         simulation.simulation_name = simulation_name
