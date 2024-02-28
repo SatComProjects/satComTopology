@@ -18,7 +18,7 @@ class NetworkXAdapter(Adapter):
 
     def __init__(self, simulation: Simulation, output_directory: str):
         self.simulation = simulation
-        self.output_path = output_directory
+        self.output_directory = output_directory
 
     def get_networkx_graph(self) -> nx.Graph:
         G = nx.Graph()
