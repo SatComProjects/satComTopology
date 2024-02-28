@@ -47,7 +47,7 @@ class YamlConfigurationManager(ConfigurationManager):
 
         plain_start_date = self.plain_configuration.get("start_date")
 
-        start_date = datetime.strptime(plain_start_date, "%d/%m/%Y %H:%M:%S")
+        start_date = datetime.strptime(plain_start_date, "%Y/%m/%d %H:%M:%S")
 
         simulation = Simulation()
         simulation.simulation_name = simulation_name
