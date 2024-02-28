@@ -3,7 +3,7 @@ import os
 
 import networkx as nx
 
-from src.sat_com_model.model import Simulation
+from ..sat_com_model.model import Simulation
 
 
 class Adapter:

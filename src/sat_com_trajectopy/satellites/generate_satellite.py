@@ -1,7 +1,7 @@
 from datetime import date
 
-from src.sat_com_model.model import Simulation, Satellite, create_satellite
-from src.sat_com_trajectopy.orbital_models import PyOrbitalModel
+from ..sat_com_model.model import Simulation, Satellite, create_satellite
+from ..sat_com_trajectopy.orbital_models import PyOrbitalModel
 
 
 def generate_satellites_from_two_line_elements_with_pyorbital_model(

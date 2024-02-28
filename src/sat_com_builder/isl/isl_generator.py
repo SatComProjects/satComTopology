@@ -27,13 +27,13 @@
 
 # Source: https://github.com/snkas/hypatia
 
-from src.sat_com_model.exception import (
+from ..sat_com_model.exception import (
     TopologyObjectNotFoundError,
     TopologyConnectionError,
 )
-from src.sat_com_model.model import Simulation, Satellite, InterSatelliteLink
+from ..sat_com_model.model import Simulation, Satellite, InterSatelliteLink
 
-from src.sat_com_builder.tle.two_line_element_file import TwoLineElementFile
+from ..sat_com_builder.tle.two_line_element_file import TwoLineElementFile
 
 
 def generate_inter_satellite_links_grid_from_two_line_element_file(
