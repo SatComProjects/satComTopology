@@ -24,11 +24,17 @@ class NetworkXAdapter(Adapter):
 
     def get_networkx_graph(self) -> nx.Graph:
         G = nx.Graph()
-        for topology_object in self.simulation.topology_objects:
-            G.add_node(topology_object.id, type=topology_object.get_type())
+        for topology_object in self.simulation.get_all_topology_objects():
+            G.add_node(
+                topology_object.topology_uniq_id, type=topology_object.get_type()
+            )
 
-        for link in self.simulation.connection_links:
-            G.add_edge(link.source.id, link.destination.id, type=link.type)
+        for link in self.simulation.get_all_links():
+            G.add_edge(
+                link.source.topology_uniq_id,
+                link.destination.topology_uniq_id,
+                type=link.type,
+            )
 
         return G
 

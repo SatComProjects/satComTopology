@@ -104,7 +104,7 @@ def transform_grid_to_inter_satellite_links(
 
         if satellite_a is not None and satellite_b is not None:
             try:
-                simulation_context.create_bi_directional_isl_connection(
+                simulation_context.create_inter_satellite_link_connection(
                     satellite_a, satellite_b
                 )
             except TopologyConnectionError as tpe:

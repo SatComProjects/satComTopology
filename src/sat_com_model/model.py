@@ -4,9 +4,9 @@ from .exception import (
     InterSatelliteConnectionError,
     GroundStationConnectionError,
     UserTerminalConnectionError,
-    SimulationContextError,
     ConnectionBetweenSameSatelliteForbiddenError,
     TopologyObjectNotFoundError,
+    TopologyIdentifierNotDefined,
 )
 
 IslDirection = Enum("IslDirection", ["TOP", "BACK", "ADJACENT", "UNDEFINED"])
@@ -47,7 +47,13 @@ class TopologyObject(SpatialPoint):
     Any Object in the topology
     """
 
-    id: int
+    """Identifier provided by the simulator (uniq for avery topology object)"""
+    topology_uniq_id: int = None
+
+    """Identifier given by the data provider (ex: satellite identifier, uniq for every satellite)"""
+    object_id: int = None
+
+    """This is the object type as string, used for debugging and export purposes"""
     type = "TypologyObject"
 
     def get_type(self) -> str:
@@ -55,9 +61,15 @@ class TopologyObject(SpatialPoint):
 
     def __str__(self):
         topology_object_info = "id: {id}, type: {type}".format(
-            id=self.id, type=self.type
+            id=self.topology_uniq_id, type=self.type
         )
         return super().__str__() + topology_object_info
+
+    def get_topology_uniq_id(self) -> int:
+        if self.topology_uniq_id is not None:
+            return self.topology_uniq_id
+        else:
+            raise TopologyIdentifierNotDefined()
 
     def update(self):
         """
@@ -138,14 +150,13 @@ class OrbitalObject(TopologyObject):
 
 class Satellite(OrbitalObject):
     satellite_name: str
-    satellite_id: int
     type = "Satellite"
 
     def __str__(self):
         return (
             super().__str__()
             + "Satellite name: {satellite_name} satellite_id: {satellite_id} ".format(
-                satellite_name=self.satellite_name, satellite_id=self.satellite_id
+                satellite_name=self.satellite_name, satellite_id=self.object_id
             )
         )
 
@@ -155,7 +166,6 @@ class GroundObject(TopologyObject):
 
 
 class GroundStation(GroundObject):
-    ground_station_id: int
     city: str
 
     type = "GroundStation"
@@ -170,13 +180,12 @@ class GroundStation(GroundObject):
         return (
             super().__str__()
             + "Ground station id: {ground_station_id} city: {city} ".format(
-                ground_station_id=self.ground_station_id, city=self.city
+                ground_station_id=self.object_id, city=self.city
             )
         )
 
 
 class UserTerminal(GroundObject):
-    user_id: int
     user_name: str
 
     type = "UserTerminal"
@@ -264,117 +273,169 @@ class UserTerminalLink(Link):
         super().connect(source, destination)
 
 
+def get_object_by_object_id(
+    object_id: int, topology_objects: list
+) -> Satellite | GroundStation | UserTerminal:
+    matching_objects_iterator = filter(
+        lambda x: x.object_id == object_id, topology_objects
+    )
+    matched_object = list(matching_objects_iterator)
+
+    if len(matched_object) == 1:
+        return matched_object[0]
+
+    if len(matched_object) > 1:
+        raise Exception()
+
+    if len(matched_object) == 0:
+        raise TopologyObjectNotFoundError()
+
+
 class Simulation:
-    simulation_name: str = "Unnamed Simulation"
+    object_uuid_index: int
 
-    available_id_index: int = 0
+    satellites: list[Satellite]
+    inter_satellite_links: list[InterSatelliteLink]
 
-    topology_objects: list[TopologyObject]
+    ground_stations: list[GroundStation]
+    ground_station_links: list[GroundStationLink]
 
-    connection_links: list[Link]
+    user_terminals: list[UserTerminal]
+    user_terminal_links: list[UserTerminalLink]
 
     def __init__(self):
-        self.topology_objects = []
-        self.connection_links = []
+        self.object_uuid_index = 0
+        self.satellites = []
+        self.inter_satellite_links = []
+        self.ground_stations = []
+        self.ground_station_links = []
+        self.user_terminals = []
+        self.user_terminal_links = []
 
     def request_an_id(self):
-        attributed_id = self.available_id_index
-        self.available_id_index += 1
+        attributed_id = self.object_uuid_index
+        self.object_uuid_index += 1
 
         return attributed_id
 
-    def get_objects_from_type(self, object_type) -> list:
-        return list(
-            filter(
-                lambda t_object: isinstance(t_object, object_type),
-                self.topology_objects,
-            )
-        )
+    def add_satellite(self, satellite: Satellite):
+        satellite.topology_uniq_id = self.request_an_id()
+        self.satellites.append(satellite)
 
-    def get_satellite(self, satellite_id) -> Satellite:
-        matched_satellite = list(
-            filter(
-                lambda t_object: t_object.satellite_id == satellite_id,
-                self.get_objects_from_type(Satellite),
-            )
-        )
+    def add_ground_station(self, ground_station: GroundStation):
+        ground_station.topology_uniq_id = self.request_an_id()
+        self.ground_stations.append(ground_station)
 
-        if len(matched_satellite) < 1:
+    def add_user_terminals(self, user_terminal: UserTerminal):
+        user_terminal.topology_uniq_id = self.request_an_id()
+        self.user_terminals.append(user_terminal)
+
+    def get_all_topology_objects(self) -> list[TopologyObject]:
+        topology_objects = []
+        topology_objects.extend(self.satellites)
+        topology_objects.extend(self.ground_stations)
+        topology_objects.extend(self.user_terminals)
+
+        return topology_objects
+
+    def get_all_links(self) -> list[Link]:
+        all_links = []
+        all_links.extend(self.user_terminal_links)
+        all_links.extend(self.ground_station_links)
+        all_links.extend(self.user_terminal_links)
+
+        return all_links
+
+    def get_satellite_by_object_id(self, object_id: int) -> Satellite:
+        return get_object_by_object_id(object_id, self.satellites)
+
+    def get_ground_station_by_object_id(self, object_id: int) -> GroundStation:
+        return get_object_by_object_id(object_id, self.ground_stations)
+
+    def get_user_terminal_by_object_id(self, object_id: int) -> UserTerminal:
+        return get_object_by_object_id(object_id, self.user_terminals)
+
+    def get_topology_object_from_uniq_id(self, uniq_id: int) -> TopologyObject:
+        matching_objects_iterator = filter(
+            lambda x: x.topology_uniq_id == uniq_id, self.get_all_topology_objects()
+        )
+        matched_object = list(matching_objects_iterator)
+
+        if len(matched_object) == 1:
+            return matched_object[0]
+
+        if len(matched_object) > 1:
+            raise Exception()
+
+        if len(matched_object) == 0:
             raise TopologyObjectNotFoundError()
 
-        return matched_satellite[0]
-
-    def create_bi_directional_isl_connection(
+    def create_inter_satellite_link_connection(
         self, satellite_a: Satellite, satellite_b: Satellite
-    ):
-        isl = InterSatelliteLink()
-        isl.connect(satellite_a, satellite_b)
-        isl.connect(satellite_b, satellite_a)
+    ) -> InterSatelliteLink:
+        inter_satellite_link = InterSatelliteLink()
+        inter_satellite_link.connect(satellite_a, satellite_b)
 
-        self.connection_links.append(isl)
-        return isl
+        self.inter_satellite_links.append(inter_satellite_link)
+        return inter_satellite_link
+
+    def create_ground_station_link_connection(
+        self, satellite: Satellite, ground_station: GroundStation
+    ) -> GroundStationLink:
+        ground_station_link = GroundStationLink()
+        ground_station_link.connect(satellite, ground_station)
+
+        self.ground_station_links.append(ground_station_link)
+        return ground_station_link
+
+    def create_user_terminal_link_connection(
+        self, satellite: Satellite, user_terminal: UserTerminal
+    ) -> UserTerminalLink:
+        user_terminal_link = UserTerminalLink()
+        user_terminal_link.connect(satellite, user_terminal)
+
+        self.user_terminal_links.append(user_terminal_link)
+        return user_terminal_link
 
 
-def create_satellite(
-    simulation_context: Simulation, satellite_name, satellite_id
-) -> Satellite:
+def create_satellite(satellite_name, satellite_id) -> Satellite:
     """
     Create a satellite with parameters
     todo: check what we have to put inside a satellite object
-    :param simulation_context: REQUIRED SIMULATION, very important to identify our future satellite.
     :param satellite_name: Name of the satellite
     :param satellite_id: Identifier of the satellite
     :return:
     """
-    if simulation_context is None:
-        raise SimulationContextError()
-
     created_satellite = Satellite()
 
-    created_satellite.satellite_id = satellite_id
+    created_satellite.object_id = satellite_id
     created_satellite.satellite_name = satellite_name
-    created_satellite.id = simulation_context.request_an_id()
 
     return created_satellite
 
 
-def create_ground_station(
-    simulation_context: Simulation, ground_station_id: int, city: str
-) -> GroundStation:
+def create_ground_station(ground_station_id: int) -> GroundStation:
     """
     Create a ground station
-    :param simulation_context: REQUIRED SIMULATION, very important to identify our future satellite.
     :param ground_station_id: identifier of the ground station
-    :param city: position of the ground station (closest city)
     :return:
     """
-    if simulation_context is None:
-        raise SimulationContextError()
-
     created_ground_station = GroundStation()
-    created_ground_station.id = simulation_context.request_an_id()
-    created_ground_station.city = city
-    created_ground_station.ground_station_id = ground_station_id
+    created_ground_station.object_id = ground_station_id
 
     return created_ground_station
 
 
-def create_user_terminal(
-    simulation_context: Simulation, user_id, username
-) -> UserTerminal:
+def create_user_terminal(user_id, username) -> UserTerminal:
     """
     Create a user terminal
     :param username: username
-    :param simulation_context: REQUIRED SIMULATION, very important to identify our future satellite.
     :param user_id: identifier of the user
     :return:
     """
-    if simulation_context is None:
-        raise SimulationContextError()
 
     created_user = UserTerminal()
-    created_user.id = simulation_context.request_an_id()
     created_user.user_name = username
-    created_user.user_id = user_id
+    created_user.object_id = user_id
 
     return created_user
