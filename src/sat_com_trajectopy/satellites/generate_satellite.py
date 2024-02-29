@@ -5,7 +5,7 @@ from sat_com_trajectopy.orbital_models import PyOrbitalModel
 
 
 def generate_satellites_from_two_line_elements_with_pyorbital_model(
-    two_line_elements: [], simulation_context: Simulation, start_date: datetime
+    two_line_elements: [], start_date: datetime
 ) -> [Satellite]:
     id_index = 0
     satellites = []
@@ -18,9 +18,7 @@ def generate_satellites_from_two_line_elements_with_pyorbital_model(
             print(e)
 
         if satellite_model is not None:
-            satellite = create_satellite(
-                simulation_context, satellite_model.satellite_name, id_index
-            )
+            satellite = create_satellite(satellite_model.satellite_name, id_index)
             satellite.set_movement_model(satellite_model)
             satellites.append(satellite)
 

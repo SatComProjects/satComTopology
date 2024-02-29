@@ -398,6 +398,14 @@ class Simulation:
         self.user_terminal_links.append(user_terminal_link)
         return user_terminal_link
 
+    def add_all_satellites(self, satellites: list[Satellite]):
+        for satellite in satellites:
+            self.add_satellite(satellite)
+
+    def add_all_ground_stations(self, ground_stations: list[GroundStation]):
+        for ground_station in ground_stations:
+            self.add_ground_station(ground_station)
+
 
 def create_satellite(satellite_name, satellite_id) -> Satellite:
     """
