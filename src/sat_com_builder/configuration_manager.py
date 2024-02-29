@@ -67,9 +67,10 @@ class YamlConfigurationManager(ConfigurationManager):
         simulation = Simulation()
         simulation.simulation_name = simulation_name
 
-        self.two_line_element_configuration = parse_two_line_element_to_instance(
-            constellation_file
-        )
+        if constellation_file is not None:
+            self.two_line_element_configuration = parse_two_line_element_to_instance(
+                constellation_file
+            )
 
         if movement_model is not None and movement_model == "pyorbital":
             satellites = (
@@ -84,8 +85,9 @@ class YamlConfigurationManager(ConfigurationManager):
 
         simulation.add_all_satellites(satellites)
 
-        ground_stations = generate_ground_stations_from_file(ground_station_file)
-        simulation.add_all_ground_stations(ground_stations)
+        if ground_station_file is not None:
+            ground_stations = generate_ground_stations_from_file(ground_station_file)
+            simulation.add_all_ground_stations(ground_stations)
 
         create_inter_satellite_link_from_two_line_element(
             simulation, self.two_line_element_configuration
