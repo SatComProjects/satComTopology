@@ -26,5 +26,9 @@ class TopologyObjectNotFoundError(Exception):
     pass
 
 
-class TopologyIdentifierNotDefinedException(Exception):
+class TopologyIdentifierNotDefinedError(Exception):
+    pass
+
+
+class OrbitalObjectMovementModelUndefinedError(Exception):
     pass
