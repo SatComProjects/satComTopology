@@ -26,5 +26,5 @@ class TopologyObjectNotFoundError(Exception):
     pass
 
 
-class TopologyIdentifierNotDefined(Exception):
+class TopologyIdentifierNotDefinedException(Exception):
     pass
