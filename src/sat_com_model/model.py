@@ -295,6 +295,8 @@ def get_object_by_object_id(
 class Simulation:
     object_uuid_index: int
 
+    simulation_name: str
+
     satellites: list[Satellite]
     inter_satellite_links: list[InterSatelliteLink]
 
@@ -305,6 +307,7 @@ class Simulation:
     user_terminal_links: list[UserTerminalLink]
 
     def __init__(self):
+        self.simulation_name = "Unknown"
         self.object_uuid_index = 0
         self.satellites = []
         self.inter_satellite_links = []
