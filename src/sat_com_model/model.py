@@ -6,7 +6,8 @@ from .exception import (
     UserTerminalConnectionError,
     ConnectionBetweenSameSatelliteForbiddenError,
     TopologyObjectNotFoundError,
-    TopologyIdentifierNotDefined,
+    TopologyIdentifierNotDefinedError,
+    OrbitalObjectMovementModelUndefinedError,
 )
 
 IslDirection = Enum("IslDirection", ["TOP", "BACK", "ADJACENT", "UNDEFINED"])
@@ -24,11 +25,11 @@ class SpatialPoint:
     simulation_context: "Simulation"
 
     def __str__(self):
-        longitude, latitude, altitude = self.get_position()
+        longitude, latitude, altitude = self.get_coordinates()
         coordinate = f"Coordinate : Longitude: {longitude}, Latitude: {latitude} Altitude: {altitude}"
         return coordinate
 
-    def get_position(self) -> (float, float, float):
+    def get_coordinates(self) -> (float, float, float):
         return self.longitude, self.latitude, self.altitude
 
     def set_position(self, **kwargs):
@@ -69,7 +70,7 @@ class TopologyObject(SpatialPoint):
         if self.topology_uniq_id is not None:
             return self.topology_uniq_id
         else:
-            raise TopologyIdentifierNotDefined()
+            raise TopologyIdentifierNotDefinedError()
 
     def update(self):
         """
@@ -114,7 +115,7 @@ class OrbitalObject(TopologyObject):
     Any object in orbit
     """
 
-    movement_model: MovementModel
+    movement_model: MovementModel = None
 
     def __str__(self):
         return super().__str__()
@@ -133,7 +134,7 @@ class OrbitalObject(TopologyObject):
 
     def get_movement_model(self) -> MovementModel:
         if self.movement_model is None:
-            raise ValueError(
+            raise OrbitalObjectMovementModelUndefinedError(
                 "You can't use movement features because you didn't specify a movement model"
             )
         return self.movement_model
@@ -141,11 +142,11 @@ class OrbitalObject(TopologyObject):
     def is_ascending(self) -> bool:
         return self.get_movement_model().is_ascending()
 
-    def get_position(self) -> (float, float, float):
+    def get_coordinates(self) -> (float, float, float):
         return self.get_movement_model().get_longitude_latitude()
 
     def update(self):
-        self.longitude, self.latitude, self.altitude = self.get_position()
+        self.longitude, self.latitude, self.altitude = self.get_coordinates()
 
 
 class Satellite(OrbitalObject):

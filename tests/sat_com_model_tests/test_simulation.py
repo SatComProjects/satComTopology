@@ -5,7 +5,7 @@ from sat_com_model.model import (
 
 from sat_com_model.exception import (
     TopologyObjectNotFoundError,
-    TopologyIdentifierNotDefined,
+    TopologyIdentifierNotDefinedError,
 )
 from tests.sat_com_model_tests.model_helper import (
     create_fake_satellite_with_object_id,
@@ -68,7 +68,7 @@ class TestSimulation:
         simulation_id_index = simulation.object_uuid_index
         satellite = create_fake_satellite_with_object_id(1)
 
-        with pytest.raises(TopologyIdentifierNotDefined):
+        with pytest.raises(TopologyIdentifierNotDefinedError):
             satellite.get_topology_uniq_id()
 
         simulation.add_satellite(satellite)
@@ -79,7 +79,7 @@ class TestSimulation:
         simulation_id_index = simulation.object_uuid_index
         ground_station = create_fake_ground_station_with_object_id(1)
 
-        with pytest.raises(TopologyIdentifierNotDefined):
+        with pytest.raises(TopologyIdentifierNotDefinedError):
             ground_station.get_topology_uniq_id()
 
         simulation.add_ground_station(ground_station)
@@ -90,7 +90,7 @@ class TestSimulation:
         simulation_id_index = simulation.object_uuid_index
         user_terminal = create_fake_user_terminal_with_object_id(1)
 
-        with pytest.raises(TopologyIdentifierNotDefined):
+        with pytest.raises(TopologyIdentifierNotDefinedError):
             user_terminal.get_topology_uniq_id()
 
         simulation.add_user_terminals(user_terminal)
