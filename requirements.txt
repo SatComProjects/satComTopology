@@ -26,3 +26,6 @@ tomli==2.0.1
 typing_extensions==4.9.0
 virtualenv==20.25.0
 yarl==1.9.4
+networkx~=3.2.1
+setuptools~=68.2.0
+pyorbital~=1.8.2

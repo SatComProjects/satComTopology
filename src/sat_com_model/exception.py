@@ -20,3 +20,15 @@ class UserTerminalConnectionError(TopologyConnectionError):
 
 class SimulationContextError(Exception):
     pass
+
+
+class TopologyObjectNotFoundError(Exception):
+    pass
+
+
+class TopologyIdentifierNotDefinedError(Exception):
+    pass
+
+
+class OrbitalObjectMovementModelUndefinedError(Exception):
+    pass
