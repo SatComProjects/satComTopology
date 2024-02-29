@@ -27,7 +27,7 @@
 
 # Source: https://github.com/snkas/hypatia
 
-from sat_com_builder.tle.two_line_element_file import TwoLineElementFile
+from sat_com_builder.two_line_elements.two_line_element_file import TwoLineElementFile
 from sat_com_model.exception import (
     TopologyObjectNotFoundError,
     TopologyConnectionError,
@@ -92,12 +92,12 @@ def transform_grid_to_inter_satellite_links(
         satellite_a = None
         satellite_b = None
         try:
-            satellite_a = simulation_context.get_satellite(a)
+            satellite_a = simulation_context.get_satellite_by_object_id(a)
         except TopologyObjectNotFoundError:
             print("Satellite {sat_id} not found".format(sat_id=a))
 
         try:
-            satellite_b = simulation_context.get_satellite(b)
+            satellite_b = simulation_context.get_satellite_by_object_id(b)
 
         except TopologyObjectNotFoundError:
             print("Satellite {sat_id} not found".format(sat_id=b))
