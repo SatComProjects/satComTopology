@@ -44,28 +44,22 @@ class YamlConfigurationManager(ConfigurationManager):
         with open(self.configuration_path, "r") as file:
             self.plain_configuration = yaml.safe_load(file)
 
-    def load_simulation(self) -> Simulation:
-        self.load_configuration()
-
+    def load_simulation_configuration(self) -> Simulation:
         simulation_name = self.plain_configuration.get(
             "simulation_name", generate_default_simulation_name()
         )
+        simulation = Simulation()
+        simulation.simulation_name = simulation_name
+        return simulation
+
+    def load_satellite_configuration(self, simulation: Simulation):
         constellation_file = self.plain_configuration.get("constellation_file")
-
-        ground_station_file = self.plain_configuration.get("ground_station_file")
-
-        ground_station_link_range = self.plain_configuration.get(
-            "ground_station_link_range"
-        )
 
         plain_start_date = self.plain_configuration.get("start_date")
 
         movement_model = self.plain_configuration.get("movement_model", None)
 
         start_date = datetime.strptime(plain_start_date, "%d/%m/%Y %H:%M:%S")
-
-        simulation = Simulation()
-        simulation.simulation_name = simulation_name
 
         if constellation_file is not None:
             self.two_line_element_configuration = parse_two_line_element_to_instance(
@@ -85,20 +79,43 @@ class YamlConfigurationManager(ConfigurationManager):
 
         simulation.add_all_satellites(satellites)
 
+    def load_ground_station_configuration(self, simulation: Simulation):
+        ground_station_file = self.plain_configuration.get("ground_station_file")
+
         if ground_station_file is not None:
             ground_stations = generate_ground_stations_from_file(ground_station_file)
             simulation.add_all_ground_stations(ground_stations)
 
+    def load_user_terminal_configuration(self, simulation: Simulation):
+        pass
+
+    def load_inter_satellite_configuration(self, simulation: Simulation):
         create_inter_satellite_link_from_two_line_element(
             simulation, self.two_line_element_configuration
         )
 
-        create_inter_satellite_link_from_two_line_element(
-            simulation, self.two_line_element_configuration
+    def load_ground_station_link_configuration(self, simulation: Simulation):
+        ground_station_link_range = self.plain_configuration.get(
+            "ground_station_link_range", 1000000
         )
-
         generate_ground_station_link_with_position(
             simulation, ground_station_link_range
         )
+
+    def load_user_terminal_link_configuration(self, simulation: Simulation):
+        pass
+
+    def load_simulation(self) -> Simulation:
+        self.load_configuration()
+
+        simulation = self.load_simulation_configuration()
+
+        self.load_satellite_configuration(simulation)
+
+        self.load_ground_station_configuration(simulation)
+
+        self.load_inter_satellite_configuration(simulation)
+
+        self.load_ground_station_link_configuration(simulation)
 
         return simulation
