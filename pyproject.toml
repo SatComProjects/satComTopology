@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sat_com_topology"
-version = "0.0.1"
+version = "1.1"
 authors = [
   { name="Louis BARBIER", email="louis.barbier@isae-supaero.fr" },
 ]
@@ -16,6 +16,10 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+    'networkx>=3.2.1',
+    'pyorbital>=1.8.2'
+]
 
 [project.urls]
 Homepage = "https://github.com/elbarbi/satComTopology"
@@ -23,5 +27,8 @@ Issues = "https://github.com/elbarbi/satComTopology/issues"
 
 [tool.pytest.ini_options]
 pythonpath = [
-  "."
+  ".", "src"
 ]
+[tool.hatch.build.targets.wheel]
+
+packages = ["src/sat_com_model", "src/sat_com_builder", "src/sat_com_adapter", "src/sat_com_trajectopy"]
