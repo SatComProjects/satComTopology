@@ -71,7 +71,7 @@ class YamlConfigurationManager(ConfigurationManager):
             constellation_file
         )
 
-        if movement_model is not movement_model and movement_model == "pyorbital":
+        if movement_model is not None and movement_model == "pyorbital":
             satellites = (
                 generate_satellites_from_two_line_elements_with_pyorbital_model(
                     self.two_line_element_configuration.parsed_tles, start_date
@@ -79,7 +79,7 @@ class YamlConfigurationManager(ConfigurationManager):
             )
         else:
             satellites = generate_satellites_from_two_line_element(
-                self.two_line_element_configuration
+                self.two_line_element_configuration.parsed_tles
             )
 
         simulation.add_all_satellites(satellites)
