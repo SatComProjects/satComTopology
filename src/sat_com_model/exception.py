@@ -24,3 +24,7 @@ class SimulationContextError(Exception):
 
 class TopologyObjectNotFoundError(Exception):
     pass
+
+
+class TopologyIdentifierNotDefined(Exception):
+    pass
