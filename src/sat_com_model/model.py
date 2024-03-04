@@ -170,7 +170,7 @@ class OrbitalObject(TopologyObject):
         :return:
         """
         if latitude_first:
-            return self.get_movement_model().get_longitude_latitude()
+            return self.get_movement_model().get_latitude_longitude()
 
         return self.get_movement_model().get_longitude_latitude()
 
