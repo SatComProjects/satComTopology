@@ -10,7 +10,9 @@ from .exception import (
     OrbitalObjectMovementModelUndefinedError,
 )
 
-IslDirection = Enum("IslDirection", ["TOP", "BACK", "ADJACENT", "UNDEFINED"])
+InterSatelliteLinkDirection = Enum(
+    "InterSatelliteLinkDirection", ["ORBITAL", "ADJACENT", "UNDEFINED"]
+)
 
 
 class SpatialPoint:
@@ -29,7 +31,14 @@ class SpatialPoint:
         coordinate = f"Coordinate : Longitude: {longitude}, Latitude: {latitude} Altitude: {altitude}"
         return coordinate
 
-    def get_coordinates(self) -> (float, float, float):
+    def get_coordinates(self, latitude_first: bool = False) -> (float, float, float):
+        """
+        Get the object coordinates. The default format is longitude, latitude and elevation.
+        :param latitude_first: If you want to get latitude, longitude, elevation format
+        :return:
+        """
+        if latitude_first:
+            return self.latitude, self.longitude, self.altitude
         return self.longitude, self.latitude, self.altitude
 
     def set_position(self, **kwargs):
@@ -96,7 +105,14 @@ class MovementModel:
     def get_longitude_latitude(self) -> (float, float, float):
         """
         Return the longitude, latitude  and elevation on ground of the orbital object
-        :param date: Specify the date at which time you want the position
+        :return:
+        """
+        pass
+
+    def get_latitude_longitude(self) -> (float, float, float):
+        """
+        Return the latitude, longitude and elevation on ground of the orbital
+        This follow the ISO 6709 normalization : https://en.wikipedia.org/wiki/ISO_6709
         :return:
         """
         pass
@@ -117,9 +133,6 @@ class OrbitalObject(TopologyObject):
 
     movement_model: MovementModel = None
 
-    def __str__(self):
-        return super().__str__()
-
     def set_movement_model(self, movement_model: MovementModel):
         """
         Movement model is an abstract class. You have to implement your movement model class depending on
@@ -133,6 +146,10 @@ class OrbitalObject(TopologyObject):
         self.update()
 
     def get_movement_model(self) -> MovementModel:
+        """
+        Return the movement mode. Mandatory if you want to calculate position of an orbital object
+        :return:
+        """
         if self.movement_model is None:
             raise OrbitalObjectMovementModelUndefinedError(
                 "You can't use movement features because you didn't specify a movement model"
@@ -140,9 +157,21 @@ class OrbitalObject(TopologyObject):
         return self.movement_model
 
     def is_ascending(self) -> bool:
+        """
+        Return if the orbital object is in ascending phase or descending phase
+        :return:
+        """
         return self.get_movement_model().is_ascending()
 
-    def get_coordinates(self) -> (float, float, float):
+    def get_coordinates(self, latitude_first: bool = False) -> (float, float, float):
+        """
+        Get the object coordinates. The default format is longitude, latitude and elevation.
+        :param latitude_first: If you want to get latitude, longitude, elevation format
+        :return:
+        """
+        if latitude_first:
+            return self.get_movement_model().get_longitude_latitude()
+
         return self.get_movement_model().get_longitude_latitude()
 
     def update(self):
@@ -213,6 +242,8 @@ class Link:
 
 class InterSatelliteLink(Link):
     type = "InterSatelliteLink"
+
+    inter_satellite_direction: InterSatelliteLinkDirection
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_are_both_satellites = isinstance(source, Satellite) and isinstance(

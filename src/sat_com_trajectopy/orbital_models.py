@@ -27,5 +27,9 @@ class PyOrbitalModel(MovementModel):
     def get_longitude_latitude(self) -> (float, float, float):
         return self.orbital_object.get_lonlatalt(self.clock)
 
+    def get_latitude_longitude(self) -> (float, float, float):
+        longitude, latitude, elevation = self.orbital_object.get_lonlatalt(self.clock)
+        return latitude, longitude, elevation
+
     def get_position_earth_general_inertial(self) -> (float, float, float):
         return self.orbital_object.get_position(self.clock)
