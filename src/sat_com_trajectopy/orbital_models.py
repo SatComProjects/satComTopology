@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 
 from pyorbital.orbital import Orbital
 
@@ -8,6 +8,10 @@ from sat_com_model.model import MovementModel, SpatialPosition
 class PyOrbitalModel(MovementModel):
     orbital_object: Orbital
     clock: datetime
+
+    last_spatial_position: SpatialPosition
+
+    last_time_position_calculated: time
 
     def __init__(self, tle: dict, clock: datetime = datetime.now()):
         super().__init__()
@@ -25,10 +29,25 @@ class PyOrbitalModel(MovementModel):
         return velocity[2] > 0
 
     def get_longitude_latitude(self) -> SpatialPosition:
+        time_did_not_change = self.clock.time() == self.last_time_position_calculated
+        already_calculated_a_position_before = self.last_spatial_position is not None
+
+        should_npt_calculate_new_position = (
+            time_did_not_change and already_calculated_a_position_before
+        )
+
+        if should_npt_calculate_new_position:
+            return self.last_spatial_position
+
         longitude, latitude, altitude = self.orbital_object.get_lonlatalt(self.clock)
-        return SpatialPosition(
+
+        new_position = SpatialPosition(
             longitude=longitude, latitude=latitude, altitude=altitude
         )
+        self.last_spatial_position = new_position
+        self.last_time_position_calculated = self.clock.time()
+
+        return new_position
 
     def get_position_earth_general_inertial(self) -> (float, float, float):
         return self.orbital_object.get_position(self.clock)
