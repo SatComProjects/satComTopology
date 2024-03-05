@@ -11,9 +11,11 @@ from .exception import (
     DistanceModelUndefinedError,
 )
 
-InterSatelliteLinkDirection = Enum(
-    "InterSatelliteLinkDirection", ["ORBITAL", "ADJACENT", "UNDEFINED"]
-)
+
+class InterSatelliteLinkDirection(Enum):
+    ORBITAL = 1
+    ADJACENT = 2
+    UNDEFINED = 3
 
 
 class SpatialPosition:
@@ -253,7 +255,12 @@ class InterSatelliteLink(Link):
 
     inter_satellite_direction: InterSatelliteLinkDirection
 
-    def connect(self, source: TopologyObject, destination: TopologyObject):
+    def connect(
+        self,
+        source: TopologyObject,
+        destination: TopologyObject,
+        inter_satellite_direction: InterSatelliteLinkDirection = InterSatelliteLinkDirection.UNDEFINED,
+    ):
         object_are_both_satellites = isinstance(source, Satellite) and isinstance(
             destination, Satellite
         )
@@ -263,6 +270,7 @@ class InterSatelliteLink(Link):
                     source=source.__class__, destination=destination.__class__
                 )
             )
+        self.inter_satellite_direction = inter_satellite_direction
 
         super().connect(source, destination)
 

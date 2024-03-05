@@ -32,7 +32,7 @@ from sat_com_model.exception import (
     TopologyObjectNotFoundError,
     TopologyConnectionError,
 )
-from sat_com_model.model import Simulation
+from sat_com_model.model import Simulation, InterSatelliteLinkDirection
 
 
 def generate_inter_satellite_links_grid_from_two_line_element_file(
@@ -72,6 +72,7 @@ def generate_inter_satellite_links_grid_from_two_line_element_file(
                 (
                     idx_offset + min(sat, sat_same_orbit),
                     idx_offset + max(sat, sat_same_orbit),
+                    InterSatelliteLinkDirection.ORBITAL,
                 )
             )
 
@@ -80,6 +81,7 @@ def generate_inter_satellite_links_grid_from_two_line_element_file(
                 (
                     idx_offset + min(sat, sat_adjacent_orbit),
                     idx_offset + max(sat, sat_adjacent_orbit),
+                    InterSatelliteLinkDirection.ADJACENT,
                 )
             )
     return list_inter_satellite_links
@@ -88,7 +90,7 @@ def generate_inter_satellite_links_grid_from_two_line_element_file(
 def transform_grid_to_inter_satellite_links(
     simulation_context: Simulation, list_isl: list
 ):
-    for a, b in list_isl:
+    for a, b, type_link in list_isl:
         satellite_a = None
         satellite_b = None
         try:
@@ -104,9 +106,12 @@ def transform_grid_to_inter_satellite_links(
 
         if satellite_a is not None and satellite_b is not None:
             try:
-                simulation_context.create_inter_satellite_link_connection(
-                    satellite_a, satellite_b
+                created_link = (
+                    simulation_context.create_inter_satellite_link_connection(
+                        satellite_a, satellite_b
+                    )
                 )
+                created_link.inter_satellite_direction = type_link
             except TopologyConnectionError as tpe:
                 print(
                     "Failed to connect {sat_a} and {sat_b} : {message}".format(
