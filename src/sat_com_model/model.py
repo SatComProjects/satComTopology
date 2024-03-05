@@ -10,6 +10,7 @@ from .exception import (
     OrbitalObjectMovementModelUndefinedError,
     DistanceModelUndefinedError,
 )
+from .specs import ground_station_link_is_connected_to_ground_station
 
 
 class InterSatelliteLinkDirection(Enum):
@@ -530,6 +531,18 @@ class Simulation:
                     closest_satellite = satellite
 
         return closest_satellite
+
+    def get_ground_station_link_connected_to_a_ground_station(
+        self, ground_station_id: int
+    ) -> [GroundStationLink]:
+        return list(
+            filter(
+                lambda ground_station_link: ground_station_link_is_connected_to_ground_station(
+                    ground_station_link, ground_station_id
+                ),
+                self.ground_station_links,
+            )
+        )
 
     def update(self):
         for topology_object in self.get_all_topology_objects():
