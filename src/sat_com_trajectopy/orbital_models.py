@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pyorbital.orbital import Orbital
 
-from sat_com_model.model import MovementModel
+from sat_com_model.model import MovementModel, SpatialPosition
 
 
 class PyOrbitalModel(MovementModel):
@@ -24,12 +24,11 @@ class PyOrbitalModel(MovementModel):
         # Check the sign of the z-coordinate to determine if in the ascending node
         return velocity[2] > 0
 
-    def get_longitude_latitude(self) -> (float, float, float):
-        return self.orbital_object.get_lonlatalt(self.clock)
-
-    def get_latitude_longitude(self) -> (float, float, float):
-        longitude, latitude, elevation = self.orbital_object.get_lonlatalt(self.clock)
-        return latitude, longitude, elevation
+    def get_longitude_latitude(self) -> SpatialPosition:
+        longitude, latitude, altitude = self.orbital_object.get_lonlatalt(self.clock)
+        return SpatialPosition(
+            longitude=longitude, latitude=latitude, altitude=altitude
+        )
 
     def get_position_earth_general_inertial(self) -> (float, float, float):
         return self.orbital_object.get_position(self.clock)

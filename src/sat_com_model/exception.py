@@ -32,3 +32,7 @@ class TopologyIdentifierNotDefinedError(Exception):
 
 class OrbitalObjectMovementModelUndefinedError(Exception):
     pass
+
+
+class DistanceModelUndefinedError(Exception):
+    pass

@@ -8,6 +8,7 @@ from .exception import (
     TopologyObjectNotFoundError,
     TopologyIdentifierNotDefinedError,
     OrbitalObjectMovementModelUndefinedError,
+    DistanceModelUndefinedError,
 )
 
 InterSatelliteLinkDirection = Enum(
@@ -15,31 +16,42 @@ InterSatelliteLinkDirection = Enum(
 )
 
 
+class SpatialPosition:
+    longitude: float
+    latitude: float
+    altitude: float
+
+    def __init__(
+        self, longitude: float = None, latitude: float = None, altitude: float = None
+    ):
+        self.longitude = longitude
+        self.latitude = latitude
+        self.altitude = altitude
+
+
 class SpatialPoint:
     """
     This is the lower element of the stack. Every element in the topology has a position
     """
 
-    longitude: float
-    latitude: float
-    altitude: float
+    spatial_position: SpatialPosition
 
     simulation_context: "Simulation"
+
+    def __init__(self):
+        self.spatial_position = SpatialPosition()
 
     def __str__(self):
         longitude, latitude, altitude = self.get_coordinates()
         coordinate = f"Coordinate : Longitude: {longitude}, Latitude: {latitude} Altitude: {altitude}"
         return coordinate
 
-    def get_coordinates(self, latitude_first: bool = False) -> (float, float, float):
+    def get_coordinates(self) -> SpatialPosition:
         """
         Get the object coordinates. The default format is longitude, latitude and elevation.
-        :param latitude_first: If you want to get latitude, longitude, elevation format
         :return:
         """
-        if latitude_first:
-            return self.latitude, self.longitude, self.altitude
-        return self.longitude, self.latitude, self.altitude
+        return self.spatial_position
 
     def set_position(self, **kwargs):
         """
@@ -47,9 +59,15 @@ class SpatialPoint:
         :param kwargs: latitude, longitude, altitude. If one of them is empty, value will remain the same
         :return:
         """
-        self.latitude = kwargs.get("latitude", self.latitude)
-        self.longitude = kwargs.get("longitude", self.longitude)
-        self.altitude = kwargs.get("altitude", self.altitude)
+        self.spatial_position.latitude = kwargs.get(
+            "latitude", self.spatial_position.latitude
+        )
+        self.spatial_position.longitude = kwargs.get(
+            "longitude", self.spatial_position.longitude
+        )
+        self.spatial_position.altitude = kwargs.get(
+            "altitude", self.spatial_position.altitude
+        )
 
 
 class TopologyObject(SpatialPoint):
@@ -102,17 +120,9 @@ class MovementModel:
         """
         pass
 
-    def get_longitude_latitude(self) -> (float, float, float):
+    def get_longitude_latitude(self) -> SpatialPosition:
         """
         Return the longitude, latitude  and elevation on ground of the orbital object
-        :return:
-        """
-        pass
-
-    def get_latitude_longitude(self) -> (float, float, float):
-        """
-        Return the latitude, longitude and elevation on ground of the orbital
-        This follow the ISO 6709 normalization : https://en.wikipedia.org/wiki/ISO_6709
         :return:
         """
         pass
@@ -143,7 +153,6 @@ class OrbitalObject(TopologyObject):
         :return:
         """
         self.movement_model = movement_model
-        self.update()
 
     def get_movement_model(self) -> MovementModel:
         """
@@ -163,19 +172,16 @@ class OrbitalObject(TopologyObject):
         """
         return self.get_movement_model().is_ascending()
 
-    def get_coordinates(self, latitude_first: bool = False) -> (float, float, float):
+    def get_coordinates(self) -> SpatialPosition:
         """
         Get the object coordinates. The default format is longitude, latitude and elevation.
-        :param latitude_first: If you want to get latitude, longitude, elevation format
         :return:
         """
-        if latitude_first:
-            return self.get_movement_model().get_latitude_longitude()
 
         return self.get_movement_model().get_longitude_latitude()
 
     def update(self):
-        self.longitude, self.latitude, self.altitude = self.get_coordinates()
+        self.spatial_position = self.get_coordinates()
 
 
 class Satellite(OrbitalObject):
@@ -201,10 +207,11 @@ class GroundStation(GroundObject):
     type = "GroundStation"
 
     def __init__(self, city_name: str = "unknown"):
+        super().__init__()
         self.city = city_name
-        self.longitude = 0
-        self.latitude = 0
-        self.altitude = 0
+        self.spatial_position.longitude = 0
+        self.spatial_position.latitude = 0
+        self.spatial_position.altitude = 0
 
     def __str__(self):
         return (
@@ -323,6 +330,18 @@ def get_object_by_object_id(
         raise TopologyObjectNotFoundError()
 
 
+class DistanceModel:
+    def get_distance_meters(
+        self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
+    ) -> float:
+        pass
+
+    def get_distance_km(
+        self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
+    ) -> float:
+        pass
+
+
 class Simulation:
     object_uuid_index: int
 
@@ -337,6 +356,8 @@ class Simulation:
     user_terminals: list[UserTerminal]
     user_terminal_links: list[UserTerminalLink]
 
+    distance_model: DistanceModel = None
+
     def __init__(self):
         self.simulation_name = "Unknown"
         self.object_uuid_index = 0
@@ -346,6 +367,14 @@ class Simulation:
         self.ground_station_links = []
         self.user_terminals = []
         self.user_terminal_links = []
+
+    def get_distance_model(self) -> DistanceModel:
+        if self.distance_model is None:
+            raise DistanceModelUndefinedError()
+        return self.distance_model
+
+    def set_distance_model(self, distance_model: DistanceModel):
+        self.distance_model = distance_model
 
     def request_an_id(self):
         attributed_id = self.object_uuid_index
@@ -439,6 +468,63 @@ class Simulation:
     def add_all_ground_stations(self, ground_stations: list[GroundStation]):
         for ground_station in ground_stations:
             self.add_ground_station(ground_station)
+
+    def get_ascending_satellites(self):
+        return list(
+            filter(
+                lambda satellite: satellite.is_ascending(),
+                self.satellites,
+            )
+        )
+
+    def get_descending_satellites(self):
+        return list(
+            filter(
+                lambda satellite: not satellite.is_ascending(),
+                self.satellites,
+            )
+        )
+
+    def get_distance_between_two_topology_object_km(
+        self, object_1: TopologyObject, object_2: TopologyObject
+    ) -> float:
+        return self.get_distance_model().get_distance_km(
+            object_1.get_coordinates(), object_2.get_coordinates()
+        )
+
+    def get_closest_satellite(
+        self,
+        ground_station: GroundStation,
+        orbit_direction: str = None,
+    ) -> Satellite:
+        if orbit_direction == "ascending":
+            satellites_to_filter = self.get_ascending_satellites()
+        elif orbit_direction == "descending":
+            satellites_to_filter = self.get_descending_satellites()
+        else:
+            satellites_to_filter = self.satellites
+
+        closest_satellite = None
+        best_distance = None
+
+        for satellite in satellites_to_filter:
+            distance_in_km = self.get_distance_between_two_topology_object_km(
+                ground_station, satellite
+            )
+
+            if best_distance is None:
+                best_distance = distance_in_km
+                closest_satellite = satellite
+            else:
+                if best_distance > distance_in_km:
+                    best_distance = distance_in_km
+                    closest_satellite = satellite
+
+        return closest_satellite
+
+    def update(self):
+        for topology_object in self.get_all_topology_objects():
+            topology_object.update()
 
 
 def create_satellite(satellite_name, satellite_id) -> Satellite:
