@@ -1,6 +1,7 @@
 import pytest
 
 from sat_com_model.exception import OrbitalObjectMovementModelUndefinedError
+from sat_com_model.model import SpatialPosition
 from tests.sat_com_model_tests.model_helper import (
     create_fake_satellite_with_object_id,
     FakeMovementModel,
@@ -29,4 +30,4 @@ class TestOrbitalModel:
 
         assert type(satellite_is_ascending) is bool
 
-        assert type(satellite.get_coordinates()) == tuple
+        assert type(satellite.get_coordinates()) == SpatialPosition

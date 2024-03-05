@@ -1,4 +1,10 @@
-from sat_com_model.model import Satellite, GroundStation, UserTerminal, MovementModel
+from sat_com_model.model import (
+    Satellite,
+    GroundStation,
+    UserTerminal,
+    MovementModel,
+    SpatialPosition,
+)
 
 
 def create_fake_satellite_with_object_id(satellite_id: int) -> Satellite:
@@ -27,8 +33,8 @@ class FakeMovementModel(MovementModel):
     def is_ascending(self) -> bool:
         return True
 
-    def get_longitude_latitude(self) -> (float, float, float):
-        return 100.0, 100.0, 100.0
+    def get_longitude_latitude(self) -> SpatialPosition:
+        return SpatialPosition(100.0, 100.0, 100.0)
 
     def get_position_earth_general_inertial(self) -> (float, float, float):
         return 100.0, 100.0, 100.0

@@ -19,6 +19,7 @@ from sat_com_builder.two_line_elements.two_line_element_file import (
 from sat_com_model.model import Simulation
 import yaml
 
+from sat_com_trajectopy.distance_models import GeopyDistanceModel
 from sat_com_trajectopy.satellites.generate_satellite import (
     generate_satellites_from_two_line_elements_with_pyorbital_model,
 )
@@ -50,6 +51,13 @@ class YamlConfigurationManager(ConfigurationManager):
         )
         simulation = Simulation()
         simulation.simulation_name = simulation_name
+
+        distance_model = self.plain_configuration.get("distance_model", None)
+        if distance_model is not None:
+            if distance_model == "geopy":
+                geopy_distance_model = GeopyDistanceModel()
+                simulation.set_distance_model(geopy_distance_model)
+
         return simulation
 
     def load_satellite_configuration(self, simulation: Simulation):
@@ -116,6 +124,13 @@ class YamlConfigurationManager(ConfigurationManager):
 
         self.load_inter_satellite_configuration(simulation)
 
-        self.load_ground_station_link_configuration(simulation)
+        disable_ground_station_link_preload = self.plain_configuration.get(
+            "disable_ground_station_link_preload", False
+        )
+
+        simulation.update()
+
+        if not disable_ground_station_link_preload:
+            self.load_ground_station_link_configuration(simulation)
 
         return simulation

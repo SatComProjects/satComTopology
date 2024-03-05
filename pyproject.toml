@@ -18,7 +18,8 @@ classifiers = [
 ]
 dependencies = [
     'networkx>=3.2.1',
-    'pyorbital>=1.8.2'
+    'pyorbital>=1.8.2',
+    'geopy>=2.4.1'
 ]
 
 [project.urls]
