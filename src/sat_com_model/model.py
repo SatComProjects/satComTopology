@@ -28,6 +28,9 @@ class SpatialPosition:
         self.latitude = latitude
         self.altitude = altitude
 
+    def __str__(self):
+        return f"Longitude: {self.longitude}, Latitude: {self.latitude}, Altitude: {self.altitude}"
+
 
 class SpatialPoint:
     """
@@ -42,9 +45,7 @@ class SpatialPoint:
         self.spatial_position = SpatialPosition()
 
     def __str__(self):
-        longitude, latitude, altitude = self.get_coordinates()
-        coordinate = f"Coordinate : Longitude: {longitude}, Latitude: {latitude} Altitude: {altitude}"
-        return coordinate
+        return self.spatial_position.__str__()
 
     def get_coordinates(self) -> SpatialPosition:
         """
