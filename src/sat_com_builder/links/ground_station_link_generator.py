@@ -1,4 +1,3 @@
-from sat_com_builder.utils.haversine import haversine_distance_space
 from sat_com_model.model import Simulation
 
 
