@@ -18,7 +18,7 @@ def parse_two_line_element_to_instance(file_path: str) -> TwoLineElementFile:
     """
 
     with open(file_path, "r") as file:
-        satellite_count_per_orbit, count_of_orbit = map(int, file.readline().split())
+        count_of_orbit, satellite_count_per_orbit = map(int, file.readline().split())
         two_line_element_file = TwoLineElementFile(
             satellite_count_per_orbit, count_of_orbit
         )
