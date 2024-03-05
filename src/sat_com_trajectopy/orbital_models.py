@@ -9,9 +9,9 @@ class PyOrbitalModel(MovementModel):
     orbital_object: Orbital
     clock: datetime
 
-    last_spatial_position: SpatialPosition
+    last_spatial_position: SpatialPosition = None
 
-    last_time_position_calculated: time
+    last_time_position_calculated: time = None
 
     def __init__(self, tle: dict, clock: datetime = datetime.now()):
         super().__init__()
