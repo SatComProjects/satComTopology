@@ -375,7 +375,7 @@ class Simulation:
 
     def get_all_links(self) -> list[Link]:
         all_links = []
-        all_links.extend(self.user_terminal_links)
+        all_links.extend(self.inter_satellite_links)
         all_links.extend(self.ground_station_links)
         all_links.extend(self.user_terminal_links)
 
