@@ -5,7 +5,7 @@ import os
 import networkx as nx
 from networkx.readwrite import json_graph
 
-from sat_com_model.model import Simulation
+from sat_com_model.model import Simulation, InterSatelliteLink
 
 
 class Adapter:
@@ -33,22 +33,20 @@ class NetworkXAdapter(Adapter):
             source = link.source
             destination = link.destination
 
+            data = {}
+
+            data.update(type=link.type)
+
             if export_link_length:
                 distance = self.simulation.get_distance_model().get_distance_meters(
                     source.spatial_position, destination.spatial_position
                 )
-                G.add_edge(
-                    source.topology_uniq_id,
-                    destination.topology_uniq_id,
-                    type=link.type,
-                    distance=distance,
-                )
-            else:
-                G.add_edge(
-                    source.topology_uniq_id,
-                    destination.topology_uniq_id,
-                    type=link.type,
-                )
+                data.update(distance=distance)
+
+            if isinstance(link, InterSatelliteLink):
+                data.update(direction=link.inter_satellite_direction.name)
+
+            G.add_edge(source.topology_uniq_id, destination.topology_uniq_id, **data)
 
         return G
 
