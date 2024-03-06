@@ -44,9 +44,7 @@ class NetworkXAdapter(Adapter):
                     }
                 )
 
-            G.add_node(
-                topology_object.topology_uniq_id, type=topology_object.get_type()
-            )
+            G.add_node(topology_object.topology_uniq_id, **data)
 
         for link in self.simulation_manager.get_all_links():
             source = link.source
