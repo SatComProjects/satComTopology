@@ -1,4 +1,4 @@
-from sat_com_model.model import create_satellite
+from sat_com_model.models import create_satellite
 
 
 def generate_satellites_from_two_line_element(two_line_elements: []):

@@ -1,6 +1,6 @@
 from geopy.distance import distance
 
-from sat_com_model.model import DistanceModel, SpatialPosition
+from sat_com_model.models import DistanceModel, SpatialPosition
 
 
 class GeopyDistanceModel(DistanceModel):

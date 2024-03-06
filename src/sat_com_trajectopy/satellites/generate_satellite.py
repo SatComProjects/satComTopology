@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sat_com_model.model import Simulation, Satellite, create_satellite
+from sat_com_model.models import Simulation, Satellite, create_satellite
 from sat_com_trajectopy.orbital_models import PyOrbitalModel
 
 
