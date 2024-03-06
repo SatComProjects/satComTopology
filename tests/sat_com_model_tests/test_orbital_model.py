@@ -1,7 +1,7 @@
 import pytest
 
-from sat_com_model.exception import OrbitalObjectMovementModelUndefinedError
-from sat_com_model.model import SpatialPosition
+from sat_com_model.exceptions import OrbitalObjectMovementModelUndefinedError
+from sat_com_model.models import SpatialPosition
 from tests.sat_com_model_tests.model_helper import (
     create_fake_satellite_with_object_id,
     FakeMovementModel,

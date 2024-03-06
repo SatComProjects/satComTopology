@@ -1,5 +1,8 @@
 from datetime import datetime
 
+import yaml
+
+from sat_com_application.simulation_manager import SimulationManager
 from sat_com_builder.ground_stations.generate_ground_stations import (
     generate_ground_stations_from_file,
 )
@@ -16,9 +19,7 @@ from sat_com_builder.two_line_elements.two_line_element_file import (
     parse_two_line_element_to_instance,
     TwoLineElementFile,
 )
-from sat_com_model.model import Simulation
-import yaml
-
+from sat_com_model.models import Simulation
 from sat_com_trajectopy.distance_models import GeopyDistanceModel
 from sat_com_trajectopy.satellites.generate_satellite import (
     generate_satellites_from_two_line_elements_with_pyorbital_model,
@@ -60,7 +61,7 @@ class YamlConfigurationManager(ConfigurationManager):
 
         return simulation
 
-    def load_satellite_configuration(self, simulation: Simulation):
+    def load_satellite_configuration(self, simulation_manager: SimulationManager):
         constellation_file = self.plain_configuration.get("constellation_file")
 
         plain_start_date = self.plain_configuration.get("start_date")
@@ -85,24 +86,24 @@ class YamlConfigurationManager(ConfigurationManager):
                 self.two_line_element_configuration.parsed_tles
             )
 
-        simulation.add_all_satellites(satellites)
+        simulation_manager.add_all_satellites(satellites)
 
-    def load_ground_station_configuration(self, simulation: Simulation):
+    def load_ground_station_configuration(self, simulation_manager: SimulationManager):
         ground_station_file = self.plain_configuration.get("ground_station_file")
 
         if ground_station_file is not None:
             ground_stations = generate_ground_stations_from_file(ground_station_file)
-            simulation.add_all_ground_stations(ground_stations)
+            simulation_manager.add_all_ground_stations(ground_stations)
 
     def load_user_terminal_configuration(self, simulation: Simulation):
         pass
 
-    def load_inter_satellite_configuration(self, simulation: Simulation):
+    def load_inter_satellite_configuration(self, simulation_manager: SimulationManager):
         create_inter_satellite_link_from_two_line_element(
-            simulation, self.two_line_element_configuration
+            simulation_manager, self.two_line_element_configuration
         )
 
-    def load_ground_station_link_configuration(self, simulation: Simulation):
+    def load_ground_station_link_configuration(self, simulation: SimulationManager):
         ground_station_link_range = self.plain_configuration.get(
             "ground_station_link_range", 1000000
         )
@@ -110,19 +111,21 @@ class YamlConfigurationManager(ConfigurationManager):
             simulation, ground_station_link_range
         )
 
-    def load_user_terminal_link_configuration(self, simulation: Simulation):
+    def load_user_terminal_link_configuration(self, simulation: SimulationManager):
         pass
 
-    def load_simulation(self) -> Simulation:
+    def load_simulation(self) -> SimulationManager:
         self.load_configuration()
 
         simulation = self.load_simulation_configuration()
 
-        self.load_satellite_configuration(simulation)
+        simulation_service = SimulationManager(simulation)
 
-        self.load_ground_station_configuration(simulation)
+        self.load_satellite_configuration(simulation_service)
 
-        self.load_inter_satellite_configuration(simulation)
+        self.load_ground_station_configuration(simulation_service)
+
+        self.load_inter_satellite_configuration(simulation_service)
 
         disable_ground_station_link_preload = self.plain_configuration.get(
             "disable_ground_station_link_preload", False
@@ -131,6 +134,6 @@ class YamlConfigurationManager(ConfigurationManager):
         simulation.update()
 
         if not disable_ground_station_link_preload:
-            self.load_ground_station_link_configuration(simulation)
+            self.load_ground_station_link_configuration(simulation_service)
 
-        return simulation
+        return simulation_service

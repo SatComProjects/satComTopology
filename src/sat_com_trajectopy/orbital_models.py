@@ -2,7 +2,7 @@ from datetime import datetime, time
 
 from pyorbital.orbital import Orbital
 
-from sat_com_model.model import MovementModel, SpatialPosition
+from sat_com_model.models import MovementModel, SpatialPosition
 
 
 class PyOrbitalModel(MovementModel):

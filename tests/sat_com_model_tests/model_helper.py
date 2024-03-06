@@ -1,4 +1,4 @@
-from sat_com_model.model import (
+from sat_com_model.models import (
     Satellite,
     GroundStation,
     UserTerminal,

@@ -1,10 +1,10 @@
-from sat_com_model.exception import (
+from sat_com_model.exceptions import (
     GroundStationConnectionError,
     InterSatelliteConnectionError,
     UserTerminalConnectionError,
     ConnectionBetweenSameSatelliteForbiddenError,
 )
-from sat_com_model.model import (
+from sat_com_model.models import (
     GroundStation,
     Satellite,
     GroundStationLink,
