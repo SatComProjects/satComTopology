@@ -221,3 +221,22 @@ class SimulationManager:
                 self.simulation.ground_station_links,
             )
         )
+
+    def remove_ground_station_link(self, ground_station_link: GroundStationLink):
+        self.simulation.ground_station_links.remove(ground_station_link)
+
+    def remove_all_ground_station_links(
+        self, ground_station_links: [GroundStationLink]
+    ):
+        for ground_station_link in ground_station_links:
+            self.remove_ground_station_link(ground_station_link)
+
+    def disconnect_all_ground_station_links_from_ground_station(
+        self, ground_station: GroundStation
+    ):
+        connected_ground_station_links = (
+            self.get_ground_station_link_connected_to_a_ground_station(
+                ground_station.object_id
+            )
+        )
+        self.remove_all_ground_station_links(connected_ground_station_links)
