@@ -25,9 +25,25 @@ class NetworkXAdapter(Adapter):
         self.simulation_manager = simulation_manager
         self.output_directory = output_directory
 
-    def get_networkx_graph(self, export_link_length: bool = False) -> nx.Graph:
+    def get_networkx_graph(
+        self, export_link_length: bool = False, export_object_position: bool = False
+    ) -> nx.Graph:
         G = nx.Graph()
         for topology_object in self.simulation_manager.get_all_topology_objects():
+            data = dict()
+
+            data.update(type=topology_object.get_type())
+
+            if export_object_position:
+                position = topology_object.get_coordinates()
+                data.update(
+                    position={
+                        "longitude": position.longitude,
+                        "latitude": position.latitude,
+                        "altitude": position.altitude,
+                    }
+                )
+
             G.add_node(
                 topology_object.topology_uniq_id, type=topology_object.get_type()
             )
