@@ -11,8 +11,8 @@ def generate_ground_station_link_with_position(
     :param simulation_manager:
     :return:
     """
-    for ground_station in simulation_manager.simulation.ground_stations:
-        for satellite in simulation_manager.simulation.satellites:
+    for ground_station in simulation_manager.get_ground_stations():
+        for satellite in simulation_manager.get_satellites():
             distance = (
                 simulation_manager.simulation.get_distance_model().get_distance_meters(
                     ground_station.get_coordinates(), satellite.get_coordinates()
