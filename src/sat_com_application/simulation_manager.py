@@ -147,6 +147,24 @@ class SimulationManager:
             )
         )
 
+    def get_satellites(self) -> list[Satellite]:
+        return self.simulation.satellites
+
+    def get_ground_stations(self) -> list[GroundStation]:
+        return self.simulation.ground_stations
+
+    def get_user_terminals(self) -> list[UserTerminal]:
+        return self.simulation.user_terminals
+
+    def get_user_terminal_links(self) -> list[UserTerminalLink]:
+        return self.simulation.user_terminal_links
+
+    def get_inter_satellites_links(self) -> list[InterSatelliteLink]:
+        return self.simulation.inter_satellite_links
+
+    def get_ground_stations_links(self) -> list[GroundStationLink]:
+        return self.simulation.ground_station_links
+
     def get_descending_satellites(self):
         return list(
             filter(
