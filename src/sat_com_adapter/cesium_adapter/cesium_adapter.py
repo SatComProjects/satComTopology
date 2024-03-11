@@ -12,25 +12,33 @@ class CesiumAdapter(Adapter):
     output_directory: str
     simulation_manager: SimulationManager
     cesium_renderer: CesiumRenderer
+    cesium_token: str
 
     def __init__(
-        self, simulation_manager: SimulationManager, output_directory: str = None
+        self,
+        simulation_manager: SimulationManager,
+        output_directory: str = None,
+        cesium_token: str = str(),
     ):
         self.simulation_manager = simulation_manager
         self.output_directory = output_directory
+        self.cesium_token = cesium_token
+
+    def create_cesium_renderer(self):
+        return CesiumRenderer(self.simulation_manager, self.cesium_token)
 
     def set_custom_renderer(self, cesium_renderer: CesiumRenderer):
         self.cesium_renderer = cesium_renderer
 
     def build_renderer_simulation_without_links(self) -> str:
-        self.cesium_renderer = CesiumRenderer(self.simulation_manager)
+        self.cesium_renderer = self.create_cesium_renderer()
 
         self.cesium_renderer.add_topology_objects()
 
         return self.cesium_renderer.render()
 
     def build_renderer_simulation_with_links(self) -> str:
-        self.cesium_renderer = CesiumRenderer(self.simulation_manager)
+        self.cesium_renderer = self.create_cesium_renderer()
 
         self.cesium_renderer.add_topology_objects()
         self.cesium_renderer.add_links()
@@ -40,7 +48,7 @@ class CesiumAdapter(Adapter):
     def build_renderer_with_routes(
         self, topology_object_list: list[TopologyObject], **kwargs
     ) -> str:
-        self.cesium_renderer = CesiumRenderer(self.simulation_manager)
+        self.cesium_renderer = self.create_cesium_renderer()
 
         if "ground_stations" in kwargs and kwargs["ground_stations"] is True:
             self.cesium_renderer.add_ground_stations()
