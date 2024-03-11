@@ -29,7 +29,7 @@ def create_line(
         "\n"
         + "       viewer.entities.add({\n"
         + f'          name: "Link from {a_name} to {b_name}",\n'
-        + "           polyline: {\n'"
+        + "           polyline: {\n"
         + "            positions: Cesium.Cartesian3.fromDegreesArrayHeights([\n"
         + f"              {position_a.longitude},\n"
         + f"              {position_a.latitude},\n"
