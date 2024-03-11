@@ -6,7 +6,7 @@ def create_point(sphere_name: str, position: SpatialPosition, color: str = "BLAC
         "\n"
         + "    viewer.entities.add({\n"
         + f'      name: "{sphere_name}",\n'
-        + f'      position: Cesium.Cartesian3.fromDegrees("{position.longitude}","{position.latitude}", "{position.altitude * 1000}"),\n'
+        + f"      position: Cesium.Cartesian3.fromDegrees({position.longitude},{position.latitude}, {position.altitude * 1000}),\n"
         + "      ellipsoid: {\n"
         + "        radii: new Cesium.Cartesian3(30000.0, 30000.0, 30000.0),\n"
         + f"        material: Cesium.Color.{color},\n"
@@ -36,7 +36,7 @@ def create_line(
         + f"              {position_b.latitude},\n"
         + f"              {position_b.altitude * 1000},\n"
         + "            ]),\n"
-        + "            width: 3,\n"
+        + "            width: 1,\n"
         + "            arcType: Cesium.ArcType.NONE,\n"
         + f"           material: Cesium.Color.{color},\n"
         + "          },\n"
