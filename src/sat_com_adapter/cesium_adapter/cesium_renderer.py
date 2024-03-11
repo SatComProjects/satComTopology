@@ -93,6 +93,8 @@ class CesiumRenderer:
         return self
 
     def render(self):
-        return get_base_html().format(
+        whole_html = get_base_html().format(
             cesium_token=self.cesium_token, get_elements=self.elements_to_display
         )
+
+        return whole_html
