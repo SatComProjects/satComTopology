@@ -10,6 +10,8 @@ def create_point(sphere_name: str, position: SpatialPosition, color: str = "BLAC
         + "      ellipsoid: {\n"
         + "        radii: new Cesium.Cartesian3(30000.0, 30000.0, 30000.0),\n"
         + f"        material: Cesium.Color.{color},\n"
+        + "        outline: true,\n"
+        + "        outlineColor: Cesium.Color.BLACK,\n"
         + "          },\n"
         + "    });\n"
         + "    "
