@@ -1,4 +1,6 @@
-from sat_com_adapter.cesium_adapter.html_renderer.base import get_base_html
+from sat_com_adapter.cesium_adapter.html_renderer.base import (
+    get_full_html,
+)
 from sat_com_adapter.cesium_adapter.html_renderer.elements import (
     create_satellite_js,
     create_inter_satellite_link_js,
@@ -93,8 +95,8 @@ class CesiumRenderer:
         return self
 
     def render(self):
-        whole_html = get_base_html().format(
-            cesium_token=self.cesium_token, get_elements=self.elements_to_display
+        whole_html = get_full_html(
+            cesium_token=self.cesium_token, elements=self.elements_to_display
         )
 
         return whole_html
