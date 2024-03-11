@@ -16,7 +16,7 @@ class CesiumAdapter(Adapter):
     def __init__(
         self, simulation_manager: SimulationManager, output_directory: str = None
     ):
-        self.simulation = simulation_manager
+        self.simulation_manager = simulation_manager
         self.output_directory = output_directory
 
     def set_custom_renderer(self, cesium_renderer: CesiumRenderer):
