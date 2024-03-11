@@ -4,7 +4,7 @@ from sat_com_model.models import SpatialPosition
 def create_point(sphere_name: str, position: SpatialPosition, color: str = "BLACK"):
     return (
         "\n"
-        + "    const redSphere = viewer.entities.add({\n"
+        + "    viewer.entities.add({\n"
         + f'      name: "{sphere_name}",\n'
         + f'      position: Cesium.Cartesian3.fromDegrees("{position.longitude}","{position.latitude}", "{position.altitude}"),\n'
         + "      ellipsoid: {\n"
@@ -27,7 +27,7 @@ def create_line(
 ):
     link = (
         "\n"
-        + "       const purpleArrow = viewer.entities.add({\n"
+        + "       viewer.entities.add({\n"
         + f'          name: "Link from {a_name} to {b_name}",\n'
         + "          polyline: {"
         + "            positions: Cesium.Cartesian3.fromDegreesArrayHeights([\n"
