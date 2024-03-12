@@ -9,7 +9,10 @@ from sat_com_adapter.cesium_adapter.html_renderer.elements import (
     create_ground_station_js,
     create_user_terminal_link_js,
 )
-from sat_com_adapter.cesium_adapter.html_renderer.utils import create_line
+from sat_com_adapter.cesium_adapter.html_renderer.utils import (
+    create_line,
+    create_background_color,
+)
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import TopologyObject
 
@@ -91,6 +94,11 @@ class CesiumRenderer:
                 "PINK",
             )
         )
+
+        return self
+
+    def add_white_background_color(self):
+        self.append_next(create_background_color())
 
         return self
 
