@@ -1,4 +1,4 @@
-from sat_com_model.exceptions import TopologyObjectNotFoundError
+from sat_com_model.exceptions import TopologyObjectNotFoundError, LinkNotFoundError
 from sat_com_model.models import (
     Simulation,
     Satellite,
@@ -240,3 +240,40 @@ class SimulationManager:
             )
         )
         self.remove_all_ground_station_links(connected_ground_station_links)
+
+    def get_link_connecting_topology_objects(
+        self, topology_object_a: TopologyObject, topology_object_b: TopologyObject
+    ) -> Link:
+        for link in self.get_all_links():
+            if (
+                link.source.topology_uniq_id == topology_object_a.topology_uniq_id
+                and link.destination.topology_uniq_id
+                == topology_object_b.topology_uniq_id
+            ) or (
+                link.source.topology_uniq_id == topology_object_b.topology_uniq_id
+                and link.destination.topology_uniq_id
+                == topology_object_a.topology_uniq_id
+            ):
+                return link
+
+        raise LinkNotFoundError()
+
+    def reconstruct_path(self, topology_object_id_list: list[int]) -> list[Link]:
+        topology_objects = [
+            self.get_topology_object_from_uniq_id(object_id)
+            for object_id in topology_object_id_list
+        ]
+
+        list_link = []
+
+        for i in range(len(topology_objects) - 1):
+            source = topology_objects[i]
+            destination = topology_objects[i + 1]
+
+            connected_link = self.get_link_connecting_topology_objects(
+                source, destination
+            )
+
+            list_link.append(connected_link)
+
+        return list_link

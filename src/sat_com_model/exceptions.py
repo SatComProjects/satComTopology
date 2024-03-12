@@ -36,3 +36,7 @@ class OrbitalObjectMovementModelUndefinedError(Exception):
 
 class DistanceModelUndefinedError(Exception):
     pass
+
+
+class LinkNotFoundError(Exception):
+    pass
