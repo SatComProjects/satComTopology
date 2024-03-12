@@ -25,11 +25,11 @@ class TopologyObjectFormatter(HtmlFormatter):
         coordinates = self.topology_object.get_coordinates()
         html = (
             (
-                f"<h2>Object information</h2>"
-                + f"{self.topology_object.get_type()} id:  {self.topology_object.object_id}"
-                + f"Topology object id:  {self.topology_object.topology_uniq_id}"
+                f"<h2>Object information</h2>\\n"
+                + f"{self.topology_object.get_type()} id:  {self.topology_object.object_id}\\n"
+                + f"Topology object id:  {self.topology_object.topology_uniq_id}\\n"
             )
-            + f"<h2>Position</h2>\nlongitude: {coordinates.longitude}\nlatitude: {coordinates.latitude}\naltitude: {coordinates.altitude} km"
+            + f"<h2>Position</h2>\\nlongitude: {coordinates.longitude}\\nlatitude: {coordinates.latitude}\\naltitude: {coordinates.altitude} km\\n"
         )
         return html
 
@@ -46,8 +46,8 @@ class SatelliteHtmlFormatter(TopologyObjectFormatter):
             "ascending" if self.satellite.is_ascending() else "descending"
         )
         html = super().format_to_html()
-        html += "<h2>Satellite information</h2>\n"
-        html += f"Orbital phase: {ascending_string}\n"
+        html += "<h2>Satellite information</h2>\\n"
+        html += f"Orbital phase: {ascending_string}\\n"
 
         return html
 
@@ -61,8 +61,8 @@ class GroundStationHtmlFormatter(TopologyObjectFormatter):
 
     def format_to_html(self) -> str:
         html = super().format_to_html()
-        html += "<h2>Ground Station Information</h2>\n"
-        html += f"City: {self.ground_station.city}\n"
+        html += "<h2>Ground Station Information</h2>\\n"
+        html += f"City: {self.ground_station.city}\\n"
 
         return html
 
@@ -76,8 +76,8 @@ class UserTerminalHtmlFormatter(TopologyObjectFormatter):
 
     def format_to_html(self) -> str:
         html = super().format_to_html()
-        html += "<h2>User Terminal Information</h2>\n"
-        html += f"Username: {self.user_terminal.user_name}\n"
+        html += "<h2>User Terminal Information</h2>\\n"
+        html += f"Username: {self.user_terminal.user_name}\\n"
 
         return html
 
@@ -91,13 +91,13 @@ class LinkHtmlFormatter(HtmlFormatter):
     def format_to_html(self) -> str:
         source = self.link.source
         destination = self.link.destination
-        html = f"<h2>Link information</h2>\n"
-        html += f"Source*: {source.topology_uniq_id}\n Destination*: {destination.object_id}\n"
-        html += f"Link type: {self.link.type}\n"
-        html += f"<h2>Boundaries Information</h2>\n"
-        html += f"Source: {source.type} {source.object_id} \n"
-        html += f"Destination: {destination.type} {destination.object_id} \n"
-        html += f"<b>* Source and destination are not relevant, the links are bidirectional</b>\n"
+        html = f"<h2>Link information</h2>\\n"
+        html += f"Source*: {source.topology_uniq_id}\\n Destination*: {destination.object_id}\\n"
+        html += f"Link type: {self.link.type}\\n"
+        html += f"<h2>Boundaries Information</h2>\\n"
+        html += f"Source: {source.type} {source.object_id} \\n"
+        html += f"Destination: {destination.type} {destination.object_id} \\n"
+        html += f"<b>* Source and destination are not relevant, the links are bidirectional</b>\\n"
 
         return html
 
@@ -111,8 +111,8 @@ class InterSatelliteLinkHtmlFormatter(LinkHtmlFormatter):
 
     def format_to_html(self) -> str:
         html = super().format_to_html()
-        html += "<h2> Inter Satellite link Information</h2>\n"
-        html += f"ISL direction: {self.inter_satellite_link.inter_satellite_direction.name}\n"
+        html += "<h2> Inter Satellite link Information</h2>\\n"
+        html += f"ISL direction: {self.inter_satellite_link.inter_satellite_direction.name}\\n"
 
         return html
 
