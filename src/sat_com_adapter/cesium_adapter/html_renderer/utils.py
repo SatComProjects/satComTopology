@@ -1,14 +1,19 @@
 from sat_com_model.models import SpatialPosition
 
 
-def create_point(sphere_name: str, position: SpatialPosition, color: str = "BLACK"):
+def create_point(
+    sphere_name: str,
+    position: SpatialPosition,
+    color: str = "BLACK",
+    radius: float = 30000.0,
+):
     return (
         "\n"
         + "    viewer.entities.add({\n"
         + f'      name: "{sphere_name}",\n'
         + f"      position: Cesium.Cartesian3.fromDegrees({position.longitude},{position.latitude}, {position.altitude * 1000}),\n"
         + "      ellipsoid: {\n"
-        + "        radii: new Cesium.Cartesian3(30000.0, 30000.0, 30000.0),\n"
+        + f"        radii: new Cesium.Cartesian3({radius}, {radius},{radius}),\n"
         + f"        material: Cesium.Color.{color}.withAlpha(0.75),\n"
         + "        outline: true,\n"
         + f"        outlineColor: Cesium.Color.{color},\n"

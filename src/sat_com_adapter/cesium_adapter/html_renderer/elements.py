@@ -11,7 +11,7 @@ from sat_com_model.models import (
 
 
 def create_satellite_js(satellite: Satellite) -> str:
-    display_color = "MIDNIGHTBLUE" if satellite.is_ascending() else "KHAKI"
+    display_color = "LIGHTSTEELBLUE" if satellite.is_ascending() else "KHAKI"
 
     satellite_js = create_point(
         str(satellite.get_topology_uniq_id()) + " " + str(satellite.object_id),
@@ -27,7 +27,7 @@ def create_inter_satellite_link_js(inter_satellite_link: InterSatelliteLink) -> 
         "YELLOWGREEN"
         if inter_satellite_link.inter_satellite_direction
         == InterSatelliteLinkDirection.ORBITAL
-        else "PALETURQUOISE"
+        else "PERU"
     )
     link_js = create_line(
         inter_satellite_link.source.get_coordinates(),
@@ -59,6 +59,7 @@ def create_ground_station_js(ground_station: GroundStation) -> str:
         + str(ground_station.object_id),
         ground_station.get_coordinates(),
         "ORCHID",
+        5000,
     )
 
     return ground_station_js
