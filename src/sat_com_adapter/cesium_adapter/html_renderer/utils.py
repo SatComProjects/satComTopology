@@ -51,3 +51,7 @@ def create_line(
     )
 
     return link
+
+
+def create_background_color(color: str = "WHITESMOKE") -> str:
+    return f"scene.backgroundColor = Cesium.Color.{color};"
