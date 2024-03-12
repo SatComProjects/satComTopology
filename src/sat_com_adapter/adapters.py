@@ -73,14 +73,13 @@ class NetworkXAdapter(Adapter):
 
         export_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         G = self.get_networkx_graph()
-        output_export_name = "{}-{}-{}".format(
+        output_export_name = "{}-{}-{}.json".format(
             self.simulation_manager.simulation.simulation_name, "networkx", export_date
         )
+
+        if not os.path.exists(self.output_directory):
+            os.makedirs(self.output_directory)
+
         output_path = os.path.join(self.output_directory, output_export_name)
-
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
-
-        output_path = os.path.join(output_path, "topology.json")
         with open(output_path, "w") as file:
             file.write(json.dumps(json_graph.node_link_data(G)))
