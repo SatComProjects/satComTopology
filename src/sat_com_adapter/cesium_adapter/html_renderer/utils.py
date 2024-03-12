@@ -13,7 +13,7 @@ def create_point(
         + "    viewer.entities.add({\n"
         + f'      name: "Topology object id: {sphere_name}",\n'
         + f"      position: Cesium.Cartesian3.fromDegrees({position.longitude},{position.latitude}, {position.altitude * 1000}),\n"
-        + f"      description: {description},\n"
+        + f'      description: "{description}",\n'
         + "      ellipsoid: {\n"
         + f"        radii: new Cesium.Cartesian3({radius}, {radius},{radius}),\n"
         + f"        material: Cesium.Color.{color}.withAlpha(0.75),\n"
@@ -37,7 +37,7 @@ def create_line(
         "\n"
         + "       viewer.entities.add({\n"
         + f'          name: "Link from {a_name} to {b_name}",\n'
-        + f"          description: {description},\n"
+        + f'          description: "{description}",\n'
         + "           polyline: {\n"
         + "            positions: Cesium.Cartesian3.fromDegreesArrayHeights([\n"
         + f"              {position_a.longitude},\n"
