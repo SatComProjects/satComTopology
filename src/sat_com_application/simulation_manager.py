@@ -241,6 +241,9 @@ class SimulationManager:
         )
         self.remove_all_ground_station_links(connected_ground_station_links)
 
+    def disconnect_all_ground_stations(self):
+        self.get_ground_stations_links().clear()
+
     def get_link_connecting_topology_objects(
         self, topology_object_a: TopologyObject, topology_object_b: TopologyObject
     ) -> Link:
