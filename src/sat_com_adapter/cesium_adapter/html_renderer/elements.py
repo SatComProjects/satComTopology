@@ -25,7 +25,8 @@ def create_satellite_js(satellite: Satellite) -> str:
 def create_inter_satellite_link_js(inter_satellite_link: InterSatelliteLink) -> str:
     display_color = (
         "YELLOWGREEN"
-        if inter_satellite_link.type == InterSatelliteLinkDirection.ORBITAL
+        if inter_satellite_link.inter_satellite_direction
+        == InterSatelliteLinkDirection.ORBITAL
         else "PALETURQUOISE"
     )
     link_js = create_line(
