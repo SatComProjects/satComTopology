@@ -131,6 +131,12 @@ class CesiumRenderer:
 
         return self
 
+    def add_all_routes_from_links(self, links: list[Link]) -> "CesiumRenderer":
+        for link in links:
+            self.add_route_from_link(link)
+
+        return self
+
     def add_white_background_color(self) -> "CesiumRenderer":
         self.append_next(create_background_color())
 
