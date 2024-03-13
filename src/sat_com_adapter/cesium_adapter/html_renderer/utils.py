@@ -59,3 +59,19 @@ def create_line(
 
 def create_background_color(color: str = "WHITESMOKE") -> str:
     return f"scene.backgroundColor = Cesium.Color.{color};"
+
+
+def create_polygon_on_earth_surface(coordinate_list: list, color="RED") -> str:
+    coordinate_list_to_str = ", ".join(
+        str(coordinate) for coordinate in coordinate_list
+    )
+
+    html = "viewer.entities.add({\n"
+    html += f'  name: "Rhumb Polygon",\n'
+    html += "  polygon: {\n"
+    html += f"    hierarchy: Cesium.Cartesian3.fromDegreesArray([{coordinate_list_to_str}]),\n"
+    html += f"    material: Cesium.Color.{color},\n"
+    html += "  },\n"
+    html += "});\n"
+
+    return html
