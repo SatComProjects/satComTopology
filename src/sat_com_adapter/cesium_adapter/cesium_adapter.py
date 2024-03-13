@@ -18,13 +18,12 @@ class CesiumAdapter(Adapter):
         self,
         simulation_manager: SimulationManager,
         output_directory: str = None,
-        cesium_token: str = str(),
     ):
         self.simulation_manager = simulation_manager
         self.output_directory = output_directory
-        self.cesium_token = cesium_token
 
-    def create_cesium_renderer(self):
+    def create_cesium_renderer(self, cesium_token: str = str()):
+        self.cesium_token = cesium_token
         return CesiumRenderer(self.simulation_manager, self.cesium_token)
 
     def set_custom_renderer(self, cesium_renderer: CesiumRenderer):
