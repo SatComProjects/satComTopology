@@ -137,3 +137,15 @@ class YamlConfigurationManager(ConfigurationManager):
             self.load_ground_station_link_configuration(simulation_service)
 
         return simulation_service
+
+
+class EmptySimulationManager(ConfigurationManager):
+    simulation_name: str
+
+    def __init__(self, simulation_name: str = "EmptySimulation"):
+        self.simulation_name = simulation_name
+
+    def load_satellite_configuration(self) -> Simulation:
+        simulation = Simulation()
+        simulation.simulation_name = self.simulation_name
+        return simulation
