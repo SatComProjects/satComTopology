@@ -145,7 +145,7 @@ class EmptyConfigurationManager(ConfigurationManager):
     def __init__(self, simulation_name: str = "EmptySimulation"):
         self.simulation_name = simulation_name
 
-    def load_satellite_configuration(self) -> Simulation:
+    def load_simulation(self) -> Simulation:
         simulation = Simulation()
         simulation.simulation_name = self.simulation_name
         return simulation
