@@ -139,7 +139,7 @@ class YamlConfigurationManager(ConfigurationManager):
         return simulation_service
 
 
-class EmptySimulationManager(ConfigurationManager):
+class EmptyConfigurationManager(ConfigurationManager):
     simulation_name: str
 
     def __init__(self, simulation_name: str = "EmptySimulation"):
