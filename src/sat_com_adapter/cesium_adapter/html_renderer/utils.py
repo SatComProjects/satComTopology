@@ -68,13 +68,20 @@ def create_polygon_on_earth_surface(
         str(coordinate) for coordinate in coordinate_list
     )
 
-    html = "viewer.entities.add({\n"
-    html += f'  name: "Rhumb Polygon",\n'
-    html += f'  description: "{description}",\n'
-    html += "  polygon: {\n"
-    html += f"    hierarchy: Cesium.Cartesian3.fromDegreesArray([{coordinate_list_to_str}]),\n"
-    html += f"    material: Cesium.Color.{color},\n"
+    html = "var polygon = new Cesium.PolygonOutlineGeometry({\n"
+    html += "  polygonHierarchy: {\n"
+    html += f"    positions: Cesium.Cartesian3.fromDegreesArray([{coordinate_list_to_str}]),\n"
     html += "  },\n"
     html += "});\n"
-
+    html += "var geometry = Cesium.PolygonOutlineGeometry.createGeometry(polygon);\n"
+    html += "var entity = viewer.entities.add({\n"
+    html += '  name: "Polygon Outline",\n'
+    html += f'  description: "{description}",\n'
+    html += "  position: geometry.center,\n"
+    html += "  polygon: {\n"
+    html += "    hierarchy: polygon.polygonHierarchy,\n"
+    html += f"    outline: true,\n"
+    html += f"    outlineColor: Cesium.Color.{color},\n"
+    html += "  },\n"
+    html += "});\n"
     return html
