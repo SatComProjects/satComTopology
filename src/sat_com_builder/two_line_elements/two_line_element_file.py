@@ -13,7 +13,7 @@ class TwoLineElementFile:
 def parse_two_line_element_to_instance(file_path: str) -> TwoLineElementFile:
     """
     Parse a file containing Two-Line Element (TLE) data into a list of dictionaries.
-    :param file_path: The path to the file containing TLE data.
+    :param file_path: str, The path to the file containing TLE data.
     :return: list[dict] A list of dictionaries, each representing a TLE entry.
     """
 

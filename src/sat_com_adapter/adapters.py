@@ -11,6 +11,10 @@ from sat_com_model.models import InterSatelliteLink
 
 class Adapter:
     def adapt(self):
+        """
+        Create the output compatible with the implemented format
+        :return:
+        """
         pass
 
 
@@ -28,6 +32,15 @@ class NetworkXAdapter(Adapter):
     def get_networkx_graph(
         self, export_link_length: bool = False, export_object_position: bool = False
     ) -> nx.Graph:
+        """
+        Return the networkx graph of the simulation.
+        Todo:
+            - Should be refactored
+            - Improve data builder, maybe using **kwargs
+        :param export_link_length: if true the link length will be added to data
+        :param export_object_position: if true the object position will be exported to data
+        :return: nx.Graph containing the simulation
+        """
         G = nx.Graph()
         for topology_object in self.simulation_manager.get_all_topology_objects():
             data = dict()
@@ -68,11 +81,17 @@ class NetworkXAdapter(Adapter):
         return G
 
     def adapt(self):
+        """
+        /!\\ todo: Rework the get_net_work_x_graph system
+        :return:
+        """
         if self.output_directory is None:
             raise Exception("No output directory provided")
 
         export_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+
         G = self.get_networkx_graph()
+
         output_export_name = "{}-{}-{}.json".format(
             self.simulation_manager.simulation.simulation_name, "networkx", export_date
         )

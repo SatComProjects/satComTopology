@@ -11,11 +11,20 @@ from sat_com_model.models import (
 
 
 class HtmlFormatter:
+    """
+    Html formatter
+    """
+
     def format_to_html(self) -> str:
         pass
 
 
 class TopologyObjectFormatter(HtmlFormatter):
+    """
+    Tool that format any sat_com_topology_object in Html.
+    useful for the Cesium infobox.
+    """
+
     topology_object: TopologyObject
 
     def __init__(self, topology_object: TopologyObject):
@@ -35,6 +44,11 @@ class TopologyObjectFormatter(HtmlFormatter):
 
 
 class SatelliteHtmlFormatter(TopologyObjectFormatter):
+    """
+    Tool that format any satellite object in Html.
+    useful for the Cesium infobox.
+    """
+
     satellite: Satellite
 
     def __init__(self, satellite: Satellite):
@@ -53,6 +67,11 @@ class SatelliteHtmlFormatter(TopologyObjectFormatter):
 
 
 class GroundStationHtmlFormatter(TopologyObjectFormatter):
+    """
+    Tool that format any ground_station in Html.
+    useful for the Cesium infobox.
+    """
+
     ground_station: GroundStation
 
     def __init__(self, ground_station: GroundStation):
@@ -68,6 +87,11 @@ class GroundStationHtmlFormatter(TopologyObjectFormatter):
 
 
 class UserTerminalHtmlFormatter(TopologyObjectFormatter):
+    """
+    Tool that format any user terminal in Html.
+    useful for the Cesium infobox.
+    """
+
     user_terminal: UserTerminal
 
     def __init__(self, user_terminal: UserTerminal):
@@ -83,6 +107,11 @@ class UserTerminalHtmlFormatter(TopologyObjectFormatter):
 
 
 class LinkHtmlFormatter(HtmlFormatter):
+    """
+    Tool that format any link in Html.
+    useful for the Cesium infobox.
+    """
+
     link: Link
 
     def __init__(self, link: Link):
@@ -103,6 +132,11 @@ class LinkHtmlFormatter(HtmlFormatter):
 
 
 class InterSatelliteLinkHtmlFormatter(LinkHtmlFormatter):
+    """
+    Tool that format any Inter Satellite Link in Html.
+    useful for the Cesium infobox.
+    """
+
     inter_satellite_link: InterSatelliteLink
 
     def __init__(self, inter_satellite_link: InterSatelliteLink):
@@ -118,6 +152,11 @@ class InterSatelliteLinkHtmlFormatter(LinkHtmlFormatter):
 
 
 class GroundStationLinkHtmlFormatter(LinkHtmlFormatter):
+    """
+    Tool that format any Ground Station Link in Html.
+    useful for the Cesium infobox.
+    """
+
     ground_station_link: GroundStationLink
 
     def __init__(self, ground_station_link: GroundStationLink):
@@ -130,6 +169,11 @@ class GroundStationLinkHtmlFormatter(LinkHtmlFormatter):
 
 
 class UserTerminalLinkHtmlFormatter(LinkHtmlFormatter):
+    """
+    Tool that format any User Terminal Link in Html.
+    useful for the Cesium infobox.
+    """
+
     user_terminal_link: UserTerminalLink
 
     def __init__(self, user_terminal_link: UserTerminalLink):

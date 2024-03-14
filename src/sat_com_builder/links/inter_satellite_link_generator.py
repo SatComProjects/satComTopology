@@ -48,6 +48,7 @@ def generate_inter_satellite_links_grid_from_two_line_element_file(
     :param isl_shift:               ISL shift between orbits (e.g., if satellite id in orbit is X,
                                     does it also connect to the satellite at X in the adjacent orbit)
     :param idx_offset:              Index offset (e.g., if you have multiple shells)
+    :return : list of inter-satellite links under the following format (int, int, InterSatelliteLinkDirection)
     """
 
     if number_orbits < 3 or number_satellites_per_orbit < 3:
@@ -91,6 +92,12 @@ def generate_inter_satellite_links_grid_from_two_line_element_file(
 def transform_grid_to_inter_satellite_links(
     simulation_service: SimulationManager, list_isl: list
 ):
+    """
+    This function will create inter satellite links based on the ISL list previously generated.
+    :param simulation_service: SimulationManager object
+    :param list_isl: list of vector like object (int, int, InterSatelliteLinkDirection)
+    :return:
+    """
     for a, b, type_link in list_isl:
         satellite_a = None
         satellite_b = None
@@ -124,6 +131,13 @@ def transform_grid_to_inter_satellite_links(
 def create_inter_satellite_link_from_two_line_element(
     simulation_service: SimulationManager, two_line_element: TwoLineElementFile
 ):
+    """
+    Creates inter_satellite_link from two list element. First extract ISL configuration from TLE, then it will transform
+    ISL configuration into inter satellite link object.
+    :param simulation_service: SimulationManager instance
+    :param two_line_element: TwoLineElementFile instance
+    :return:
+    """
     isl_list = generate_inter_satellite_links_grid_from_two_line_element_file(
         two_line_element.count_of_orbit, two_line_element.satellite_count_per_orbit, 1
     )
