@@ -1,7 +1,7 @@
-from sat_com_adapter.cesium_adapter.html_renderer.base import (
+from sat_com_adapter.cesium_renderer.html_renderer.base import (
     get_full_html,
 )
-from sat_com_adapter.cesium_adapter.html_renderer.elements import (
+from sat_com_adapter.cesium_renderer.html_renderer.elements import (
     create_satellite_js,
     create_inter_satellite_link_js,
     create_ground_station_link_js,
@@ -9,7 +9,7 @@ from sat_com_adapter.cesium_adapter.html_renderer.elements import (
     create_ground_station_js,
     create_user_terminal_link_js,
 )
-from sat_com_adapter.cesium_adapter.html_renderer.utils import (
+from sat_com_adapter.cesium_renderer.html_renderer.utils import (
     create_line,
     create_background_color,
 )
