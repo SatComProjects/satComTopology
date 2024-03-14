@@ -1,4 +1,4 @@
-from sat_com_adapter.cesium_adapter.html_formatter.html_formatters import (
+from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import (
     SatelliteHtmlFormatter,
     InterSatelliteLinkHtmlFormatter,
     GroundStationLinkHtmlFormatter,
@@ -6,7 +6,10 @@ from sat_com_adapter.cesium_adapter.html_formatter.html_formatters import (
     UserTerminalHtmlFormatter,
     UserTerminalLinkHtmlFormatter,
 )
-from sat_com_adapter.cesium_adapter.html_renderer.utils import create_point, create_line
+from sat_com_adapter.cesium_renderer.html_renderer.utils import (
+    create_point,
+    create_line,
+)
 from sat_com_model.models import (
     InterSatelliteLink,
     GroundStationLink,

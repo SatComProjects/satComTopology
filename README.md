@@ -58,17 +58,20 @@ print(
 #### Export a Simulation
 In most of the cases, sat com topology user will need to load a simulation and export it as
 a new format.
+
 ```python
 from sat_com_adapter.adapters import NetworkXAdapter
-networkx_adapter = NetworkXAdapter(simulation_manager,"OUTPUT_PATH")
 
-my_graph = networkx_adapter.get_networkx_graph()
+networkx_adapter = NetworkXAdapter(simulation_manager, "OUTPUT_PATH")
+
+my_graph = networkx_adapter.create_full_networkx_graph()
 
 networkx_adapter.adapt()
 
 ```
 #### I just want my constellation in the good format
 Here a copy-paste friendly example of how to generate your topology and export it to networkx.
+
 ```python
 from sat_com_builder.configuration_manager import YamlConfigurationManager
 from sat_com_adapter.adapters import NetworkXAdapter
@@ -77,9 +80,9 @@ yaml_configuration_manager = YamlConfigurationManager("/CONFIGURATION_PATH/confi
 
 simulation_manager = yaml_configuration_manager.load_simulation()
 
-networkx_adapter = NetworkXAdapter(simulation_manager,"OUTPUT_PATH")
+networkx_adapter = NetworkXAdapter(simulation_manager, "OUTPUT_PATH")
 
-my_graph = networkx_adapter.get_networkx_graph()
+my_graph = networkx_adapter.create_full_networkx_graph()
 
 networkx_adapter.adapt()
 ```

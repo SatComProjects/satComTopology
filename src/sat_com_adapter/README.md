@@ -65,6 +65,7 @@ Result:
 We have to improve the adapt() method, because now it returns a default networkx graph without any addition data.
 
 ### Without file export
+
 ```python
 from sat_com_adapter.adapters import NetworkXAdapter
 from sat_com_application.simulation_manager import SimulationManager
@@ -75,7 +76,7 @@ example_simulation_manager = SimulationManager(my_example_simulation)
 
 network_x_adapter = NetworkXAdapter(example_simulation_manager, "my_output_folder")
 
-my_nx_graph = network_x_adapter.get_networkx_graph(export_link_length=True, export_object_position= True)
+my_nx_graph = network_x_adapter.create_full_networkx_graph(export_link_length=True, export_object_position=True)
 
 ```
 You can still use json_graph api from networkX to export a file later.
@@ -84,10 +85,11 @@ You can still use json_graph api from networkX to export a file later.
 This adapter allow you to export your simulation as a Html File with Cesium. This adapter works with CesiumRenderer API.
 
 #### With the default method
+
 ```python
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import Simulation
-from sat_com_adapter.cesium_adapter.cesium_adapter import CesiumAdapter
+from sat_com_adapter.adapters import CesiumAdapter
 
 my_example_simulation = Simulation()
 
@@ -103,10 +105,11 @@ cesium_adapter.adapt()
 ```
 
 #### With the pre-build
+
 ```python
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import Simulation
-from sat_com_adapter.cesium_adapter.cesium_adapter import CesiumAdapter
+from sat_com_adapter.cesium_renderer.cesium_adapter import CesiumAdapter
 
 my_example_simulation = Simulation()
 
@@ -119,11 +122,12 @@ renderer = cesium_adapter.build_renderer_simulation_with_links("MY_SUPER_SECRET_
 cesium_adapter.adapt()
 ```
 ### With custom render
+
 ```python
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import Simulation
-from sat_com_adapter.cesium_adapter.cesium_renderer import CesiumRenderer
-from sat_com_adapter.cesium_adapter.cesium_adapter import CesiumAdapter
+from sat_com_adapter.cesium_renderer.cesium_renderer import CesiumRenderer
+from sat_com_adapter.cesium_renderer.cesium_adapter import CesiumAdapter
 
 my_example_simulation = Simulation()
 
@@ -142,4 +146,4 @@ cesium_adapter.set_custom_renderer(custom_renderer)
 cesium_adapter.adapt()
 ```
 
-![Satellite topology generated with CesiumJS](./cesium_adapter/example/topology-render-example.png "Example of Satellite Topology")
+![Satellite topology generated with CesiumJS](cesium_renderer/example/topology-render-example.png "Example of Satellite Topology")
