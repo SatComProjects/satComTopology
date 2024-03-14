@@ -6,6 +6,11 @@ from sat_com_model.models import MovementModel, SpatialPosition
 
 
 class PyOrbitalModel(MovementModel):
+    """
+    This is an Orbital Model, which can be used to calculate orbital position of any orbital object using Two Line Orbit
+    elements. This class uses the pyorbital library.
+    """
+
     orbital_object: Orbital
     clock: datetime
 
@@ -24,11 +29,25 @@ class PyOrbitalModel(MovementModel):
         self.clock = clock
 
     def is_ascending(self) -> bool:
+        """
+        Calculate whether the orbital object is ascending or descending.
+        :return: True if the orbital object is ascending
+        """
         position, velocity = self.orbital_object.get_position(self.clock)
         # Check the sign of the z-coordinate to determine if in the ascending node
         return velocity[2] > 0
 
     def get_longitude_latitude(self) -> SpatialPosition:
+        """
+        Return the longitude and latitude AND the altitude of the orbital object as a spatial position.
+
+        To minimize the computation, if the date didn't change since the last call, it will return the previously
+        calculated position.
+
+        Todo: This method should be renamed to include altitude in the name
+        :return: SpatialPosition instance
+        """
+
         time_did_not_change = self.clock.time() == self.last_time_position_calculated
         already_calculated_a_position_before = self.last_spatial_position is not None
 
@@ -50,4 +69,9 @@ class PyOrbitalModel(MovementModel):
         return new_position
 
     def get_position_earth_general_inertial(self) -> (float, float, float):
+        """
+        Calculate the earth general inertial position. It is useful to know if object is
+        ascending or descending for example.
+        :return:
+        """
         return self.orbital_object.get_position(self.clock)

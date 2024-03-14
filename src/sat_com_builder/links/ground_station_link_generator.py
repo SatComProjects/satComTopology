@@ -8,7 +8,7 @@ def generate_ground_station_link_with_position(
     """
     Generates a ground station link between satellite and ground station.
     :param ground_station_link_range_in_meter:
-    :param simulation_manager:
+    :param simulation_manager: Simulation manager
     :return:
     """
     for ground_station in simulation_manager.get_ground_stations():

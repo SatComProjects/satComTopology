@@ -9,6 +9,11 @@ from sat_com_model.models import TopologyObject
 
 
 class CesiumAdapter(Adapter):
+    """
+    Cesium Adapter is an adapter that will create a Cesium Html page using CesiumJS library.
+    CesiumRender can be used separately. This adapter implement some useful building method.
+    """
+
     output_directory: str
     simulation_manager: SimulationManager
     cesium_renderer: CesiumRenderer
@@ -23,21 +28,41 @@ class CesiumAdapter(Adapter):
         self.output_directory = output_directory
 
     def create_cesium_renderer(self, cesium_token: str = str()):
+        """
+        Create a cesium renderer if you don't want to create a custom one.
+        :param cesium_token: Cesium Token, mandatory to watch the result, but not mandatory to generate the code
+        :return: CesiumRenderer instance
+        """
         self.cesium_token = cesium_token
         return CesiumRenderer(self.simulation_manager, self.cesium_token)
 
     def set_custom_renderer(self, cesium_renderer: CesiumRenderer):
+        """
+        Set custom renderer if you created your own.
+        :param cesium_renderer:
+        :return:
+        """
         self.cesium_renderer = cesium_renderer
 
-    def build_renderer_simulation_without_links(self) -> str:
-        self.cesium_renderer = self.create_cesium_renderer()
+    def build_renderer_simulation_without_links(self, cesium_token: str = str()) -> str:
+        """
+        Build a CesiumRenderer without any topology link.
+        :param cesium_token: Cesium token
+        :return: Html code in string format
+        """
+        self.cesium_renderer = self.create_cesium_renderer(cesium_token)
 
         self.cesium_renderer.add_topology_objects()
 
         return self.cesium_renderer.render()
 
-    def build_renderer_simulation_with_links(self) -> str:
-        self.cesium_renderer = self.create_cesium_renderer()
+    def build_renderer_simulation_with_links(self, cesium_token: str = str()) -> str:
+        """
+        Build a CesiumRenderer with topology links.
+        :param cesium_token: Cesium token
+        :return: Html code in string format
+        """
+        self.cesium_renderer = self.create_cesium_renderer(cesium_token)
 
         self.cesium_renderer.add_topology_objects()
         self.cesium_renderer.add_links()
@@ -45,9 +70,17 @@ class CesiumAdapter(Adapter):
         return self.cesium_renderer.render()
 
     def build_renderer_with_routes(
-        self, topology_object_list: list[TopologyObject], **kwargs
+        self, topology_object_list_id: list[int], cesium_token: str = str(), **kwargs
     ) -> str:
-        self.cesium_renderer = self.create_cesium_renderer()
+        """
+        Build a CesiumRenderer with routes.
+        Todo: We shoudld replace int list by TopologyObject list...
+        :param topology_object_list_id: List of topology object id
+        :param cesium_token: Your Cesium token
+        :param kwargs: What you want to display (ground_stations: bool, satellites:bool, user_terminals:bool, etc)
+        :return: Html code in string format
+        """
+        self.cesium_renderer = self.create_cesium_renderer(cesium_token)
 
         if "ground_stations" in kwargs and kwargs["ground_stations"] is True:
             self.cesium_renderer.add_ground_stations()
@@ -73,7 +106,9 @@ class CesiumAdapter(Adapter):
         ):
             self.cesium_renderer.add_ground_stations()
 
-        # Todo: Add routing part
+        path = self.simulation_manager.reconstruct_path(topology_object_list_id)
+
+        self.cesium_renderer.add_all_routes_from_links(path)
 
         return self.cesium_renderer.render()
 
