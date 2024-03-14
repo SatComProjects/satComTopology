@@ -64,8 +64,8 @@ class NetworkXAdapter(Adapter):
 
         export_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 
-        if self.G is None:
-            self.G = self.create_full_networkx_graph()
+        if self.networkx_builder is None:
+            self.create_full_networkx_graph()
 
         output_export_name = "{}-{}-{}.json".format(
             self.simulation_manager.simulation.simulation_name, "networkx", export_date
