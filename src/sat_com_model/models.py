@@ -298,7 +298,7 @@ class GroundStationLink(Link):
 
 
 class UserTerminalLink(Link):
-    link = "UserTerminalLink"
+    type = "UserTerminalLink"
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_source_is_a_user_and_destination_a_satellite = isinstance(
