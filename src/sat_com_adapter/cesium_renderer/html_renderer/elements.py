@@ -25,7 +25,7 @@ def create_satellite_js(satellite: Satellite) -> str:
     display_color = "LIGHTSTEELBLUE" if satellite.is_ascending() else "KHAKI"
 
     satellite_js = create_point(
-        str(satellite.get_topology_uniq_id()) + " " + str(satellite.object_id),
+        str(satellite.satellite_name),
         satellite.get_coordinates(),
         display_color,
         30000,

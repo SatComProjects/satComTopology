@@ -11,7 +11,7 @@ def create_point(
     return (
         "\n"
         + "    viewer.entities.add({\n"
-        + f'      name: "Topology object id: {sphere_name}",\n'
+        + f'      name: "Topology object: {sphere_name}",\n'
         + f"      position: Cesium.Cartesian3.fromDegrees({position.longitude},{position.latitude}, {position.altitude * 1000}),\n"
         + f'      description: "{description}",\n'
         + "      ellipsoid: {\n"
