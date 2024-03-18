@@ -44,8 +44,8 @@ class NetworkXAdapter(Adapter):
         """
         self.networkx_builder = NetworkxBuilder(
             simulation_manager=self.simulation_manager,
-            xport_link_length=export_link_length,
-            export_object_position=export_object_position,
+            export_link_length=export_link_length,
+            export_positions=export_object_position,
         )
 
         self.networkx_builder.add_topology_objects()
