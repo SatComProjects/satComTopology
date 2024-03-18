@@ -13,7 +13,7 @@ class NetworkxBuilder:
 
     def __init__(self, simulation_manager: SimulationManager, **kwargs):
         self.simulation_manager = simulation_manager
-        self.graph = nx.DiGraph()
+        self.graph = nx.Graph()
 
         self.enable_export_positions = kwargs.get("export_positions", False)
 
