@@ -21,7 +21,7 @@ This project si the laboratory 🔬 where you can **design** your topologies.
       * [Export a Simulation](#export-a-simulation)
       * [I just want my constellation in the good format](#i-just-want-my-constellation-in-the-good-format)
   * [Tutorials 🎓](#tutorials-)
-  * [Urgent Todo 🚨](#urgent-todo-)
+  * [Contributing](#contributing)
   * [License ⚖️](#license-)
 <!-- TOC -->
 
@@ -107,9 +107,8 @@ Here are some tutorials in the Jupyter Notebook format:
 - [Create my first simulation](https://github.com/elbarbi/sat_com_topology_tutorials/blob/main/src/create_my_first_simulation.ipynb)
 - [Learn to  deeply use satComTopology] coming soon...
 
-## Urgent Todo 🚨
-- Fixing networkx export, adapt() export a default topology, without data
-- Search a new way to implement a Data generator (generate distance, delay, etc.), maybe in the sat_com_trajectopy.
+## Contributing
+The contributing guide is [here](https://github.com/elbarbi/satComTopology/blob/develop/CONTRIBUTING.md).
 
 ## License ⚖️
 The project is licensed under the GNU General Public License v3.0 license.

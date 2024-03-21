@@ -1,6 +1,6 @@
 # How to contribute to satComTopology 🔨
 
-The project issues are available [here](https://github.com/elbarbi/satComTopologyTutorials/issues).
+The project issues are available [here](https://github.com/elbarbi/satComTopology/issues).
 
 ## Install the project 📜
 ### Clone the project
