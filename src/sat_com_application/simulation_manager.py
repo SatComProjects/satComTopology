@@ -406,15 +406,39 @@ class SimulationManager:
         :return: Link connecting two topology objects, raise LinkNotFoundError if not found
         """
         for link in self.get_all_links():
-            if (
-                link.source.topology_uniq_id == topology_object_a.topology_uniq_id
-                and link.destination.topology_uniq_id
-                == topology_object_b.topology_uniq_id
-            ) or (
-                link.source.topology_uniq_id == topology_object_b.topology_uniq_id
-                and link.destination.topology_uniq_id
-                == topology_object_a.topology_uniq_id
-            ):
+            link_source_topology_id = link.source.topology_uniq_id
+            link_destination_topology_id = link.destination.topology_uniq_id
+
+            link_source_correspond_to_object_a = (
+                link_source_topology_id == topology_object_a.topology_uniq_id
+            )
+            link_source_correspond_to_object_b = (
+                link_destination_topology_id == topology_object_b.topology_uniq_id
+            )
+
+            link_is_connecting_object_a_to_object_b = (
+                link_source_correspond_to_object_a
+                and link_source_correspond_to_object_b
+            )
+
+            link_source_correspond_to_object_b = (
+                link_source_topology_id == topology_object_b.topology_uniq_id
+            )
+            link_destination_correspond_to_object_a = (
+                link_destination_topology_id == topology_object_a.topology_uniq_id
+            )
+
+            link_is_connecting_object_b_to_object_a = (
+                link_source_correspond_to_object_b
+                and link_destination_correspond_to_object_a
+            )
+
+            link_connect_objects = (
+                link_is_connecting_object_a_to_object_b
+                or link_is_connecting_object_b_to_object_a
+            )
+
+            if link_connect_objects:
                 return link
 
         raise LinkNotFoundError()
