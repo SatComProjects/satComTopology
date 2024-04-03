@@ -131,8 +131,14 @@ class YamlConfigurationManager(ConfigurationManager):
         :param simulation_manager:
         :return:
         """
+        adjacent_inter_satellite_shifting = self.plain_configuration.get(
+            "adjacent_inter_satellite_shifting", 1
+        )
+
         create_inter_satellite_link_from_two_line_element(
-            simulation_manager, self.two_line_element_configuration
+            simulation_manager,
+            self.two_line_element_configuration,
+            adjacent_inter_satellite_shifting,
         )
 
     def load_ground_station_link_configuration(self, simulation: SimulationManager):

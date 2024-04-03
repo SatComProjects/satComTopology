@@ -19,7 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from sat_com_application.simulation_manager import Simulation, SimulationManager
+from sat_com_application.simulation_manager import SimulationManager
 
 # Modifications :
 # - Created transform_text_to_isl
@@ -33,7 +33,7 @@ from sat_com_model.exceptions import (
     TopologyObjectNotFoundError,
     TopologyConnectionError,
 )
-from sat_com_model.models import Simulation, InterSatelliteLinkDirection
+from sat_com_model.models import InterSatelliteLinkDirection
 
 
 def generate_inter_satellite_links_grid_from_two_line_element_file(
@@ -129,16 +129,27 @@ def transform_grid_to_inter_satellite_links(
 
 
 def create_inter_satellite_link_from_two_line_element(
-    simulation_service: SimulationManager, two_line_element: TwoLineElementFile
+    simulation_service: SimulationManager,
+    two_line_element: TwoLineElementFile,
+    adjacent_inter_satellite_shifting,
 ):
     """
     Creates inter_satellite_link from two list element. First extract ISL configuration from TLE, then it will transform
     ISL configuration into inter satellite link object.
+    :param adjacent_inter_satellite_shifting: Implemented ISL shift option for the inter satellite generation.
+    ISL shift mean that the adjacent connected node will not be equivalent satellite of the current orbit
+    but the one behind.
     :param simulation_service: SimulationManager instance
     :param two_line_element: TwoLineElementFile instance
     :return:
     """
-    isl_list = generate_inter_satellite_links_grid_from_two_line_element_file(
-        two_line_element.count_of_orbit, two_line_element.satellite_count_per_orbit, 1
+    inter_satellite_link_grid = (
+        generate_inter_satellite_links_grid_from_two_line_element_file(
+            two_line_element.count_of_orbit,
+            two_line_element.satellite_count_per_orbit,
+            adjacent_inter_satellite_shifting,
+        )
     )
-    transform_grid_to_inter_satellite_links(simulation_service, isl_list)
+    transform_grid_to_inter_satellite_links(
+        simulation_service, inter_satellite_link_grid
+    )
