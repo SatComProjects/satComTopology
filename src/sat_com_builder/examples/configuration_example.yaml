@@ -7,3 +7,4 @@ end_date: 01/02/2024 10:00:00
 movement_model: pyorbital
 distance_model: geopy
 disable_ground_station_link_preload: False
+adjacent_inter_satellite_shifting: 0
