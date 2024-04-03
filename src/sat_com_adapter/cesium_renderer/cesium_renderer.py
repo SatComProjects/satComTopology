@@ -47,15 +47,39 @@ class CesiumRenderer:
 
         return self
 
-    def add_satellites(self) -> "CesiumRenderer":
+    def add_specified_satellites(self, satellites: []) -> "CesiumRenderer":
         """
-        Add satellites to the  Render.
-        :return:  current instance of CesiumRenderer
+        Add satellites given in parameters to the Cesium Render.
+        :param satellites: List of satellites to display
+        :return: current instance of CesiumRenderer
         """
-
-        for satellite in self.simulation_manager.get_satellites():
+        for satellite in satellites:
             self.append_next(create_satellite_js(satellite))
         return self
+
+    def add_satellites(self) -> "CesiumRenderer":
+        """
+        Add satellites to the Render.
+        :return: current instance of CesiumRenderer
+        """
+        satellites_to_display = self.simulation_manager.get_satellites()
+        return self.add_specified_satellites(satellites_to_display)
+
+    def add_only_ascending_satellites(self) -> "CesiumRenderer":
+        """
+        Add only ascending satellites to the Render.
+        :return: current instance of CesiumRenderer
+        """
+        satellites_to_display = self.simulation_manager.get_ascending_satellites()
+        return self.add_specified_satellites(satellites_to_display)
+
+    def add_only_descending_satellites(self) -> "CesiumRenderer":
+        """
+        Add only descending satellites to the Render.
+        :return:
+        """
+        satellites_to_display = self.simulation_manager.get_descending_satellites()
+        return self.add_specified_satellites(satellites_to_display)
 
     def add_inter_satellite_links(self) -> "CesiumRenderer":
         """
