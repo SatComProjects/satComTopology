@@ -53,7 +53,7 @@ class YamlConfigurationManager(ConfigurationManager):
 
     def load_simulation_configuration(self) -> Simulation:
         """
-        Load configuration related to the simualtion
+        Load configuration related to the simulation
         :return:
         """
 
@@ -133,6 +133,10 @@ class YamlConfigurationManager(ConfigurationManager):
         """
         adjacent_inter_satellite_shifting = self.plain_configuration.get(
             "adjacent_inter_satellite_shifting", 1
+        )
+
+        simulation_manager.configuration.update(
+            {"adjacent_inter_satellite_shifting": adjacent_inter_satellite_shifting}
         )
 
         create_inter_satellite_link_from_two_line_element(
