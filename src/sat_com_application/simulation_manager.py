@@ -63,10 +63,13 @@ class SimulationManager:
     We shouldn't put logic into the models.
     """
 
+    configuration: dict
+
     simulation: Simulation
 
     def __init__(self, simulation: Simulation):
         self.simulation = simulation
+        self.configuration = dict()
 
     def add_satellite(self, satellite: Satellite):
         """
