@@ -138,6 +138,16 @@ class YamlConfigurationManager(ConfigurationManager):
         simulation_manager.configuration.update(
             {"adjacent_inter_satellite_shifting": adjacent_inter_satellite_shifting}
         )
+        simulation_manager.configuration.update(
+            {
+                "number_of_satellite_per_orbit_plane": self.two_line_element_configuration.satellite_count_per_orbit
+            }
+        )
+        simulation_manager.configuration.update(
+            {
+                "number_of_orbit_plane": self.two_line_element_configuration.count_of_orbit
+            }
+        )
 
         create_inter_satellite_link_from_two_line_element(
             simulation_manager,

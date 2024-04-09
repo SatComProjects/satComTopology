@@ -21,6 +21,7 @@ from sat_com_model.models import (
     GroundStationLink,
     UserTerminalLink,
 )
+from sat_com_trajectopy.grid_mesh_calculator import calculate_satellite_mesh_coordinates
 
 
 class CesiumRenderer:
@@ -63,6 +64,29 @@ class CesiumRenderer:
         :return: current instance of CesiumRenderer
         """
         satellites_to_display = self.simulation_manager.get_satellites()
+        return self.add_specified_satellites(satellites_to_display)
+
+    def add_satellites_with_grid_positions(self) -> "CesiumRenderer":
+        """
+        Add satellites to the Render with grid position information.
+        :return: current instance of CesiumRender
+        """
+        satellites_to_display = self.simulation_manager.get_satellites()
+        for satellite in satellites_to_display:
+            coordinates_on_grid = calculate_satellite_mesh_coordinates(
+                satellite.object_id,
+                self.simulation_manager.configuration.get("number_of_orbit_plane", 0),
+                self.simulation_manager.configuration.get(
+                    "number_of_satellite_per_orbit_plane", 0
+                ),
+                self.simulation_manager.configuration.get(
+                    "adjacent_inter_satellite_shifting", 0
+                ),
+            )
+            satellite.satellite_name += (
+                f" ({coordinates_on_grid[0]},{coordinates_on_grid[1]})"
+            )
+
         return self.add_specified_satellites(satellites_to_display)
 
     def add_only_ascending_satellites(self) -> "CesiumRenderer":
