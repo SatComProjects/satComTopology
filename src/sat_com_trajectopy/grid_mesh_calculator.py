@@ -23,16 +23,22 @@ def calculate_satellite_mesh_coordinates(
     base_satellite_orbit_identifier = object_id % number_satellite_per_orbit_plane
 
     satellite_orbit_identifier_with_shift = (
-        base_satellite_orbit_identifier + shift_plane_calculated
+        base_satellite_orbit_identifier - shift_plane_calculated
     )
 
-    identifier_is_bigger_than_number_satellite_per_orbit = (
+    identifier_is_bigger_or_equal_to_number_satellite_per_orbit = (
         satellite_orbit_identifier_with_shift >= number_satellite_per_orbit_plane
     )
+    identifier_is_smaller_than_0 = satellite_orbit_identifier_with_shift < 0
 
-    if identifier_is_bigger_than_number_satellite_per_orbit:
+    if identifier_is_bigger_or_equal_to_number_satellite_per_orbit:
         satellite_orbit_identifier_with_shift = (
             satellite_orbit_identifier_with_shift - number_satellite_per_orbit_plane
+        )
+
+    elif identifier_is_smaller_than_0:
+        satellite_orbit_identifier_with_shift = (
+            number_satellite_per_orbit_plane + satellite_orbit_identifier_with_shift
         )
 
     return orbit_number, satellite_orbit_identifier_with_shift
