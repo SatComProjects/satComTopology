@@ -37,8 +37,7 @@ def generate_default_simulation_name():
 
 class ObjectBaseConfigurationManager(ConfigurationManager):
     """
-    This class manage the creation of a simulation with a Yaml configuration in input.
-    Todo: Extract the Yaml reading part and implementing it elsewhere, In the adapter package maybe.
+    This class manage the creation of a simulation from  a dictionary
     """
 
     plain_configuration: dict
@@ -217,6 +216,10 @@ class EmptyConfigurationManager(ConfigurationManager):
 
 
 class YamlConfigurationManager(ObjectBaseConfigurationManager):
+    """
+    This class create a simulation from a Yaml configuration
+    """
+
     configuration_path: str
 
     def __init__(self, configuration_path):
