@@ -131,3 +131,10 @@ def create_user_terminal_link_js(user_terminal_link: UserTerminalLink) -> str:
     )
 
     return link_js
+
+
+def create_socket_connection(socket_server_address_with_port: str):
+    js_code = str()
+    js_code += f'const socket = new WebSocket("{socket_server_address_with_port}");\n'
+    js_code += 'socket.addEventListener("open", function (event) { socket.send("Established new connection!");});;\n'
+    return js_code

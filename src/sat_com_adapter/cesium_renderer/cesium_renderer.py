@@ -1,5 +1,6 @@
 from sat_com_adapter.cesium_renderer.html_renderer.base import (
     get_full_html,
+    get_only_js,
 )
 from sat_com_adapter.cesium_renderer.html_renderer.elements import (
     create_satellite_js,
@@ -8,6 +9,7 @@ from sat_com_adapter.cesium_renderer.html_renderer.elements import (
     create_user_terminal_js,
     create_ground_station_js,
     create_user_terminal_link_js,
+    create_socket_connection,
 )
 from sat_com_adapter.cesium_renderer.html_renderer.utils import (
     create_line,
@@ -263,3 +265,14 @@ class CesiumRenderer:
         )
 
         return whole_html
+
+
+class DynamicCesium(CesiumRenderer):
+    def bind_web_socket_server(self, web_socket_server_address: str):
+        self.append_next(create_socket_connection(web_socket_server_address))
+        return self
+
+    def render(self) -> str:
+        return get_only_js(
+            cesium_token=self.cesium_token, elements=self.elements_to_display
+        )
