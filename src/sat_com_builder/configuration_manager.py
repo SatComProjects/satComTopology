@@ -35,7 +35,7 @@ def generate_default_simulation_name():
     return "simulation_{date}".format(date=datetime.now().strftime("%Y%m%d-%H_%M_%S"))
 
 
-class YamlConfigurationManager(ConfigurationManager):
+class ObjectBaseConfigurationManager(ConfigurationManager):
     """
     This class manage the creation of a simulation with a Yaml configuration in input.
     Todo: Extract the Yaml reading part and implementing it elsewhere, In the adapter package maybe.
@@ -44,12 +44,8 @@ class YamlConfigurationManager(ConfigurationManager):
     plain_configuration: dict
     two_line_element_configuration: TwoLineElementFile
 
-    def __init__(self, configuration_path):
-        self.configuration_path = configuration_path
-
-    def load_configuration(self):
-        with open(self.configuration_path, "r") as file:
-            self.plain_configuration = yaml.safe_load(file)
+    def __init__(self, configuration: dict):
+        self.plain_configuration = configuration
 
     def load_simulation_configuration(self) -> Simulation:
         """
@@ -180,7 +176,6 @@ class YamlConfigurationManager(ConfigurationManager):
         This method load the simulation. It should be used to load simulation.
         :return: A simulation manager
         """
-        self.load_configuration()
 
         simulation = self.load_simulation_configuration()
 
@@ -219,3 +214,13 @@ class EmptyConfigurationManager(ConfigurationManager):
         simulation.simulation_name = self.simulation_name
         simulation_manager = SimulationManager(simulation)
         return simulation_manager
+
+
+class YamlConfigurationManager(ObjectBaseConfigurationManager):
+    configuration_path: str
+
+    def __init__(self, configuration_path):
+        with open(configuration_path, "r") as file:
+            plain_configuration = yaml.safe_load(file)
+            self.configuration_path = configuration_path
+            super().__init__(plain_configuration)
