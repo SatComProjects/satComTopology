@@ -7,7 +7,7 @@ from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import (
     UserTerminalLinkHtmlFormatter,
 )
 from sat_com_adapter.cesium_renderer.html_renderer.utils import (
-    create_point,
+    create_sphere,
     create_line,
 )
 from sat_com_model.models import (
@@ -24,7 +24,7 @@ from sat_com_model.models import (
 def create_satellite_js(satellite: Satellite) -> str:
     display_color = "LIGHTSTEELBLUE" if satellite.is_ascending() else "KHAKI"
 
-    satellite_js = create_point(
+    satellite_js = create_sphere(
         str(satellite.satellite_name),
         satellite.get_coordinates(),
         display_color,
@@ -68,7 +68,7 @@ def create_ground_station_link_js(ground_station_link: GroundStationLink) -> str
 
 
 def create_ground_station_js(ground_station: GroundStation) -> str:
-    ground_station_js = create_point(
+    ground_station_js = create_sphere(
         str(ground_station.get_topology_uniq_id())
         + " "
         + str(ground_station.object_id),
@@ -82,7 +82,7 @@ def create_ground_station_js(ground_station: GroundStation) -> str:
 
 
 def create_user_terminal_js(user_terminal: UserTerminal) -> str:
-    terminal_user_js = create_point(
+    terminal_user_js = create_sphere(
         str(user_terminal.get_topology_uniq_id()) + " " + str(user_terminal.object_id),
         user_terminal.get_coordinates(),
         "INDIANRED",
