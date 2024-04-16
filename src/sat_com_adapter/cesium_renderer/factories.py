@@ -55,7 +55,7 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
         czml_dict = {
             "id": cesium_uniq_identifier,
             "name": f"Topology object: {sphere_name}",
-            "positions": {
+            "position": {
                 "cartographicDegrees": [
                     position.longitude,
                     position.latitude,
@@ -64,12 +64,12 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
             },
             "description": description,
             "ellipsoid": {
-                "radius": [radius, radius, radius],
+                "radii": {"cartesian": [radius, radius, radius]},
                 "material": {
                     "solidColor": {"color": {"rgba": color_to_rgba(color, alpha=0.75)}}
                 },
                 "outline": True,
-                "outlineColor": {"rgba": color_to_rgba(color)},
+                "outlineColor": {"rgbaf": color_to_rgba(color)},
             },
         }
 
