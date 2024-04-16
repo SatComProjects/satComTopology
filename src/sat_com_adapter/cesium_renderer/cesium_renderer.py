@@ -1,3 +1,5 @@
+import json
+
 from sat_com_adapter.cesium_renderer.html_renderer.base import (
     get_full_html,
     get_only_js,
@@ -39,14 +41,14 @@ class CesiumRenderer:
         self.cesium_token = cesium_token
         self.simulation_manager = simulation_manager
 
-    def append_next(self, next_code: str) -> "CesiumRenderer":
+    def append_next(self, next_element: any) -> "CesiumRenderer":
         """
         Append new code to the Cesium Html file.
-        :param next_code: Code to append to the Cesium, should be escaped
+        :param next_element: Code to append to the Cesium, should be escaped
         :return: current instance of CesiumRenderer
         """
         self.elements_to_display += "\n"
-        self.elements_to_display += next_code
+        self.elements_to_display += next_element
 
         return self
 
@@ -267,12 +269,19 @@ class CesiumRenderer:
         return whole_html
 
 
-class DynamicCesium(CesiumRenderer):
-    def bind_web_socket_server(self, web_socket_server_address: str):
-        self.append_next(create_socket_connection(web_socket_server_address))
+class CesiumCZMLRender(CesiumRenderer):
+    elements_to_display = []
+
+    def append_next(self, next_element: str) -> "CesiumRenderer":
+        """
+        Append new code to the Cesium Html file.
+        :param next_element: Code to append to the Cesium, should be escaped
+        :return: current instance of CesiumRenderer
+        """
+        self.elements_to_display += "\n"
+        self.elements_to_display += next_element
+
         return self
 
     def render(self) -> str:
-        return get_only_js(
-            cesium_token=self.cesium_token, elements=self.elements_to_display
-        )
+        return json.dumps(self.elements_to_display)
