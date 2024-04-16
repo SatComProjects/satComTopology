@@ -33,6 +33,7 @@ class CesiumRenderer:
     ):
         self.cesium_token = cesium_token
         self.simulation_manager = simulation_manager
+        self.elements_to_display = []
 
     def append_next(self, next_element: any) -> "CesiumRenderer":
         """
