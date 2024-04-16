@@ -109,7 +109,7 @@ cesium_adapter.adapt()
 ```python
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import Simulation
-from sat_com_adapter.cesium_renderer.cesium_adapter import CesiumAdapter
+from sat_com_adapter.adapters import CesiumAdapter
 
 my_example_simulation = Simulation()
 
@@ -126,8 +126,8 @@ cesium_adapter.adapt()
 ```python
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import Simulation
-from sat_com_adapter.cesium_renderer.cesium_renderer import CesiumRenderer
-from sat_com_adapter.cesium_renderer.cesium_adapter import CesiumAdapter
+from sat_com_adapter.cesium_renderer.renderers import CesiumRenderer
+from sat_com_adapter.adapters import CesiumAdapter
 
 my_example_simulation = Simulation()
 
