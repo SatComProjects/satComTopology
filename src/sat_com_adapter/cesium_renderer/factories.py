@@ -55,7 +55,7 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
         czml_dict = {
             "id": cesium_uniq_identifier,
             "name": f"Topology object: {sphere_name}",
-            "position": {
+            "positions": {
                 "cartographicDegrees": [
                     position.longitude,
                     position.latitude,
