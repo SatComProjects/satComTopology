@@ -1,4 +1,5 @@
 import json
+from typing import List, Any
 
 from sat_com_adapter.cesium_renderer.html_renderer.base import (
     get_full_html,
@@ -283,5 +284,5 @@ class CesiumCZMLRender(CesiumRenderer):
 
         return self
 
-    def render(self) -> str:
-        return json.dumps(self.elements_to_display)
+    def render(self) -> list[Any]:
+        return self.elements_to_display
