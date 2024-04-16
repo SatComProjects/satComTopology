@@ -64,7 +64,7 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
             },
             "description": description,
             "ellipsoid": {
-                "radii": [radius, radius, radius],
+                "radius": [radius, radius, radius],
                 "material": {
                     "solidColor": {"color": {"rgba": color_to_rgba(color, alpha=0.75)}}
                 },
