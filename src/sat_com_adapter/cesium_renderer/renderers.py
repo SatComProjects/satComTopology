@@ -1,26 +1,16 @@
-import json
-from typing import List, Any
+from typing import Any
 
-from sat_com_adapter.cesium_renderer.html_renderer.base import (
-    get_full_html,
-    get_only_js,
+from sat_com_adapter.cesium_renderer.factories import get_full_html
+from sat_com_adapter.cesium_renderer.formats import (
+    CesiumFormat,
+    CesiumJavaScriptFormat,
+    CesiumCZMLFormat,
 )
-from sat_com_adapter.cesium_renderer.html_renderer.elements import (
-    create_satellite_js,
-    create_inter_satellite_link_js,
-    create_ground_station_link_js,
-    create_user_terminal_js,
-    create_ground_station_js,
-    create_user_terminal_link_js,
-    create_socket_connection,
-)
-from sat_com_adapter.cesium_renderer.html_renderer.utils import (
-    create_line,
-    create_background_color,
+from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import (
+    LinkHtmlFormatter,
 )
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import (
-    TopologyObject,
     Link,
     InterSatelliteLink,
     GroundStationLink,
@@ -30,11 +20,13 @@ from sat_com_trajectopy.grid_mesh_calculator import calculate_satellite_mesh_coo
 
 
 class CesiumRenderer:
-    elements_to_display: str = str()
+    elements_to_display: []
 
     simulation_manager: SimulationManager
 
     cesium_token: str
+
+    cesium_format: CesiumFormat
 
     def __init__(
         self, simulation_manager: SimulationManager, cesium_token: str = str()
@@ -48,8 +40,8 @@ class CesiumRenderer:
         :param next_element: Code to append to the Cesium, should be escaped
         :return: current instance of CesiumRenderer
         """
-        self.elements_to_display += "\n"
-        self.elements_to_display += next_element
+
+        self.elements_to_display.append(next_element)
 
         return self
 
@@ -60,7 +52,7 @@ class CesiumRenderer:
         :return: current instance of CesiumRenderer
         """
         for satellite in satellites:
-            self.append_next(create_satellite_js(satellite))
+            self.append_next(self.cesium_format.create_satellite(satellite))
         return self
 
     def add_satellites(self) -> "CesiumRenderer":
@@ -119,7 +111,9 @@ class CesiumRenderer:
         for (
             inter_satellite_link
         ) in self.simulation_manager.get_inter_satellites_links():
-            self.append_next(create_inter_satellite_link_js(inter_satellite_link))
+            self.append_next(
+                self.cesium_format.create_inter_satellite_link(inter_satellite_link)
+            )
         return self
 
     def add_ground_station_links(self) -> "CesiumRenderer":
@@ -129,7 +123,9 @@ class CesiumRenderer:
         """
 
         for ground_station_link in self.simulation_manager.get_ground_stations_links():
-            self.append_next(create_ground_station_link_js(ground_station_link))
+            self.append_next(
+                self.cesium_format.create_ground_station_link(ground_station_link)
+            )
         return self
 
     def add_user_terminal_links(self) -> "CesiumRenderer":
@@ -138,7 +134,9 @@ class CesiumRenderer:
         :return:  current instance of CesiumRenderer
         """
         for terminal_link in self.simulation_manager.get_user_terminal_links():
-            self.append_next(create_user_terminal_link_js(terminal_link))
+            self.append_next(
+                self.cesium_format.create_user_terminal_link(terminal_link)
+            )
 
         return self
 
@@ -148,7 +146,7 @@ class CesiumRenderer:
         :return:  current instance of CesiumRenderer
         """
         for terminal_user in self.simulation_manager.get_user_terminals():
-            self.append_next(create_user_terminal_js(terminal_user))
+            self.append_next(self.cesium_format.create_user_terminal(terminal_user))
         return self
 
     def add_ground_stations(self) -> "CesiumRenderer":
@@ -157,7 +155,7 @@ class CesiumRenderer:
         :return:  current instance of CesiumRenderer
         """
         for ground_station in self.simulation_manager.get_ground_stations():
-            self.append_next(create_ground_station_js(ground_station))
+            self.append_next(self.cesium_format.create_ground_station(ground_station))
 
         return self
 
@@ -183,27 +181,6 @@ class CesiumRenderer:
 
         return self
 
-    def add_route(
-        self, topology_object_a: TopologyObject, topology_object_b: TopologyObject
-    ) -> "CesiumRenderer":
-        """
-        Add a link between two topology object that will represent a route.
-        :param topology_object_a:
-        :param topology_object_b:
-        :return:
-        """
-        self.append_next(
-            create_line(
-                topology_object_a.get_coordinates(),
-                topology_object_b.get_coordinates(),
-                str(topology_object_a.topology_uniq_id),
-                str(topology_object_b.topology_uniq_id),
-                "PINK",
-            )
-        )
-
-        return self
-
     def add_route_from_link(
         self, link: Link, underlined: bool = False
     ) -> "CesiumRenderer":
@@ -213,28 +190,25 @@ class CesiumRenderer:
         :param underlined: if true, a new color will be set for the link. If not the link will keep its native color
         :return: current instance of CesiumRenderer
         """
-        source = link.source
-        destination = link.destination
 
         if underlined:
             return self.append_next(
-                create_line(
-                    source.get_coordinates(),
-                    destination.get_coordinates(),
-                    str(source.topology_uniq_id),
-                    str(destination.topology_uniq_id),
-                    "RED",
+                self.cesium_format.create_link(
+                    link=link,
+                    color="RED",
+                    description=LinkHtmlFormatter(link).format_to_html(),
+                    properties={},
                 )
             )
 
         if isinstance(link, InterSatelliteLink):
-            self.append_next(create_inter_satellite_link_js(link))
+            self.append_next(self.cesium_format.create_inter_satellite_link(link))
 
         if isinstance(link, GroundStationLink):
-            self.append_next(create_ground_station_link_js(link))
+            self.append_next(self.cesium_format.create_ground_station_link(link))
 
         if isinstance(link, UserTerminalLink):
-            self.append_next(create_user_terminal_link_js(link))
+            self.append_next(self.cesium_format.create_user_terminal_link(link))
 
         return self
 
@@ -251,38 +225,34 @@ class CesiumRenderer:
 
     def add_white_background_color(self) -> "CesiumRenderer":
         """
-        Set the background color to white
+        Set the background color to white. Only supported for JavaScript export.
         :return:
         """
-        self.append_next(create_background_color())
+        if isinstance(self.cesium_format, CesiumJavaScriptFormat):
+            return self.append_next(self.cesium_format.create_background_color())
 
         return self
 
-    def render(self) -> str:
+    def render(self):
         """
         Create the final render
-        :return: str, the full Html code
+        :return:
         """
-        whole_html = get_full_html(
-            cesium_token=self.cesium_token, elements=self.elements_to_display
+        pass
+
+
+class CesiumHtmlRenderer(CesiumRenderer):
+    cesium_format = CesiumJavaScriptFormat()
+
+    def render(self) -> str:
+        html_code = get_full_html(
+            self.cesium_token, "\n".join(self.elements_to_display)
         )
+        return html_code
 
-        return whole_html
 
-
-class CesiumCZMLRender(CesiumRenderer):
-    elements_to_display = []
-
-    def append_next(self, next_element: str) -> "CesiumRenderer":
-        """
-        Append new code to the Cesium Html file.
-        :param next_element: Code to append to the Cesium, should be escaped
-        :return: current instance of CesiumRenderer
-        """
-        self.elements_to_display += "\n"
-        self.elements_to_display += next_element
-
-        return self
+class CesiumCZMLRenderer(CesiumRenderer):
+    cesium_format = CesiumCZMLFormat()
 
     def render(self) -> list[Any]:
         return self.elements_to_display
