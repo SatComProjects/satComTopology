@@ -5,7 +5,7 @@ import os
 import networkx as nx
 from networkx.readwrite import json_graph
 
-from sat_com_adapter.cesium_renderer.cesium_renderer import CesiumRenderer
+from sat_com_adapter.cesium_renderer.renderers import CesiumRenderer
 from sat_com_adapter.networkx_builder.networkx_builder import NetworkxBuilder
 from sat_com_application.simulation_manager import SimulationManager
 
@@ -147,7 +147,7 @@ class CesiumAdapter(Adapter):
     ) -> str:
         """
         Build a CesiumRenderer with routes.
-        Todo: We shoudld replace int list by TopologyObject list...
+        Todo: We should replace int list by TopologyObject list...
         :param topology_object_list_id: List of topology object id
         :param cesium_token: Your Cesium token
         :param kwargs: What you want to display (ground_stations: bool, satellites:bool, user_terminals:bool, etc)
