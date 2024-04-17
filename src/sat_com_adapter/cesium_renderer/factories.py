@@ -118,7 +118,7 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
                 },
                 "width": 1,
                 "arcType": "NONE",
-                "material": {"color": {"rgba": color_to_rgba(color)}},
+                "material": {"solidColor": {"color": {"rgba": color_to_rgba(color)}}},
             },
         }
 
