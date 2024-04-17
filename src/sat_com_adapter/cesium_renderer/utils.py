@@ -13,6 +13,7 @@ def get_link_cesium_unique_identifier(
 
 
 def color_to_rgba(color: str, alpha: float = 1.0) -> list:
+    alpha = alpha * 100
     color_name_to_rgba = {
         "ALICEBLUE": [240, 248, 255, alpha],
         "ANTIQUEWHITE": [250, 235, 215, alpha],
