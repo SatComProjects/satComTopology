@@ -153,7 +153,7 @@ def color_to_rgba(color: str, alpha: float = 1.0) -> list:
         "WHITE": [255, 255, 255, alpha],
         "WHITESMOKE": [245, 245, 245, alpha],
         "YELLOW": [255, 255, 0, alpha],
-        "YELLOWGREEN": [154, 205, 50],
+        "YELLOWGREEN": [154, 205, 50, alpha],
     }
 
     return color_name_to_rgba.get(color.upper(), [0, 0, 0, alpha])
