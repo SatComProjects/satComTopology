@@ -69,7 +69,7 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
                     "solidColor": {"color": {"rgba": color_to_rgba(color, alpha=0.75)}}
                 },
                 "outline": True,
-                "outlineColor": {"rgba": color_to_rgba(color)},
+                "outlineColor": {"rgbaf": color_to_rgba(color)},
             },
         }
 
