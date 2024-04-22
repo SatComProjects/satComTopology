@@ -79,6 +79,7 @@ class NetworkXAdapter(Adapter):
             file.write(
                 json.dumps(json_graph.node_link_data(self.networkx_builder.build()))
             )
+            file.close()
 
 
 class CesiumAdapter(Adapter):
@@ -207,3 +208,4 @@ class CesiumAdapter(Adapter):
                     "Cesium Renderer not defined, you should be your render first"
                 )
             file.write(self.cesium_renderer.render())
+            file.close()
