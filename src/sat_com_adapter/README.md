@@ -26,9 +26,9 @@ from sat_com_model.models import Simulation
 my_example_simulation = Simulation()
 example_simulation_manager = SimulationManager(my_example_simulation)
 
-network_x_adapter = NetworkXAdapter(example_simulation_manager, "my_output_folder")
+network_x_adapter = NetworkXAdapter(example_simulation_manager)
 
-network_x_adapter.adapt()
+network_x_adapter.adapt("my_folder")
 ```
 Result:
 ```json
@@ -74,7 +74,7 @@ from sat_com_model.models import Simulation
 my_example_simulation = Simulation()
 example_simulation_manager = SimulationManager(my_example_simulation)
 
-network_x_adapter = NetworkXAdapter(example_simulation_manager, "my_output_folder")
+network_x_adapter = NetworkXAdapter(example_simulation_manager)
 
 my_nx_graph = network_x_adapter.create_full_networkx_graph(export_link_length=True, export_object_position=True)
 
@@ -95,13 +95,13 @@ my_example_simulation = Simulation()
 
 simulation_manager = SimulationManager(my_example_simulation)
 
-cesium_adapter = CesiumAdapter(simulation_manager, "my_out_put_folder")
+cesium_adapter = CesiumAdapter(simulation_manager)
 
 renderer = cesium_adapter.create_cesium_renderer("MY_SUPER_SECRET_CESIUM_TOKEN_OR_NOTHING")
 
 renderer.add_satellites()
 
-cesium_adapter.adapt()
+cesium_adapter.adapt("my_folder")
 ```
 
 #### With the pre-build
@@ -115,11 +115,11 @@ my_example_simulation = Simulation()
 
 simulation_manager = SimulationManager(my_example_simulation)
 
-cesium_adapter = CesiumAdapter(simulation_manager, "my_out_put_folder")
+cesium_adapter = CesiumAdapter(simulation_manager)
 
 renderer = cesium_adapter.build_renderer_simulation_with_links("MY_SUPER_SECRET_CESIUM_TOKEN_OR_NOTHING")
 
-cesium_adapter.adapt()
+cesium_adapter.adapt("my_out_put_folder")
 ```
 ### With custom render
 
@@ -133,7 +133,7 @@ my_example_simulation = Simulation()
 
 simulation_manager = SimulationManager(my_example_simulation)
 
-cesium_adapter = CesiumAdapter(simulation_manager, "my_out_put_folder")
+cesium_adapter = CesiumAdapter(simulation_manager)
 
 custom_renderer = CesiumRenderer(simulation_manager, "MY_SUPER_SECRET_CESIUM_TOKEN_OR_NOTHING")
 
@@ -143,7 +143,7 @@ custom_renderer.add_ground_stations()
 
 cesium_adapter.set_custom_renderer(custom_renderer)
 
-cesium_adapter.adapt()
+cesium_adapter.adapt("my_out_put_folder")
 ```
 
 ![Satellite topology generated with CesiumJS](cesium_renderer/example/topology-render-example.png "Example of Satellite Topology")
