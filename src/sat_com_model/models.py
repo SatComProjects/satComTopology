@@ -200,7 +200,11 @@ class Satellite(OrbitalObject):
 
 
 class GroundObject(TopologyObject):
-    pass
+    in_range_satellites: {Satellite: float}
+
+    def __init__(self):
+        super().__init__()
+        self.in_range_satellites = dict()
 
 
 class GroundStation(GroundObject):

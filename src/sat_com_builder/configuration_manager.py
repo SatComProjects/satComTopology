@@ -86,7 +86,7 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
             satellites = (
                 generate_satellites_from_two_line_elements_with_pyorbital_model(
                     self.two_line_element_configuration.parsed_tles,
-                    simulation_manager.clock,
+                    simulation_manager.time_manager.current_time,
                 )
             )
         else:
