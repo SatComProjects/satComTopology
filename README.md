@@ -78,11 +78,11 @@ a new format.
 ```python
 from sat_com_adapter.adapters import NetworkXAdapter
 
-networkx_adapter = NetworkXAdapter(simulation_manager, "OUTPUT_PATH")
+networkx_adapter = NetworkXAdapter(simulation_manager)
 
 my_graph = networkx_adapter.create_full_networkx_graph()
 
-networkx_adapter.adapt()
+networkx_adapter.adapt("OUTPUT_PATH")
 
 ```
 #### I just want my constellation in the good format
@@ -96,11 +96,11 @@ yaml_configuration_manager = YamlConfigurationManager("/CONFIGURATION_PATH/confi
 
 simulation_manager = yaml_configuration_manager.load_simulation()
 
-networkx_adapter = NetworkXAdapter(simulation_manager, "OUTPUT_PATH")
+networkx_adapter = NetworkXAdapter(simulation_manager)
 
 my_graph = networkx_adapter.create_full_networkx_graph()
 
-networkx_adapter.adapt()
+networkx_adapter.adapt("OUTPUT_PATH")
 ```
 ## Tutorials 🎓
 Here are some tutorials in the Jupyter Notebook format:
