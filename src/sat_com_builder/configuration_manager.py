@@ -164,9 +164,15 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
         simulation_manager.configuration.update(
             {"ground_station_link_range": ground_station_link_range}
         )
-        generate_ground_station_link_with_position(
-            simulation_manager, ground_station_link_range
+
+        disable_ground_station_link_preload = self.plain_configuration.get(
+            "disable_ground_station_link_preload", False
         )
+
+        if not disable_ground_station_link_preload:
+            generate_ground_station_link_with_position(
+                simulation_manager, ground_station_link_range
+            )
 
     def load_user_terminal_link_configuration(self, simulation: SimulationManager):
         raise NotImplementedError(
@@ -205,14 +211,7 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
 
         self.load_inter_satellite_configuration(simulation_manager)
 
-        disable_ground_station_link_preload = self.plain_configuration.get(
-            "disable_ground_station_link_preload", False
-        )
-
-        simulation.update()
-
-        if not disable_ground_station_link_preload:
-            self.load_ground_station_link_configuration(simulation_manager)
+        self.load_ground_station_link_configuration(simulation_manager)
 
         return simulation_manager
 
