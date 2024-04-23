@@ -18,9 +18,21 @@ class TimeManager:
         self, start_date: datetime.datetime, end_date: datetime.datetime = None
     ):
         self.start_date = datetime.datetime(
-            start_date.year, start_date.month, start_date.day
+            start_date.year,
+            start_date.month,
+            start_date.day,
+            start_date.hour,
+            start_date.minute,
+            start_date.second,
         )
-        self.end_date = datetime.datetime(end_date.year, end_date.month, end_date.day)
+        self.end_date = datetime.datetime(
+            end_date.year,
+            end_date.month,
+            end_date.day,
+            end_date.hour,
+            end_date.minute,
+            end_date.second,
+        )
 
         self.current_time = start_date
 
