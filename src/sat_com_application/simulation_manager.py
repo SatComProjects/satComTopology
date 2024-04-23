@@ -82,6 +82,7 @@ class SimulationManager:
 
     def update(self):
         self.simulation.update()
+        self.update_ground_station_links()
 
     def add_satellite(self, satellite: Satellite):
         """
@@ -482,3 +483,35 @@ class SimulationManager:
             list_link.append(connected_link)
 
         return list_link
+
+    def connect_ground_station_to_satellites(
+        self,
+        ground_station: GroundStation,
+        ground_station_range: float,
+    ):
+        """
+        Connect ground station to satellites.
+        Implement a way to limit the count of satellite connected to ground stations.
+        :param ground_station: Ground Station to connect to satellites
+        :param ground_station_range: Range of satellites to connect to satellites
+        :return:
+        """
+
+        for satellite in self.get_satellites():
+            distance_between_satellite_and_ground_station = (
+                self.simulation.get_distance_model().get_distance_meters(
+                    satellite.get_coordinates(), ground_station.get_coordinates()
+                )
+            )
+            if distance_between_satellite_and_ground_station <= ground_station_range:
+                self.create_ground_station_link_connection(satellite, ground_station)
+
+    def update_ground_station_links(self):
+        """
+        Update the ground station links.
+        :return:
+        """
+        for ground_station in self.get_ground_stations():
+            self.connect_ground_station_to_satellites(
+                ground_station, self.configuration.get("ground_station_link_range")
+            )
