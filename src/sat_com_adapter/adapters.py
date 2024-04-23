@@ -59,9 +59,6 @@ class NetworkXAdapter(Adapter):
         if self.networkx_builder is None:
             self.create_full_networkx_graph()
 
-        if not os.path.exists(output_directory):
-            os.makedirs(output_directory)
-
         with open(output_directory, "w") as file:
             file.write(
                 json.dumps(json_graph.node_link_data(self.networkx_builder.build()))
@@ -171,9 +168,6 @@ class CesiumAdapter(Adapter):
         return self.cesium_renderer.render()
 
     def adapt(self, output_directory: str):
-        if not os.path.exists(output_directory):
-            os.makedirs(output_directory)
-
         with open(output_directory, "w") as file:
             if self.cesium_renderer is None:
                 raise Exception(
