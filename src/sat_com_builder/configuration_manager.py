@@ -3,6 +3,7 @@ from datetime import datetime
 import yaml
 
 from sat_com_application.simulation_manager import SimulationManager
+from sat_com_application.time_manager import TimeManager
 from sat_com_builder.ground_stations.generate_ground_stations import (
     generate_ground_stations_from_file,
 )
@@ -74,11 +75,7 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
         """
         constellation_file = self.plain_configuration.get("constellation_file")
 
-        plain_start_date = self.plain_configuration.get("start_date")
-
         movement_model = self.plain_configuration.get("movement_model", None)
-
-        start_date = datetime.strptime(plain_start_date, "%d/%m/%Y %H:%M:%S")
 
         if constellation_file is not None:
             self.two_line_element_configuration = parse_two_line_element_to_instance(
@@ -88,7 +85,8 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
         if movement_model is not None and movement_model == "pyorbital":
             satellites = (
                 generate_satellites_from_two_line_elements_with_pyorbital_model(
-                    self.two_line_element_configuration.parsed_tles, start_date
+                    self.two_line_element_configuration.parsed_tles,
+                    simulation_manager.clock,
                 )
             )
         else:
@@ -170,6 +168,20 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
             "Loading User terminal links hasn't been implemented yet"
         )
 
+    def load_time_manager(self, simulation_manager: SimulationManager):
+        plain_start_date = self.plain_configuration.get(
+            "start_date", "01/01/2000 00:00:01"
+        )
+        plain_end_date = self.plain_configuration.get("end_date", "31/12/2000 23:59:59")
+
+        start_date = datetime.strptime(plain_start_date, "%d/%m/%Y %H:%M:%S")
+
+        end_date = datetime.strptime(plain_end_date, "%d/%m/%Y %H:%M:%S")
+
+        time_manager = TimeManager(start_date, end_date)
+
+        simulation_manager.set_time_manager(time_manager)
+
     def load_simulation(self) -> SimulationManager:
         """
         This method load the simulation. It should be used to load simulation.
@@ -179,6 +191,8 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
         simulation = self.load_simulation_configuration()
 
         simulation_manager = SimulationManager(simulation)
+
+        self.load_time_manager(simulation_manager)
 
         self.load_satellite_configuration(simulation_manager)
 

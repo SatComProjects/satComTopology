@@ -1,3 +1,6 @@
+import datetime
+
+from sat_com_application.time_manager import TimeManager
 from sat_com_model.exceptions import TopologyObjectNotFoundError, LinkNotFoundError
 from sat_com_model.models import (
     Simulation,
@@ -67,9 +70,18 @@ class SimulationManager:
 
     simulation: Simulation
 
+    time_manager: TimeManager
+
     def __init__(self, simulation: Simulation):
         self.simulation = simulation
         self.configuration = dict()
+
+    def set_time_manager(self, time_manager: TimeManager):
+        self.time_manager = time_manager
+        self.time_manager.register_action(self.update)
+
+    def update(self):
+        self.simulation.update()
 
     def add_satellite(self, satellite: Satellite):
         """
