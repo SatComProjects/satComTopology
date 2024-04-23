@@ -148,19 +148,24 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
             adjacent_inter_satellite_shifting,
         )
 
-    def load_ground_station_link_configuration(self, simulation: SimulationManager):
+    def load_ground_station_link_configuration(
+        self, simulation_manager: SimulationManager
+    ):
         """
         Load ground station links configuration. It will generate ground station link based on their position and the
         in range satellites.
         Todo: Add connection limit.
-        :param simulation:
+        :param simulation_manager:
         :return:
         """
         ground_station_link_range = self.plain_configuration.get(
             "ground_station_link_range", 1000000
         )
+        simulation_manager.configuration.update(
+            {"ground_station_link_range": ground_station_link_range}
+        )
         generate_ground_station_link_with_position(
-            simulation, ground_station_link_range
+            simulation_manager, ground_station_link_range
         )
 
     def load_user_terminal_link_configuration(self, simulation: SimulationManager):
