@@ -3,7 +3,7 @@ from datetime import datetime
 import yaml
 
 from sat_com_application.simulation_manager import SimulationManager
-from sat_com_application.time_manager import TimeManager
+from sat_com_application.time_managers import SimulationTimerManager
 from sat_com_builder.ground_stations.generate_ground_stations import (
     generate_ground_stations_from_file,
 )
@@ -189,7 +189,7 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
 
         end_date = datetime.strptime(plain_end_date, "%d/%m/%Y %H:%M:%S")
 
-        time_manager = TimeManager(start_date, end_date)
+        time_manager = SimulationTimerManager(start_date, end_date)
 
         simulation_manager.set_time_manager(time_manager)
 
