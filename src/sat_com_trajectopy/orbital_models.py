@@ -34,7 +34,9 @@ class PyOrbitalModel(MovementModel):
         Calculate whether the orbital object is ascending or descending.
         :return: True if the orbital object is ascending
         """
-        position, velocity = self.orbital_object.get_position(self.clock)
+        position, velocity = self.orbital_object.get_position(
+            self.clock.get_current_time()
+        )
         # Check the sign of the z-coordinate to determine if in the ascending node
         return velocity[2] > 0
 
