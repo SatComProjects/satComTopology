@@ -1,11 +1,12 @@
 from datetime import datetime
 
+from sat_com_application.time_managers import TimeManager
 from sat_com_model.models import Simulation, Satellite, create_satellite
 from sat_com_trajectopy.orbital_models import PyOrbitalModel
 
 
 def generate_satellites_from_two_line_elements_with_pyorbital_model(
-    two_line_elements: [], start_date: datetime
+    two_line_elements: [], timer_manager: TimeManager
 ) -> [Satellite]:
     """
     Generate a list of Satellite from Two Line Element list at a given start date. It will use PyOrbitalModel to
@@ -14,8 +15,8 @@ def generate_satellites_from_two_line_elements_with_pyorbital_model(
     If the PyOrbitalModel fail to generate a satellite, satellite will be ignored, and the next satellite will have the
     next id. The failed satellite id will not be used.
 
+    :param timer_manager: TimeManager object to have the simulation time
     :param two_line_elements: List of Two Line Element
-    :param start_date: Start date as datetime object
     :return:
     """
     id_index = 0
@@ -23,7 +24,7 @@ def generate_satellites_from_two_line_elements_with_pyorbital_model(
     for tle in two_line_elements:
         satellite_model = None
         try:
-            satellite_model = PyOrbitalModel(tle, start_date)
+            satellite_model = PyOrbitalModel(tle, timer_manager)
 
         except Exception as e:
             print(e)
