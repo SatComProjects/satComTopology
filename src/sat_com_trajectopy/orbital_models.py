@@ -61,7 +61,9 @@ class PyOrbitalModel(MovementModel):
         if should_npt_calculate_new_position:
             return self.last_spatial_position
 
-        longitude, latitude, altitude = self.orbital_object.get_lonlatalt(self.clock)
+        longitude, latitude, altitude = self.orbital_object.get_lonlatalt(
+            self.clock.get_current_time()
+        )
 
         new_position = SpatialPosition(
             longitude=longitude, latitude=latitude, altitude=altitude
@@ -77,4 +79,4 @@ class PyOrbitalModel(MovementModel):
         ascending or descending for example.
         :return:
         """
-        return self.orbital_object.get_position(self.clock)
+        return self.orbital_object.get_position(self.clock.get_current_time())
