@@ -1,6 +1,4 @@
-import datetime
-
-from sat_com_application.time_managers import SimulationTimerManager
+from sat_com_application.time_managers import SimulationTimeManager
 from sat_com_model.exceptions import TopologyObjectNotFoundError, LinkNotFoundError
 from sat_com_model.models import (
     Simulation,
@@ -70,13 +68,13 @@ class SimulationManager:
 
     simulation: Simulation
 
-    time_manager: SimulationTimerManager
+    time_manager: SimulationTimeManager
 
     def __init__(self, simulation: Simulation):
         self.simulation = simulation
         self.configuration = dict()
 
-    def set_time_manager(self, time_manager: SimulationTimerManager):
+    def set_time_manager(self, time_manager: SimulationTimeManager):
         self.time_manager = time_manager
         self.time_manager.register_action(self.update)
 
@@ -95,7 +93,7 @@ class SimulationManager:
 
     def add_ground_station(self, ground_station: GroundStation):
         """
-        Add ground station to the simulation. Automatically attribute a uniq topology id.
+        Add ground station to the simulation. Automatically attribute an uniq topology id.
         :param ground_station: Ground station instance to add
         :return:
         """
@@ -104,7 +102,7 @@ class SimulationManager:
 
     def add_user_terminals(self, user_terminal: UserTerminal):
         """
-        Add user terminals to the simulation. Automatically attribute a uniq topology id
+        Add user terminals to the simulation. Automatically attribute an uniq topology id
         :param user_terminal: User terminal instance to add
         :return:
         """

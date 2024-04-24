@@ -32,9 +32,9 @@ git branch
 ```shell
 git pull
 ```
-- Create a branch with the issue slug (dbetter to do do it from the GitHub app)
+- Create a branch with the issue slug (better to do it from the GitHub app)
 ```shell
-git checkout -b #{issue_number}-issue-title-separeted-with-dashes
+git checkout -b #{issue_number}-issue-title-separated-with-dashes
 ```
 - You can start coding !
 
