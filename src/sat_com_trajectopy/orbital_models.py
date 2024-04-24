@@ -2,6 +2,7 @@ from datetime import datetime, time
 
 from pyorbital.orbital import Orbital
 
+from sat_com_application.time_managers import TimeManager
 from sat_com_model.models import MovementModel, SpatialPosition
 
 
@@ -12,13 +13,13 @@ class PyOrbitalModel(MovementModel):
     """
 
     orbital_object: Orbital
-    clock: datetime
+    clock: TimeManager
 
     last_spatial_position: SpatialPosition = None
 
     last_time_position_calculated: time = None
 
-    def __init__(self, tle: dict, clock: datetime = datetime.now()):
+    def __init__(self, tle: dict, time_manager: TimeManager):
         super().__init__()
 
         self.satellite_name = tle.get("satellite_name")
@@ -26,7 +27,7 @@ class PyOrbitalModel(MovementModel):
         self.line2 = tle.get("line2")
         orb = Orbital(self.satellite_name, line1=self.line1, line2=self.line2)
         self.orbital_object = orb
-        self.clock = clock
+        self.clock = time_manager
 
     def is_ascending(self) -> bool:
         """
@@ -48,7 +49,9 @@ class PyOrbitalModel(MovementModel):
         :return: SpatialPosition instance
         """
 
-        time_did_not_change = self.clock.time() == self.last_time_position_calculated
+        time_did_not_change = (
+            self.clock.get_current_time() == self.last_time_position_calculated
+        )
         already_calculated_a_position_before = self.last_spatial_position is not None
 
         should_npt_calculate_new_position = (
@@ -64,7 +67,7 @@ class PyOrbitalModel(MovementModel):
             longitude=longitude, latitude=latitude, altitude=altitude
         )
         self.last_spatial_position = new_position
-        self.last_time_position_calculated = self.clock.time()
+        self.last_time_position_calculated = self.clock.get_current_time()
 
         return new_position
 

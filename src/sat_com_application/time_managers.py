@@ -1,22 +1,23 @@
 import datetime
-import copy
-from argparse import Action
+from typing import Callable
 
 
 class TimeManager:
-    current_time: datetime.datetime
+    def get_current_time(self):
+        pass
 
-    start_date: datetime.datetime
+    def advance_time(self, time_delta: float):
+        pass
 
-    end_date: datetime.datetime
+    def set_time(self, new_time):
+        pass
 
-    on_tick_actions: []
 
-    ticking_delta = 1
+class SimulationTimerManager(TimeManager):
+    current_date_time: datetime.datetime
+    on_tick_action: [Callable]
 
-    def __init__(
-        self, start_date: datetime.datetime, end_date: datetime.datetime = None
-    ):
+    def __init__(self, start_date: datetime.datetime, end_date: datetime.datetime):
         self.start_date = datetime.datetime(
             start_date.year,
             start_date.month,
@@ -37,6 +38,15 @@ class TimeManager:
         self.current_time = start_date
 
         self.on_tick_actions = []
+
+    def get_current_time(self):
+        return self.current_date_time
+
+    def advance_time(self, time_delta: float):
+        self.current_date_time += datetime.timedelta(seconds=time_delta)
+
+    def set_time(self, new_time):
+        self.current_date_time = new_time
 
     def register_action(self, action):
         self.on_tick_actions.append(action)

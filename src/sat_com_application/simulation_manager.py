@@ -1,6 +1,6 @@
 import datetime
 
-from sat_com_application.time_manager import TimeManager
+from sat_com_application.time_managers import SimulationTimerManager
 from sat_com_model.exceptions import TopologyObjectNotFoundError, LinkNotFoundError
 from sat_com_model.models import (
     Simulation,
@@ -70,13 +70,13 @@ class SimulationManager:
 
     simulation: Simulation
 
-    time_manager: TimeManager
+    time_manager: SimulationTimerManager
 
     def __init__(self, simulation: Simulation):
         self.simulation = simulation
         self.configuration = dict()
 
-    def set_time_manager(self, time_manager: TimeManager):
+    def set_time_manager(self, time_manager: SimulationTimerManager):
         self.time_manager = time_manager
         self.time_manager.register_action(self.update)
 
