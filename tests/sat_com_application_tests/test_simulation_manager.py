@@ -1,6 +1,6 @@
 import pytest
 
-from sat_com_application.simulation_manager import Simulation, SimulationManager
+from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.exceptions import (
     TopologyObjectNotFoundError,
     TopologyIdentifierNotDefinedError,

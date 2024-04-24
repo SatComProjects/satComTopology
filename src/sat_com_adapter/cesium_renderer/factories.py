@@ -150,7 +150,7 @@ def create_polygon_on_earth_surface(
     )
 
     html = "viewer.entities.add({\n"
-    html += f'  name: "Rhumb Polygon",\n'
+    html += f'  name: "Polygon",\n'
     html += f'  description: "{description}",\n'
     html += "  polygon: {\n"
     html += f"    hierarchy: Cesium.Cartesian3.fromDegreesArray([{coordinate_list_to_str}]),\n"

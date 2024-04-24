@@ -1,5 +1,4 @@
 from sat_com_application.simulation_manager import SimulationManager
-from sat_com_model.models import Simulation
 
 
 def generate_ground_station_link_with_position(

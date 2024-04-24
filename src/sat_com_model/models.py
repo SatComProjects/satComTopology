@@ -111,7 +111,7 @@ class TopologyObject(SpatialPoint):
 
 class MovementModel:
     """
-    This is the movement model class. This abstract class should be implemented using a orbit trajectory
+    This is the movement model class. This abstract class should be implemented using an orbit trajectory
     library.
     """
 

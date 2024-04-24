@@ -25,7 +25,6 @@ from sat_com_model.models import (
     GroundStation,
     UserTerminal,
     InterSatelliteLinkDirection,
-    SpatialPoint,
 )
 
 SATELLITE_RADIUS = 30000

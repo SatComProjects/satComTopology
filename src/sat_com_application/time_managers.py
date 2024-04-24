@@ -13,8 +13,10 @@ class TimeManager:
         pass
 
 
-class SimulationTimerManager(TimeManager):
-    current_date_time: datetime.datetime
+class SimulationTimeManager(TimeManager):
+    current_time: datetime.datetime
+    start_time: datetime.datetime
+    end_time: datetime.datetime
     on_tick_action: [Callable]
 
     def __init__(self, start_date: datetime.datetime, end_date: datetime.datetime):
@@ -40,13 +42,13 @@ class SimulationTimerManager(TimeManager):
         self.on_tick_actions = []
 
     def get_current_time(self):
-        return self.current_date_time
+        return self.current_time
 
     def advance_time(self, time_delta: float):
-        self.current_date_time += datetime.timedelta(seconds=time_delta)
+        self.current_time += datetime.timedelta(seconds=time_delta)
 
     def set_time(self, new_time):
-        self.current_date_time = new_time
+        self.current_time = new_time
 
     def register_action(self, action):
         self.on_tick_actions.append(action)
