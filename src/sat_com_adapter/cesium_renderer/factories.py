@@ -142,7 +142,7 @@ def create_background_color(color: str = "WHITESMOKE") -> str:
     return f"scene.backgroundColor = Cesium.Color.{color};"
 
 
-def create_polygon_on_earth_surface(
+def create_polygon_on_earth_surface_js(
     coordinate_list: list, color="RED", description: str = str()
 ) -> str:
     coordinate_list_to_str = ", ".join(
@@ -159,6 +159,33 @@ def create_polygon_on_earth_surface(
     html += "});\n"
 
     return html
+
+
+def create_polygon_on_earth_surface_czml(
+    coordinate_list: list,
+    color="RED",
+    description: str = str(),
+    name: str = "polygon",
+    properties=None,
+) -> dict:
+    coordinate_list_to_str = ", ".join(
+        str(coordinate) for coordinate in coordinate_list
+    )
+
+    czml_dict = {
+        "id": name + "_" + coordinate_list_to_str.replace(",", "_").replace(" ", ""),
+        "name": f"Polygon area",
+        "description": description,
+        "polygon": {
+            "positions": {"cartographicDegrees": [coordinate_list_to_str]},
+        },
+        "material": {"solidColor": {"color": {"rgba": color_to_rgba(color)}}},
+    }
+
+    if properties:
+        czml_dict["properties"] = properties
+
+    return czml_dict
 
 
 class CesiumJavaScriptElementFactory(CesiumElementFactory):
