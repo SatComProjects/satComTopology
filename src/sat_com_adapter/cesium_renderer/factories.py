@@ -178,9 +178,9 @@ def create_polygon_on_earth_surface_czml(
         "description": description,
         "polygon": {
             "positions": {"cartographicDegrees": coordinate_list},
-        },
-        "material": {
-            "solidColor": {"color": {"rgba": color_to_rgba(color, alpha=0.75)}}
+            "material": {
+                "solidColor": {"color": {"rgba": color_to_rgba(color, alpha=0.33)}}
+            },
         },
     }
 
