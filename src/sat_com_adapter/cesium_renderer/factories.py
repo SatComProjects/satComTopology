@@ -165,7 +165,7 @@ def create_polygon_on_earth_surface_czml(
     coordinate_list: list,
     color="RED",
     description: str = str(),
-    name: str = "polygon",
+    name: str = "Polygon Area",
     properties=None,
 ) -> dict:
     coordinate_list_to_str = ", ".join(
@@ -174,12 +174,14 @@ def create_polygon_on_earth_surface_czml(
 
     czml_dict = {
         "id": name + "_" + coordinate_list_to_str.replace(",", "_").replace(" ", ""),
-        "name": f"Polygon area",
+        "name": name,
         "description": description,
         "polygon": {
-            "positions": {"cartographicDegrees": [coordinate_list_to_str]},
+            "positions": {"cartographicDegrees": coordinate_list},
         },
-        "material": {"solidColor": {"color": {"rgba": color_to_rgba(color)}}},
+        "material": {
+            "solidColor": {"color": {"rgba": color_to_rgba(color, alpha=0.75)}}
+        },
     }
 
     if properties:
