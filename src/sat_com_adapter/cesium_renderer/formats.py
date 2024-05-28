@@ -40,10 +40,15 @@ class CesiumFormat:
         link_unique_id = get_link_cesium_unique_identifier(
             source.topology_uniq_id, destination.topology_uniq_id
         )
+
+        if properties is None:
+            properties = {}
+
         properties.update(
             {
                 "source": source.topology_uniq_id,
                 "destination": destination.topology_uniq_id,
+                "type": link.type,
             }
         )
         created_link = self.cesium_element_creator.create_line(
@@ -58,10 +63,22 @@ class CesiumFormat:
         )
         return created_link
 
-    def create_satellite(self, satellite: Satellite):
+    def create_satellite(self, satellite: Satellite, properties: dict = None):
         display_color = "LIGHTSTEELBLUE" if satellite.is_ascending() else "KHAKI"
         cesium_uniq_identifier = get_topology_object_cesium_unique_identifier(
             satellite.topology_uniq_id
+        )
+
+        if properties is None:
+            properties = {}
+
+        properties.update(
+            {
+                "orbital_node": "ascending"
+                if satellite.is_ascending()
+                else "descending",
+                "type": satellite.type,
+            }
         )
 
         satellite_js = self.cesium_element_creator.create_sphere(
@@ -71,11 +88,14 @@ class CesiumFormat:
             color=display_color,
             radius=SATELLITE_RADIUS,
             description=SatelliteHtmlFormatter(satellite).format_to_html(),
+            properties=properties,
         )
 
         return satellite_js
 
-    def create_ground_station(self, ground_station: GroundStation):
+    def create_ground_station(
+        self, ground_station: GroundStation, properties: dict = None
+    ):
         display_color = "ORCHID"
 
         cesium_uniq_identifier = get_topology_object_cesium_unique_identifier(
@@ -87,6 +107,10 @@ class CesiumFormat:
             object_id=ground_station.object_id,
             topology_id=ground_station.topology_uniq_id,
         )
+        if properties is None:
+            properties = {}
+
+        properties.update({"type": ground_station.type})
 
         ground_station_js = self.cesium_element_creator.create_sphere(
             sphere_name=ground_station_name,
@@ -95,6 +119,7 @@ class CesiumFormat:
             color=display_color,
             radius=5000,
             description=GroundStationHtmlFormatter(ground_station).format_to_html(),
+            properties=properties,
         )
 
         return ground_station_js
