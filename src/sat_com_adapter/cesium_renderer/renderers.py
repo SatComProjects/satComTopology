@@ -1,6 +1,9 @@
 from typing import Any
 
-from sat_com_adapter.cesium_renderer.factories import get_full_html
+from sat_com_adapter.cesium_renderer.factories import (
+    get_full_html,
+    create_background_color,
+)
 from sat_com_adapter.cesium_renderer.formats import (
     CesiumFormat,
     CesiumJavaScriptFormat,
@@ -230,7 +233,7 @@ class CesiumRenderer:
         :return:
         """
         if isinstance(self.cesium_format, CesiumJavaScriptFormat):
-            return self.append_next(self.cesium_format.create_background_color())
+            return self.append_next(create_background_color())
 
         return self
 
