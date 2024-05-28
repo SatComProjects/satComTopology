@@ -199,9 +199,6 @@ class CesiumFormat:
 class CesiumJavaScriptFormat(CesiumFormat):
     cesium_element_creator = CesiumJavaScriptElementFactory()
 
-    def create_background_color(self, color: str = str()):
-        return create_background_color(color)
-
 
 class CesiumCZMLFormat(CesiumFormat):
     cesium_element_creator = CesiumCZMLElementFactory()
