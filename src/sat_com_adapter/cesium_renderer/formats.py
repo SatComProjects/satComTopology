@@ -74,9 +74,9 @@ class CesiumFormat:
 
         properties.update(
             {
-                "orbital_node": "ascending"
-                if satellite.is_ascending()
-                else "descending",
+                "orbital_node": (
+                    "ascending" if satellite.is_ascending() else "descending"
+                ),
                 "type": satellite.type,
             }
         )
