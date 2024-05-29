@@ -1,3 +1,4 @@
+import datetime
 from datetime import time
 
 from pyorbital.orbital import Orbital
@@ -17,7 +18,7 @@ class PyOrbitalModel(MovementModel):
 
     last_spatial_position: SpatialPosition = None
 
-    last_time_position_calculated: time = None
+    last_time_position_calculated: datetime.datetime = None
 
     def __init__(self, tle: dict, time_manager: TimeManager):
         super().__init__()
