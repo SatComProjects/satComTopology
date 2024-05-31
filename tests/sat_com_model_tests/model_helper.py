@@ -30,11 +30,23 @@ def create_fake_user_terminal_with_object_id(
 
 
 class FakeMovementModel(MovementModel):
+    def __init__(
+        self,
+        longitude: float = 100,
+        latitude: float = 50,
+        altitude: float = 400,
+        ascending: bool = False,
+    ):
+        self.longitude = longitude
+        self.latitude = latitude
+        self.altitude = altitude
+        self.ascending = ascending
+
     def is_ascending(self) -> bool:
-        return True
+        return self.ascending
 
     def get_longitude_latitude(self) -> SpatialPosition:
-        return SpatialPosition(100.0, 100.0, 100.0)
+        return SpatialPosition(self.longitude, self.latitude, self.altitude)
 
     def get_position_earth_general_inertial(self) -> (float, float, float):
         return 100.0, 100.0, 100.0

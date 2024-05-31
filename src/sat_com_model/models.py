@@ -38,12 +38,20 @@ class SpatialPoint:
     This is the lower element of the stack. Every element in the topology has a position
     """
 
-    spatial_position: SpatialPosition
+    _spatial_position: SpatialPosition
 
     simulation_context: "Simulation"
 
+    @property
+    def spatial_position(self):
+        return self._spatial_position
+
+    @spatial_position.setter
+    def spatial_position(self, value):
+        self._spatial_position = value
+
     def __init__(self):
-        self.spatial_position = SpatialPosition()
+        self._spatial_position = SpatialPosition()
 
     def __str__(self):
         return self.spatial_position.__str__()
@@ -180,10 +188,14 @@ class OrbitalObject(TopologyObject):
         :return:
         """
 
+        return self.spatial_position
+
+    @property
+    def spatial_position(self):
         return self.get_movement_model().get_longitude_latitude()
 
     def update(self):
-        self.spatial_position = self.get_coordinates()
+        super().spatial_position = self.get_coordinates()
 
 
 class Satellite(OrbitalObject):
@@ -333,6 +345,22 @@ class DistanceModel:
     def get_distance_km(
         self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
     ) -> float:
+        pass
+
+    def k_closest(
+        self,
+        reference_point: SpatialPoint,
+        target_points: list[SpatialPoint],
+        k: int = 1,
+    ) -> list[SpatialPoint]:
+        pass
+
+    def spatial_position_in_range(
+        self,
+        reference_point: SpatialPoint,
+        target_points: list[SpatialPoint],
+        range_in_km: int = 1000,
+    ) -> list[SpatialPoint]:
         pass
 
 
