@@ -56,11 +56,18 @@ class GeopyDistanceModel(DistanceModel):
                 (target_point, distance_between_satellite_and_ground_station)
             )
 
-        spatial_point_with_distance_in_km_sorted = sorted(
-            spatial_point_with_distance_in_km, key=lambda a: a[1], reverse=True
+        spatial_points_with_distance_in_km_sorted = sorted(
+            spatial_point_with_distance_in_km, key=lambda a: a[1], reverse=False
         )
 
-        return spatial_point_with_distance_in_km_sorted[:k]
+        k_closest_points_with_distance_in_km = (
+            spatial_points_with_distance_in_km_sorted[:k]
+        )
+
+        return [
+            k_closest_point_with_distance_in_km[0]
+            for k_closest_point_with_distance_in_km in k_closest_points_with_distance_in_km
+        ]
 
     def spatial_position_in_range(
         self,
@@ -218,7 +225,9 @@ class SkLearningDistanceModel(DistanceModel):
             k=k,
         )
 
-        query_result = np.array(query_position_longitude_latitude)[indices.astype(int)]
+        query_result = np.array(target_latitudes_longitudes)[
+            indices.flatten().astype(int)
+        ]
 
         spatial_point_result = list(
             filter(

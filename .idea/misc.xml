@@ -2,6 +2,7 @@
 <project version="4">
   <component name="Black">
     <option name="enabledOnReformat" value="true" />
+    <option name="enabledOnSave" value="true" />
     <option name="sdkName" value="Python 3.10 (satComTopology)" />
   </component>
   <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10 (satComTopology)" project-jdk-type="Python SDK" />

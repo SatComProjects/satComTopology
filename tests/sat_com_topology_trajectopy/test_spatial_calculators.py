@@ -1,6 +1,6 @@
 import pytest
 
-from sat_com_model.models import GroundStation, Satellite
+from sat_com_model.models import GroundStation, Satellite, DistanceModel
 from sat_com_trajectopy.distance_models import (
     GeopyDistanceModel,
     SkLearningDistanceModel,
@@ -37,7 +37,7 @@ def assert_ground_station_are_correctly_linked_with_both_spatial_calculators(
         assert result in default_results
 
 
-class TestSkLearningSpatialCalculator:
+class TestDistanceModel:
     @pytest.fixture
     def satellites(self) -> list[Satellite]:
         satellites = []
@@ -64,19 +64,112 @@ class TestSkLearningSpatialCalculator:
 
         return ground_stations
 
+    @pytest.fixture
+    def paris_ground_station(self):
+        ground_station = create_fake_ground_station_with_object_id(75000)
+        ground_station.set_position(latitude=48.85341, longitude=2.3488, altitude=0)
+        return ground_station
+
+    @pytest.fixture
+    def satellite_close_to_paris(self):
+        satellite = create_fake_satellite_with_object_id(983)
+        satellite.set_movement_model(
+            FakeMovementModel(longitude=2.3488, latitude=48.81, altitude=400)
+        )
+        return satellite
+
+    @pytest.fixture
+    def satellite_far_from_paris(self):
+        satellite = create_fake_satellite_with_object_id(999)
+        satellite.set_movement_model(
+            FakeMovementModel(longitude=95, latitude=-45, altitude=400)
+        )
+        return satellite
+
+    @pytest.fixture
+    def second_satellite_close_to_paris(self):
+        satellite = create_fake_satellite_with_object_id(912)
+        satellite.set_movement_model(
+            FakeMovementModel(longitude=3, latitude=49, altitude=400)
+        )
+        return satellite
+
+    @pytest.mark.parametrize(
+        "distance_model_to_test", (SkLearningDistanceModel, GeopyDistanceModel)
+    )
     def test_that_in_range_satellite_match_with_get_distance_model(
-        self, ground_stations: list[GroundStation], satellites: list[Satellite]
+        self,
+        ground_stations: list[GroundStation],
+        satellites: list[Satellite],
+        distance_model_to_test,
     ):
-        sklearn_distance_model = SkLearningDistanceModel()
+        distance_model = distance_model_to_test()
+
         for ground_station in ground_stations:
-            for i in range(10):
+            for i in range(5):
                 distance_range = i * 100
-                satellites_in_range = sklearn_distance_model.spatial_position_in_range(
+                satellites_in_range = distance_model.spatial_position_in_range(
                     ground_station, satellites, distance_range
                 )
                 for satellite in satellites_in_range:
-                    distance_in_km = sklearn_distance_model.get_distance_km(
+                    distance_in_km = distance_model.get_distance_km(
                         ground_station.spatial_position, satellite.spatial_position
                     )
 
                     assert distance_in_km <= distance_range
+
+    @pytest.mark.parametrize(
+        "distance_model_to_test", (SkLearningDistanceModel, GeopyDistanceModel)
+    )
+    def test_distance_model_returns_the_closest_satellite(
+        self,
+        paris_ground_station: GroundStation,
+        satellite_close_to_paris: Satellite,
+        satellite_far_from_paris: Satellite,
+        distance_model_to_test,
+    ):
+        distance_model = distance_model_to_test()
+        closest_satellites = distance_model.k_closest(
+            paris_ground_station,
+            [satellite_far_from_paris, satellite_close_to_paris],
+            k=1,
+        )
+        closest_satellite = closest_satellites[0]
+        assert len(closest_satellites) == 1
+
+        assert isinstance(closest_satellite, Satellite)
+        assert closest_satellite.object_id == satellite_close_to_paris.object_id
+
+    @pytest.mark.parametrize(
+        "distance_model_to_test", (SkLearningDistanceModel, GeopyDistanceModel)
+    )
+    def test_distance_model_returns_multiple_closest_satellite(
+        self,
+        paris_ground_station: GroundStation,
+        satellite_close_to_paris: Satellite,
+        satellite_far_from_paris: Satellite,
+        second_satellite_close_to_paris: Satellite,
+        distance_model_to_test,
+    ):
+        distance_model = distance_model_to_test()
+        closest_satellites = distance_model.k_closest(
+            paris_ground_station,
+            [
+                satellite_far_from_paris,
+                satellite_close_to_paris,
+                second_satellite_close_to_paris,
+            ],
+            k=2,
+        )
+        first_closest_satellite = closest_satellites[0]
+        second_closest_satellite = closest_satellites[1]
+        assert len(closest_satellites) == 2
+
+        assert isinstance(first_closest_satellite, Satellite)
+        assert first_closest_satellite.object_id == satellite_close_to_paris.object_id
+
+        assert isinstance(second_closest_satellite, Satellite)
+        assert (
+            second_closest_satellite.object_id
+            == second_satellite_close_to_paris.object_id
+        )
