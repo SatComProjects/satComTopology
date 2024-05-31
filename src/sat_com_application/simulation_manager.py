@@ -333,23 +333,13 @@ class SimulationManager:
         else:
             satellites_to_filter = self.simulation.satellites
 
-        closest_satellite = None
-        best_distance = None
-
-        for satellite in satellites_to_filter:
-            distance_in_km = self.get_distance_between_two_topology_object_km(
-                ground_station, satellite
-            )
-
-            if best_distance is None:
-                best_distance = distance_in_km
-                closest_satellite = satellite
-            else:
-                if best_distance > distance_in_km:
-                    best_distance = distance_in_km
-                    closest_satellite = satellite
-
-        return closest_satellite
+        closest_satellite = self.simulation.get_distance_model().k_closest(
+            ground_station, satellites_to_filter, 1
+        )[0]
+        if isinstance(closest_satellite, Satellite):
+            return closest_satellite
+        else:
+            raise TopologyObjectNotFoundError("Satellite not found")
 
     def get_ground_station_links_connected_to_a_ground_station(
         self, ground_station_id: int
