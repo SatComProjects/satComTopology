@@ -11,10 +11,6 @@ from sat_com_model.models import (
     GroundStationLink,
     UserTerminalLink,
 )
-from sat_com_trajectopy.spatial_calculators import (
-    SkLearningSpatialCalculator,
-    SpatialCalculator,
-)
 
 
 def get_object_by_object_id(
@@ -74,15 +70,9 @@ class SimulationManager:
 
     time_manager: SimulationTimeManager
 
-    spatial_calculator: SpatialCalculator()
-
     def __init__(self, simulation: Simulation):
         self.simulation = simulation
         self.configuration = dict()
-        self.spatial_calculator = SkLearningSpatialCalculator()
-
-    def set_spatial_calculator(self, spatial_calculator: SpatialCalculator):
-        self.spatial_calculator = spatial_calculator
 
     def set_time_manager(self, time_manager: SimulationTimeManager):
         self.time_manager = time_manager
@@ -505,8 +495,10 @@ class SimulationManager:
         :return:
         """
 
-        satellites_in_range = self.spatial_calculator.spatial_position_in_range(
-            ground_station, self.get_satellites()
+        satellites_in_range = (
+            self.simulation.get_distance_model().spatial_position_in_range(
+                ground_station, self.get_satellites()
+            )
         )
         for satellite in satellites_in_range:
             if isinstance(satellite, Satellite):
