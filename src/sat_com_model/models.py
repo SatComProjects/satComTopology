@@ -248,13 +248,23 @@ class UserTerminal(GroundObject):
 
 class Link:
     """
-    This is the communication Link
-    Todo: maybe we should directly connect interface here
+    This is the communication Link. The link connects two Topological object.
+    Links are considered as bidirectional for this first version.
     """
 
     type: str
     source: TopologyObject = None
     destination: TopologyObject = None
+
+    source_buffer_length: int
+    destination_buffer_length: int
+
+    link_maximum_capacity: int
+    link_used_capacity: int
+
+    @property
+    def residual_capacity(self):
+        return self.link_maximum_capacity - self.link_used_capacity
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         if source == destination:
