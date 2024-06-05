@@ -8,3 +8,7 @@ movement_model: pyorbital
 distance_model: geopy
 disable_ground_station_link_preload: False
 adjacent_inter_satellite_shifting: 0
+
+network_properties:
+  inter_satellite_link_capacity_in_mega_octets_second: 5000
+  buffer_length_max_in_mega_octets: 20000

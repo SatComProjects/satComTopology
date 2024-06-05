@@ -259,6 +259,8 @@ class Link:
     source_buffer_length: int
     destination_buffer_length: int
 
+    buffer_length: int
+
     link_maximum_capacity: int
     link_used_capacity: int
 
