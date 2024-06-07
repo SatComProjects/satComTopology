@@ -195,7 +195,7 @@ class OrbitalObject(TopologyObject):
         return self.get_movement_model().get_longitude_latitude()
 
     def update(self):
-        super().spatial_position = self.get_coordinates()
+        self.get_coordinates()
 
 
 class Satellite(OrbitalObject):
