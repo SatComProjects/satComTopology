@@ -74,6 +74,8 @@ def get_potential_user_min_and_max_for_urban_area(
 def get_average_potential_user_for_group_of_area(
     urban_areas: [], local_hour: datetime.time
 ):
+    if len(urban_areas) == 0:
+        return 0
     total_potential_minimum_user = 0
     total_potential_maximum_user = 0
     for urban_area in urban_areas:
