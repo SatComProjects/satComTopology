@@ -9,7 +9,7 @@ from sklearn.neighbors import BallTree
 
 
 with importlib.resources.open_text(
-    "src.sat_com_traffic.earth_internet_user_generator.data",
+    "sat_com_traffic.earth_internet_user_generator.data",
     "world_data.json",
 ) as file:
     world_data_urban_area = json.load(file)
