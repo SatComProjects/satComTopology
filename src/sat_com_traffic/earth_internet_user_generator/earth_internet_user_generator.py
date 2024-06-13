@@ -1,4 +1,5 @@
 import datetime
+import importlib.resources
 import json
 import os
 import random
@@ -6,11 +7,12 @@ import random
 import numpy as np
 from sklearn.neighbors import BallTree
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
 
-json_path = os.path.join(current_dir, "../data/world_data.json")
-
-world_data_urban_area = json.load(open(json_path))
+with importlib.resources.open_text(
+    "sat_com_topology.sat_com_traffic.earth_internet_user_generator.data",
+    "world_data.json",
+) as file:
+    world_data_urban_area = json.load(file)
 
 development_modifier = {1: 0.40, 2: 0.60, 3: 0.80}
 
