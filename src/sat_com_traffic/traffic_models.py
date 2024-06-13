@@ -68,6 +68,7 @@ class GeographicalBasedTrafficModel(TrafficModel):
         return draws
 
     def get_set_of_random_k_pairs_of_satellite(self, k: int):
+        self.get_amount_of_users_per_satellite()
         sources = self.get_k_random_satellite_based_on_users_probability(k)
         destinations = self.get_k_random_satellite_based_on_users_probability(k)
 
