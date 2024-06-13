@@ -103,5 +103,7 @@ def get_random_user_amount_based_on_population_model(
     min_user, max_user = get_average_potential_user_for_group_of_area(
         urban_areas, local_hour
     )
+    if max_user < min_user:
+        return random.randint(int(max_user), int(min_user))
 
     return random.randint(int(min_user), int(max_user))
