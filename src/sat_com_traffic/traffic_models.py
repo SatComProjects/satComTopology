@@ -28,8 +28,15 @@ daily_multiplier = {
 
 class GeographicalBasedTrafficModel(TrafficModel):
     simulation_manager: SimulationManager
+    # Todo: Use property for satellite and user
 
     satellite_and_users: set
+
+    def get_satellite_and_users(self):
+        if self.satellite_and_users is None:
+            self.get_amount_of_users_per_satellite()
+
+        return self.satellite_and_users
 
     def get_amount_of_users_per_satellite(self) -> [(Satellite, int)]:
         self.satellite_and_users = set()
@@ -68,7 +75,6 @@ class GeographicalBasedTrafficModel(TrafficModel):
         return draws
 
     def get_set_of_random_k_pairs_of_satellite(self, k: int):
-        self.get_amount_of_users_per_satellite()
         sources = self.get_k_random_satellite_based_on_users_probability(k)
         destinations = self.get_k_random_satellite_based_on_users_probability(k)
 
