@@ -70,7 +70,7 @@ class GeographicalBasedTrafficModel(TrafficModel):
             ).astimezone(local_tz)
 
             min_user, max_user = get_average_potential_user_for_group_of_area(
-                satellites_urbans_areas, local_date.time()
+                urbans_areas, local_date.time()
             )
             amount_of_user = get_random_amount_of_user_between_bounds(
                 min_user, max_user
