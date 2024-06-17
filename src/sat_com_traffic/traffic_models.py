@@ -58,8 +58,11 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
         for satellite, urbans_areas in zip(satellites, satellites_urbans_areas):
             tf = TimezoneFinder()
+
+            satellite_position = satellite.get_coordinates()
+
             time_zone_str = tf.timezone_at(
-                lng=satellite.longitude, lat=satellite.latitude
+                lng=satellite_position.longitude, lat=satellite_position.latitude
             )
             local_tz = timezone(time_zone_str)
             local_date = utc.localize(
