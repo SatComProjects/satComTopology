@@ -8,6 +8,9 @@ from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import Link, Satellite
 from sat_com_traffic.earth_internet_user_generator.earth_internet_user_generator import (
     get_random_user_amount_based_on_population_model,
+    get_urban_areas_around_positions,
+    get_average_potential_user_for_group_of_area,
+    get_random_amount_of_user_between_bounds,
 )
 
 
@@ -34,35 +37,43 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
     def get_satellite_and_users(self):
         if self.satellite_and_users is None:
-            self.get_amount_of_users_per_satellite()
+            self.calculate_amount_of_potential_user_per_satellite()
 
         return self.satellite_and_users
 
-    def get_amount_of_users_per_satellite(self) -> [(Satellite, int)]:
+    def calculate_amount_of_potential_user_per_satellite(self) -> [(Satellite, int)]:
         self.satellite_and_users = set()
-        for satellite in self.simulation_manager.get_satellites():
-            satellite_coordinate = satellite.get_coordinates()
+        satellites = self.simulation_manager.get_satellites()
 
+        satellite_positions = [
+            (
+                satellite.get_coordinates().latitude,
+                satellite.get_coordinates().longitude,
+            )
+            for satellite in satellites
+        ]
+
+        satellites_urbans_areas = get_urban_areas_around_positions(
+            satellite_positions, 100
+        )
+
+        for satellite, urbans_areas in zip(satellites, satellites_urbans_areas):
             tf = TimezoneFinder()
             time_zone_str = tf.timezone_at(
-                lng=satellite_coordinate.longitude, lat=satellite_coordinate.latitude
+                lng=satellite.longitude, lat=satellite.latitude
             )
             local_tz = timezone(time_zone_str)
             local_date = utc.localize(
                 self.simulation_manager.time_manager.current_time
             ).astimezone(local_tz)
 
-            satellite_local_date = local_date
-
-            random_amount_of_population = (
-                get_random_user_amount_based_on_population_model(
-                    satellite_coordinate.longitude,
-                    satellite_coordinate.latitude,
-                    100,
-                    satellite_local_date.time(),
-                )
+            min_user, max_user = get_average_potential_user_for_group_of_area(
+                satellites_urbans_areas, local_date.time()
             )
-            self.satellite_and_users.add((satellite, random_amount_of_population))
+            amount_of_user = get_random_amount_of_user_between_bounds(
+                min_user, max_user
+            )
+            self.satellite_and_users.add((satellite, amount_of_user))
 
     def get_k_random_satellite_based_on_users_probability(
         self, k: int

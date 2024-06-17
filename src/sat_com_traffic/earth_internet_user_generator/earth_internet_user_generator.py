@@ -31,7 +31,7 @@ daily_multiplier = {
 }
 
 
-def get_urban_area_around_position(position: (float, float), distance_max_km: int):
+def get_urban_areas_around_positions(positions: [(float, float)], distance_max_km: int):
     center_of_urban_area = [
         (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"])
         for urban_area in world_data_urban_area
@@ -39,24 +39,28 @@ def get_urban_area_around_position(position: (float, float), distance_max_km: in
 
     center_of_urban_area = np.array(center_of_urban_area)
 
-    position = np.array(position)
+    positions = np.array(positions)
 
-    position_rad = np.radians([position])
+    positions_rad = np.radians(positions)
 
     distance_max = distance_max_km / 6371
 
     tree = BallTree(np.deg2rad(center_of_urban_area), metric="haversine")
-    indices = tree.query_radius(position_rad, r=distance_max, return_distance=False)
+    indices = tree.query_radius(positions_rad, r=distance_max, return_distance=False)
 
-    nearest_urban_area_positions = np.array(center_of_urban_area)[indices[0]]
-
-    return list(
-        filter(
-            lambda urban_area: (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"])
-            in nearest_urban_area_positions,
-            world_data_urban_area,
+    results = []
+    for i, position_indices in enumerate(indices):
+        nearest_urban_area_positions = np.array(center_of_urban_area)[position_indices]
+        nearest_urban_areas = list(
+            filter(
+                lambda urban_area: (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"])
+                in nearest_urban_area_positions,
+                world_data_urban_area,
+            )
         )
-    )
+        results.append(nearest_urban_areas)
+
+    return results
 
 
 def get_potential_user_min_and_max_for_urban_area(
@@ -101,13 +105,7 @@ def get_average_potential_user_for_group_of_area(
     return total_potential_user_minimum_mean, total_potential_user_maximum_mean
 
 
-def get_random_user_amount_based_on_population_model(
-    longitude: float, latitude: float, range_in_km: int, local_hour: datetime.time
-) -> int:
-    urban_areas = get_urban_area_around_position((latitude, longitude), range_in_km)
-    min_user, max_user = get_average_potential_user_for_group_of_area(
-        urban_areas, local_hour
-    )
+def get_random_amount_of_user_between_bounds(min_user: int, max_user: int) -> float:
     if max_user < min_user:
         return random.randint(int(max_user), int(min_user))
 
