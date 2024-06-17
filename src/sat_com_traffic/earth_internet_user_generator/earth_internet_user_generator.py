@@ -13,6 +13,11 @@ with importlib.resources.open_text(
     "world_data.json",
 ) as file:
     world_data_urban_area = json.load(file)
+    world_data_urban_area = list(
+        filter(
+            lambda urban_area: urban_area["POPULATION"] > 100000, world_data_urban_area
+        )
+    )
 
 development_modifier = {1: 0.40, 2: 0.60, 3: 0.80}
 
