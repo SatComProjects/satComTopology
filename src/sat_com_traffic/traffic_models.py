@@ -7,7 +7,6 @@ from timezonefinder import TimezoneFinder
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import Link, Satellite
 from sat_com_traffic.earth_internet_user_generator.earth_internet_user_generator import (
-    get_random_user_amount_based_on_population_model,
     get_urban_areas_around_positions,
     get_average_potential_user_for_group_of_area,
     get_random_amount_of_user_between_bounds,
