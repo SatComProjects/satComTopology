@@ -217,16 +217,16 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
             "\n"
             + "    viewer.entities.add({\n"
             + f'      name: "Topology object: {sphere_name}",\n'
-            + f'      id: "{cesium_uniq_identifier}"\n'
+            + f'      id: "{cesium_uniq_identifier}",\n'
             + f"      position: Cesium.Cartesian3.fromDegrees({position.longitude},{position.latitude}, {position.altitude * 1000}),\n"
             + f'      description: "{description}",\n'
-            + f'      properties: "{properties if properties is not None else str(dict())}",\n'
+            + f"      properties: {properties if properties is not None else str(dict())},\n"
             + "      ellipsoid: {\n"
             + f"        radii: new Cesium.Cartesian3({radius}, {radius},{radius}),\n"
             + f"        material: Cesium.Color.{color}.withAlpha(0.75),\n"
-            + "        outline: true,\n"
+            + "         outline: true,\n"
             + f"        outlineColor: Cesium.Color.{color},\n"
-            + "          },\n"
+            + "         },\n"
             + "    });\n"
             + "    "
         )
@@ -260,7 +260,7 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
             + f'        name: "Link from {a_name} to {b_name}",\n'
             + f'        id: "{cesium_uniq_identifier}"\n'
             + f'        description: "{description}",\n'
-            + f'        properties: "{properties if properties is not None else str(dict())}",\n'
+            + f"        properties: {properties if properties is not None else str(dict())},\n"
             + "         polyline: {\n"
             + "         positions: Cesium.Cartesian3.fromDegreesArrayHeights([\n"
             + f"              {position_a.longitude},\n"
