@@ -258,7 +258,7 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
             "\n"
             + "       viewer.entities.add({\n"
             + f'        name: "Link from {a_name} to {b_name}",\n'
-            + f'        id: "{cesium_uniq_identifier}"\n'
+            + f'        id: "{cesium_uniq_identifier}",\n'
             + f'        description: "{description}",\n'
             + f"        properties: {properties if properties is not None else str(dict())},\n"
             + "         polyline: {\n"
