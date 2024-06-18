@@ -283,12 +283,15 @@ class Link:
             )
         )
         total_used_capacity = 0
-        total_used_capacity += (flow.size for flow in concerned_flows)
+        for flow in concerned_flows:
+            total_used_capacity += flow.size
+
         return total_used_capacity
 
     def total_capacity_between_hops_bidirectional(self) -> float:
         total_used_capacity = 0
-        total_used_capacity += (flow.size for flow in self.flows)
+        for flow in self.flows:
+            total_used_capacity += flow.size
         return total_used_capacity
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
