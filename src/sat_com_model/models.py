@@ -246,6 +246,18 @@ class UserTerminal(GroundObject):
     type = "UserTerminal"
 
 
+class Flow:
+    id: int
+
+    source: TopologyObject
+    destination: TopologyObject
+
+    previous_hop: TopologyObject
+    next_hop: TopologyObject
+
+    size: int = 1
+
+
 class Link:
     """
     This is the communication Link. The link connects two Topological object.
@@ -256,17 +268,28 @@ class Link:
     source: TopologyObject = None
     destination: TopologyObject = None
 
-    source_buffer_length: int
-    destination_buffer_length: int
+    flows: list = [Flow]
 
-    buffer_length: int
+    link_maximum_capacity: int = 100
 
-    link_maximum_capacity: int
-    link_used_capacity: int
+    def get_used_capacity_between_hops_unidirectional(
+        self, previous_hop: TopologyObject, next_hop: TopologyObject
+    ) -> float:
+        concerned_flows = list(
+            filter(
+                lambda flow: flow.previous_hop == previous_hop
+                and flow.next_hop == next_hop,
+                self.flows,
+            )
+        )
+        total_used_capacity = 0
+        total_used_capacity += (flow.size for flow in concerned_flows)
+        return total_used_capacity
 
-    @property
-    def residual_capacity(self):
-        return self.link_maximum_capacity - self.link_used_capacity
+    def total_capacity_between_hops_bidirectional(self) -> float:
+        total_used_capacity = 0
+        total_used_capacity += (flow.size for flow in self.flows)
+        return total_used_capacity
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         if source == destination:

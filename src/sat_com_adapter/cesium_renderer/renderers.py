@@ -186,11 +186,12 @@ class CesiumRenderer:
         return self
 
     def add_route_from_link(
-        self, link: Link, underlined: bool = False
+        self, link: Link, underlined: bool = False, color: str = None
     ) -> "CesiumRenderer":
         """
         Underline a link based on the link given in parameter
         :param link: Link instance to display
+        :param color:  Underlined color of the link
         :param underlined: if true, a new color will be set for the link. If not the link will keep its native color
         :return: current instance of CesiumRenderer
         """
@@ -236,6 +237,21 @@ class CesiumRenderer:
             return self.append_next(create_background_color())
 
         return self
+
+    def add_inter_satellites_flows(self) -> "CesiumRenderer":
+        for (
+            inter_satellite_link
+        ) in self.simulation_manager.get_inter_satellites_links():
+            self.append_next(
+                self.cesium_format.create_inter_satellite_link(inter_satellite_link)
+            )
+        return self
+
+    def add_flows(self) -> "CesiumRenderer":
+        """
+        Add network traffic to the render. This will render independent traffic without links.
+        :return:
+        """
 
     def render(self):
         """

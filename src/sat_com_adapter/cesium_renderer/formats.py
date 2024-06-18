@@ -15,6 +15,7 @@ from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import (
 from sat_com_adapter.cesium_renderer.utils import (
     get_topology_object_cesium_unique_identifier,
     get_link_cesium_unique_identifier,
+    level_from_green_to_red,
 )
 from sat_com_model.models import (
     Link,
@@ -172,6 +173,44 @@ class CesiumFormat:
         return self.create_link(
             link=user_terminal_link,
             color=display_color,
+            description=html_description,
+            properties={},
+        )
+
+    def create_inter_satellite_link_flow(
+        self, inter_satellite_link: InterSatelliteLink
+    ):
+        color_level = (
+            inter_satellite_link.total_capacity_between_hops_bidirectional()
+            / inter_satellite_link.link_maximum_capacity
+            * 2
+        ) * 100
+
+        color = level_from_green_to_red(int(color_level))
+
+        html_description = InterSatelliteLinkHtmlFormatter(
+            inter_satellite_link
+        ).format_to_html()
+        html_description += "{source} to {destination}: {capacity}/{max_capacity}\n".format(
+            source=inter_satellite_link.source.topology_uniq_id,
+            destination=inter_satellite_link.destination.topology_uniq_id,
+            capacity=inter_satellite_link.get_used_capacity_between_hops_unidirectional(
+                inter_satellite_link.source, inter_satellite_link.destination
+            ),
+            max_capacity=inter_satellite_link.link_maximum_capacity,
+        )
+
+        html_description += "{source} to {destination}: {capacity}/{max_capacity}\n".format(
+            source=inter_satellite_link.destination.topology_uniq_id,
+            destination=inter_satellite_link.source.topology_uniq_id,
+            capacity=inter_satellite_link.get_used_capacity_between_hops_unidirectional(
+                inter_satellite_link.destination, inter_satellite_link.source
+            ),
+            max_capacity=inter_satellite_link.link_maximum_capacity,
+        )
+        return self.create_link(
+            link=inter_satellite_link,
+            color="COLOR_GREEN_TO_RED_" + color,
             description=html_description,
             properties={},
         )
