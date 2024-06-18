@@ -36,6 +36,9 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
     center_urban_minimum_population: int = 100000
 
+    def __init__(self):
+        self.tf = TimezoneFinder()
+
     def get_satellite_and_users(self):
         if self.satellite_and_users is None:
             self.calculate_amount_of_potential_user_per_satellite()
@@ -59,11 +62,9 @@ class GeographicalBasedTrafficModel(TrafficModel):
         )
 
         for satellite, urbans_areas in zip(satellites, satellites_urbans_areas):
-            tf = TimezoneFinder()
-
             satellite_position = satellite.get_coordinates()
 
-            time_zone_str = tf.timezone_at(
+            time_zone_str = self.tf.timezone_at(
                 lng=satellite_position.longitude, lat=satellite_position.latitude
             )
             local_tz = timezone(time_zone_str)
