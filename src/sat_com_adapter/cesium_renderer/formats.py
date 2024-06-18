@@ -209,7 +209,7 @@ class CesiumFormat:
         )
         return self.create_link(
             link=inter_satellite_link,
-            color="COLOR_GREEN_TO_RED_" + color,
+            color="COLOR_GREEN_TO_RED_" + str(int(color_level)),
             description=html_description,
             properties={},
         )
