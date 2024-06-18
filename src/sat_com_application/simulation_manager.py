@@ -1,3 +1,5 @@
+import uuid
+
 from sat_com_application.time_managers import SimulationTimeManager
 from sat_com_model.exceptions import TopologyObjectNotFoundError, LinkNotFoundError
 from sat_com_model.models import (
@@ -10,6 +12,7 @@ from sat_com_model.models import (
     InterSatelliteLink,
     GroundStationLink,
     UserTerminalLink,
+    Flow,
 )
 
 
@@ -81,6 +84,17 @@ class SimulationManager:
     def update(self):
         self.simulation.update()
         self.update_ground_station_links()
+
+    def append_flows(self, list_of_flows: list[list]) -> set[Link]:
+        """
+        Append to the Links a Flow object for every flow generated
+        :param list_of_flows: List of flows, a flow is a list of topology_uniq_id
+        :return: The links that contains the added flow
+        """
+        links = set()
+        for topology_paths in list_of_flows:
+            links.update(self.reconstruct_path_to_and_add_flow(topology_paths))
+        return links
 
     def add_satellite(self, satellite: Satellite):
         """
@@ -446,6 +460,47 @@ class SimulationManager:
                 return link
 
         raise LinkNotFoundError()
+
+    def reconstruct_path_to_and_add_flow(
+        self, topology_object_id_list: list[int]
+    ) -> list[Link]:
+        """
+        Retrieve every link connecting object in the list. Can be used to reconstruct a routing path
+        :param topology_object_id_list: List of topology object ID
+        :return: List of Link objects
+        """
+
+        flow_id = uuid.uuid4()
+
+        topology_object_id_source = topology_object_id_list[0]
+        topology_object_id_destination = topology_object_id_list[-1]
+
+        topology_objects = [
+            self.get_topology_object_from_uniq_id(object_id)
+            for object_id in topology_object_id_list
+        ]
+
+        list_link_flow = []
+
+        for i in range(len(topology_objects) - 1):
+            input_source = topology_objects[i]
+            output_destination = topology_objects[i + 1]
+
+            connected_link = self.get_link_connecting_topology_objects(
+                input_source, output_destination
+            )
+            flow = Flow()
+            flow.id = flow_id
+            flow.next_hop = output_destination
+            flow.previous_hop = input_source
+            flow.source = topology_object_id_source
+            flow.destination = topology_object_id_destination
+
+            connected_link.flows.append(flow)
+
+            list_link_flow.append(connected_link)
+
+        return list_link_flow
 
     def reconstruct_path(self, topology_object_id_list: list[int]) -> list[Link]:
         """
