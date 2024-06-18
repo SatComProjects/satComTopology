@@ -7,7 +7,6 @@ import random
 import numpy as np
 from sklearn.neighbors import BallTree
 
-
 with importlib.resources.open_text(
     "sat_com_traffic.earth_internet_user_generator.data",
     "world_data.json",
@@ -26,6 +25,36 @@ daily_multiplier = {
 }
 
 
+def map_ball_tree_result_with_urban_area(indices, urbans_area):
+    indices_with_its_urban_area_object = []
+
+    for i, position_indices in enumerate(indices):
+        nearest_urban_area_positions = np.array(urbans_area)[position_indices]
+        nearest_urban_areas = list(
+            filter(
+                lambda urban_area: (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"])
+                in nearest_urban_area_positions,
+                urbans_area,
+            )
+        )
+        indices_with_its_urban_area_object.append(nearest_urban_areas)
+
+    return indices_with_its_urban_area_object
+
+
+def execute_balltree_query(
+    center_points_of_urban_areas: [], input_to_query_positions: [], distance_max_km: int
+) -> []:
+    positions_rad = np.radians(input_to_query_positions)
+
+    distance_max = distance_max_km / 6371
+
+    tree = BallTree(np.deg2rad(center_points_of_urban_areas), metric="haversine")
+    indices = tree.query_radius(positions_rad, r=distance_max, return_distance=False)
+
+    return indices
+
+
 def get_urban_areas_around_positions(
     positions: [(float, float)],
     distance_max_km: int,
@@ -38,33 +67,22 @@ def get_urban_areas_around_positions(
         )
     )
 
-    center_of_urban_area = [
+    center_points_of_urban_areas = [
         (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"])
         for urban_area in world_data_urban_area_filtered
     ]
 
-    center_of_urban_area = np.array(center_of_urban_area)
+    center_points_of_urban_areas = np.array(center_points_of_urban_areas)
 
     positions = np.array(positions)
 
-    positions_rad = np.radians(positions)
+    indices = execute_balltree_query(
+        center_points_of_urban_areas, positions, distance_max_km
+    )
 
-    distance_max = distance_max_km / 6371
-
-    tree = BallTree(np.deg2rad(center_of_urban_area), metric="haversine")
-    indices = tree.query_radius(positions_rad, r=distance_max, return_distance=False)
-
-    results = []
-    for i, position_indices in enumerate(indices):
-        nearest_urban_area_positions = np.array(center_of_urban_area)[position_indices]
-        nearest_urban_areas = list(
-            filter(
-                lambda urban_area: (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"])
-                in nearest_urban_area_positions,
-                world_data_urban_area_filtered,
-            )
-        )
-        results.append(nearest_urban_areas)
+    results = map_ball_tree_result_with_urban_area(
+        indices, world_data_urban_area_filtered
+    )
 
     return results
 
