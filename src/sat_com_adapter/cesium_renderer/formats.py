@@ -185,12 +185,10 @@ class CesiumFormat:
             / (inter_satellite_link.link_maximum_capacity * 2)
         ) * 100
 
-        color = level_from_green_to_red(int(color_level))
-
         html_description = InterSatelliteLinkHtmlFormatter(
             inter_satellite_link
         ).format_to_html()
-        html_description += "{source} to {destination}: {capacity}/{max_capacity}\n".format(
+        html_description += "{source} to {destination}: {capacity}/{max_capacity}<br>".format(
             source=inter_satellite_link.source.topology_uniq_id,
             destination=inter_satellite_link.destination.topology_uniq_id,
             capacity=inter_satellite_link.get_used_capacity_between_hops_unidirectional(
@@ -199,7 +197,7 @@ class CesiumFormat:
             max_capacity=inter_satellite_link.link_maximum_capacity,
         )
 
-        html_description += "{source} to {destination}: {capacity}/{max_capacity}\n".format(
+        html_description += "{source} to {destination}: {capacity}/{max_capacity}<br>".format(
             source=inter_satellite_link.destination.topology_uniq_id,
             destination=inter_satellite_link.source.topology_uniq_id,
             capacity=inter_satellite_link.get_used_capacity_between_hops_unidirectional(
