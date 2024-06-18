@@ -34,6 +34,8 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
     satellite_and_users: set
 
+    center_urban_minimum_population: int = 100000
+
     def get_satellite_and_users(self):
         if self.satellite_and_users is None:
             self.calculate_amount_of_potential_user_per_satellite()
@@ -53,7 +55,7 @@ class GeographicalBasedTrafficModel(TrafficModel):
         ]
 
         satellites_urbans_areas = get_urban_areas_around_positions(
-            satellite_positions, 100
+            satellite_positions, 100, self.center_urban_minimum_population
         )
 
         for satellite, urbans_areas in zip(satellites, satellites_urbans_areas):
