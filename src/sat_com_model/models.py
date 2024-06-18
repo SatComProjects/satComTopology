@@ -268,7 +268,7 @@ class Link:
     source: TopologyObject = None
     destination: TopologyObject = None
 
-    flows: list = [Flow]
+    flows: list[Flow] = []
 
     link_maximum_capacity: int = 100
 
