@@ -61,7 +61,7 @@ def get_urban_areas_around_positions(
             filter(
                 lambda urban_area: (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"])
                 in nearest_urban_area_positions,
-                world_data_urban_area,
+                world_data_urban_area_filtered,
             )
         )
         results.append(nearest_urban_areas)
