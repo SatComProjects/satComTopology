@@ -18,8 +18,7 @@ def level_from_green_to_red(level: int):
     :param level:
     :return:
     """
-    if level < 0 or level >= 100:
-        raise ValueError(f"Color {level} is out of range")
+
     colors = [
         [255, 255, 255, 255],
         [255, 252, 252, 255],
@@ -122,6 +121,12 @@ def level_from_green_to_red(level: int):
         [255, 2, 2, 255],
         [255, 0, 0, 255],
     ]
+    if level < 0:
+        return colors[0]
+
+    if level >= 100:
+        return colors[99]
+
     return colors[level]
 
 

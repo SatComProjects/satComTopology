@@ -182,8 +182,7 @@ class CesiumFormat:
     ):
         color_level = (
             inter_satellite_link.total_capacity_between_hops_bidirectional()
-            / inter_satellite_link.link_maximum_capacity
-            * 2
+            / (inter_satellite_link.link_maximum_capacity * 2)
         ) * 100
 
         color = level_from_green_to_red(int(color_level))
