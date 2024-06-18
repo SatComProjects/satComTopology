@@ -13,11 +13,6 @@ with importlib.resources.open_text(
     "world_data.json",
 ) as file:
     world_data_urban_area = json.load(file)
-    world_data_urban_area = list(
-        filter(
-            lambda urban_area: urban_area["POPULATION"] > 100000, world_data_urban_area
-        )
-    )
 
 development_modifier = {1: 0.40, 2: 0.60, 3: 0.80}
 
@@ -31,10 +26,21 @@ daily_multiplier = {
 }
 
 
-def get_urban_areas_around_positions(positions: [(float, float)], distance_max_km: int):
+def get_urban_areas_around_positions(
+    positions: [(float, float)],
+    distance_max_km: int,
+    minimum_urban_area_population: int = 100000,
+):
+    world_data_urban_area_filtered = list(
+        filter(
+            lambda urban_area: urban_area["POPULATION"] > minimum_urban_area_population,
+            world_data_urban_area,
+        )
+    )
+
     center_of_urban_area = [
         (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"])
-        for urban_area in world_data_urban_area
+        for urban_area in world_data_urban_area_filtered
     ]
 
     center_of_urban_area = np.array(center_of_urban_area)
