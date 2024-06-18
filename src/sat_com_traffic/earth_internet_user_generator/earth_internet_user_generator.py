@@ -25,11 +25,15 @@ daily_multiplier = {
 }
 
 
-def map_ball_tree_result_with_urban_area(indices, urbans_area):
+def map_ball_tree_result_with_urban_area(
+    indices: [], center_points_of_urban_areas: [], urbans_area: []
+):
     indices_with_its_urban_area_object = []
 
     for i, position_indices in enumerate(indices):
-        nearest_urban_area_positions = np.array(urbans_area)[position_indices]
+        nearest_urban_area_positions = np.array(center_points_of_urban_areas)[
+            position_indices
+        ]
         nearest_urban_areas = list(
             filter(
                 lambda urban_area: (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"])
@@ -81,7 +85,7 @@ def get_urban_areas_around_positions(
     )
 
     results = map_ball_tree_result_with_urban_area(
-        indices, world_data_urban_area_filtered
+        indices, center_points_of_urban_areas, world_data_urban_area_filtered
     )
 
     return results
