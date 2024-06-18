@@ -243,7 +243,9 @@ class CesiumRenderer:
             inter_satellite_link
         ) in self.simulation_manager.get_inter_satellites_links():
             self.append_next(
-                self.cesium_format.create_inter_satellite_link(inter_satellite_link)
+                self.cesium_format.create_inter_satellite_link_flow(
+                    inter_satellite_link
+                )
             )
         return self
 
