@@ -13,7 +13,7 @@ with importlib.resources.open_text(
 ) as file:
     world_data_urban_area = json.load(file)
 
-development_modifier = {1: 0.40, 2: 0.60, 3: 0.80}
+development_modifier = {1: 0.05, 2: 0.20, 3: 0.80}
 
 daily_multiplier = {
     1: 0.10,
