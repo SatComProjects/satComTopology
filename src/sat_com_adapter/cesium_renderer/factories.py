@@ -11,7 +11,7 @@ def get_color_js(color):
                 f"Cesium.Color.byteToFloat({color_rgba[0]}), "
                 f"Cesium.Color.byteToFloat({color_rgba[1]}), "
                 f"Cesium.Color.byteToFloat({color_rgba[2]}), "
-                f"Cesium.Color.byteToFloat({color_rgba[4]})"
+                f"Cesium.Color.byteToFloat({color_rgba[3]})"
                 f")"
             )
         else:
