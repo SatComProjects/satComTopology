@@ -5,7 +5,7 @@ from sat_com_model.models import SpatialPosition
 def get_color_js(color):
     if color.startswith("COLOR_GREEN_TO_RED_"):
         color_rgba = color_to_rgba(color)
-        if len(color) == 4:
+        if len(color_rgba) == 4:
             return (
                 f"new Cesium.Color("
                 f"Cesium.Color.byteToFloat({color_rgba[0]}), "
