@@ -13,7 +13,7 @@ with importlib.resources.open_text(
 ) as file:
     world_data_urban_area = json.load(file)
 
-development_modifier = {1: 0.05, 2: 0.20, 3: 0.80}
+development_modifier = {1: 0.01, 2: 0.05, 3: 0.80}
 
 daily_multiplier = {
     1: 0.10,
@@ -127,8 +127,8 @@ def get_average_potential_user_for_group_of_area(
         total_potential_minimum_user += maximum_potential_user
         total_potential_maximum_user += minimum_potential_user
 
-    total_potential_user_minimum_mean = total_potential_minimum_user / len(urban_areas)
-    total_potential_user_maximum_mean = total_potential_maximum_user / len(urban_areas)
+    total_potential_user_minimum_mean = total_potential_minimum_user
+    total_potential_user_maximum_mean = total_potential_maximum_user
 
     return total_potential_user_minimum_mean, total_potential_user_maximum_mean
 
