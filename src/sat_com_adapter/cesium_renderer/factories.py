@@ -2,6 +2,24 @@ from sat_com_adapter.cesium_renderer.utils import color_to_rgba
 from sat_com_model.models import SpatialPosition
 
 
+def get_color_js(color):
+    if color.startswith("COLOR_GREEN_TO_RED_"):
+        color_rgba = color_to_rgba(color)
+        if len(color) == 4:
+            return (
+                f"new Cesium.Color("
+                f"Cesium.Color.byteToFloat({color_rgba[0]}), "
+                f"Cesium.Color.byteToFloat({color_rgba[1]}), "
+                f"Cesium.Color.byteToFloat({color_rgba[2]}), "
+                f"Cesium.Color.byteToFloat({color_rgba[4]})"
+                f")"
+            )
+        else:
+            return "Incorrect Color:" + color + "  " + str(color_rgba)
+    else:
+        return f"new Cesium.Color({color})"
+
+
 class CesiumElementFactory:
     def create_line(
         self,
@@ -278,19 +296,3 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
         )
 
         return link
-
-
-def get_color_js(color):
-    if color.startswith("COLOR_GREEN_TO_RED_"):
-        color_rgba = color_to_rgba(color)
-        if len(color) == 4:
-            return (
-                f"new Cesium.Color("
-                f"Cesium.Color.byteToFloat({color_rgba[0]}), "
-                f"Cesium.Color.byteToFloat({color_rgba[1]}), "
-                f"Cesium.Color.byteToFloat({color_rgba[2]}), "
-                f"Cesium.Color.byteToFloat({color_rgba[4]})"
-                f")"
-            )
-    else:
-        return f"new Cesium.Color({color})"
