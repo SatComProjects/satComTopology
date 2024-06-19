@@ -265,20 +265,23 @@ class Link:
     """
 
     type: str
-    source: TopologyObject = None
-    destination: TopologyObject = None
+    source: TopologyObject
+    destination: TopologyObject
 
-    flows: list[Flow] = []
+    flows: list[Flow]
 
     link_maximum_capacity: int = 100
+
+    def __init__(self):
+        self.flows = []
 
     def get_used_capacity_between_hops_unidirectional(
         self, previous_hop: TopologyObject, next_hop: TopologyObject
     ) -> float:
         concerned_flows = list(
             filter(
-                lambda flow: flow.previous_hop == previous_hop
-                and flow.next_hop == next_hop,
+                lambda concerned_flow: concerned_flow.previous_hop == previous_hop
+                and concerned_flow.next_hop == next_hop,
                 self.flows,
             )
         )
