@@ -63,15 +63,15 @@ class NetworkxBuilder:
 
         if self.enable_export_flows_data:
             flows = dict()
-            flows[
-                (source.topology_uniq_id, destination.topology_uniq_id)
-            ] = link.get_used_capacity_between_hops_unidirectional(
-                link.source, link.destination
+            flows[(source.topology_uniq_id, destination.topology_uniq_id)] = (
+                link.get_used_capacity_between_hops_unidirectional(
+                    link.source, link.destination
+                )
             )
-            flows[
-                (destination.topology_uniq_id, source.topology_uniq_id)
-            ] = link.get_used_capacity_between_hops_unidirectional(
-                link.destination, link.source
+            flows[(destination.topology_uniq_id, source.topology_uniq_id)] = (
+                link.get_used_capacity_between_hops_unidirectional(
+                    link.destination, link.source
+                )
             )
             data.update({"used_capacity_between_previous_and_last_hop": flows})
             data.update(
