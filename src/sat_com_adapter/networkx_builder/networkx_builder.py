@@ -13,11 +13,21 @@ class NetworkxBuilder:
 
     def __init__(self, simulation_manager: SimulationManager, **kwargs):
         self.simulation_manager = simulation_manager
-        self.graph = nx.Graph()
+        simulation_date_as_str = simulation_manager.time_manager.current_time.strftime(
+            "%Y-%m-%d %H:%M:%S.%f"
+        )[:-3]
+
+        simulation_configuration = simulation_manager.configuration
+        self.graph = nx.Graph(
+            current_simulation_date=simulation_date_as_str,
+            simulation_configuration=simulation_configuration,
+        )
 
         self.enable_export_positions = kwargs.get("export_positions", False)
 
         self.enable_export_link_length = kwargs.get("export_link_length", False)
+
+        self.enable_export_flows_data = kwargs.get("enable_export_flows_data", False)
 
     def add_topology_object(
         self, topology_object: TopologyObject, data: dict = {}
@@ -39,7 +49,7 @@ class NetworkxBuilder:
 
         return self
 
-    def add_link(self, link: Link, data: dict = {}) -> "NetworkxBuilder":
+    def add_link(self, link: Link, data: dict = None) -> "NetworkxBuilder":
         source = link.source
         destination = link.destination
 
@@ -51,6 +61,27 @@ class NetworkxBuilder:
             )
             data.update(distance=distance)
 
+        if self.enable_export_flows_data:
+            flows = dict()
+            flows[
+                (source.topology_uniq_id, destination.topology_uniq_id)
+            ] = link.get_used_capacity_between_hops_unidirectional(
+                link.source, link.destination
+            )
+            flows[
+                (destination.topology_uniq_id, source.topology_uniq_id)
+            ] = link.get_used_capacity_between_hops_unidirectional(
+                link.destination, link.source
+            )
+            data.update({"used_capacity_between_previous_and_last_hop": flows})
+            data.update(
+                {
+                    "total_used_capacity_crossing_link": link.total_capacity_between_hops_bidirectional()
+                }
+            )
+            data.update(
+                {"unidirectional_link_maximum_capacity": link.link_maximum_capacity}
+            )
         self.graph.add_edge(
             source.topology_uniq_id, destination.topology_uniq_id, **data
         )

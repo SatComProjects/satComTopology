@@ -36,7 +36,7 @@ mdurl==0.1.2
 more-itertools==10.1.0
 multidict==6.0.4
 mypy-extensions==1.0.0
-networkx==3.2.1
+networkx==3.3
 nh3==0.2.15
 nodeenv==1.8.0
 numpy==1.26.4
