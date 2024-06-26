@@ -265,8 +265,8 @@ class Link:
     """
 
     type: str
-    source: TopologyObject
-    destination: TopologyObject
+    source: TopologyObject | None
+    destination: TopologyObject | None
 
     flows: list[Flow]
 
@@ -274,6 +274,8 @@ class Link:
 
     def __init__(self):
         self.flows = []
+        self.source = None
+        self.destination = None
 
     def get_used_capacity_between_hops_unidirectional(
         self, previous_hop: TopologyObject, next_hop: TopologyObject
