@@ -73,7 +73,7 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
             amount_of_neighboring_satellite = len(
                 self.simulation_manager.simulation.get_distance_model().spatial_position_in_range(
-                    satellite.get_coordinates(), satellites
+                    satellite, satellites
                 )
             )
             if amount_of_neighboring_satellite == 0:
