@@ -29,6 +29,18 @@ class SpatialPosition:
         self.latitude = latitude
         self.altitude = altitude
 
+    def to_longitude_latitude(self) -> (float, float):
+        return self.longitude, self.latitude
+
+    def to_latitude_longitude(self) -> (float, float):
+        return self.latitude, self.longitude
+
+    def to_longitude_latitude_altitude(self) -> (float, float, float):
+        return self.longitude, self.latitude, self.altitude
+
+    def to_latitude_longitude_altitude(self) -> (float, float, float):
+        return self.latitude, self.longitude, self.altitude
+
     def __str__(self):
         return f"Longitude: {self.longitude}, Latitude: {self.latitude}, Altitude: {self.altitude}"
 
