@@ -18,16 +18,6 @@ class TrafficModel:
         pass
 
 
-daily_multiplier = {
-    1: 0.10,
-    2: 0.05,
-    3: 0.50,
-    4: 0.75,
-    5: 0.95,
-    6: 0.30,
-}
-
-
 class GeographicalBasedTrafficModel(TrafficModel):
     simulation_manager: SimulationManager
     # Todo: Use property for satellite and user
@@ -36,8 +26,10 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
     center_urban_minimum_population: int = 100000
 
-    def __init__(self):
+    def __init__(self, simulation_manager: SimulationManager = None):
         self.tf = TimezoneFinder()
+        self.simulation_manager = simulation_manager
+        self.satellite_and_users = set()
 
     def get_satellite_and_users(self):
         if self.satellite_and_users is None:
@@ -78,7 +70,19 @@ class GeographicalBasedTrafficModel(TrafficModel):
             amount_of_user = get_random_amount_of_user_between_bounds(
                 min_user, max_user
             )
-            self.satellite_and_users.add((satellite, amount_of_user))
+
+            amount_of_neighboring_satellite = len(
+                self.simulation_manager.simulation.get_distance_model().spatial_position_in_range(
+                    satellite.get_coordinates(), satellites
+                )
+            )
+            if amount_of_neighboring_satellite == 0:
+                amount_of_neighboring_satellite = 1
+
+            amount_of_user_per_satellite = (
+                amount_of_user / amount_of_neighboring_satellite
+            )
+            self.satellite_and_users.add((satellite, amount_of_user_per_satellite))
 
     def get_k_random_satellite_based_on_users_probability(
         self, k: int
