@@ -5,7 +5,12 @@ from geopy.distance import distance
 from sklearn.metrics.pairwise import haversine_distances
 from sklearn.neighbors import BallTree
 
-from sat_com_model.models import DistanceModel, SpatialPosition, SpatialPoint
+from sat_com_model.models import (
+    DistanceModel,
+    SpatialPosition,
+    SpatialPoint,
+    TopologyObject,
+)
 
 
 class GeopyDistanceModel(DistanceModel):
@@ -161,6 +166,96 @@ def _get_spatial_points_from_indices(
 ) -> list[SpatialPoint]:
     flat_indices = indices.flatten().astype(int)
     return [target_points[i] for i in flat_indices]
+
+
+def execute_balltree_query_with_haversine_distance(
+    input_to_query_positions: [],
+    group_of_positions_to_search_in: [],
+    distance_max_km: int,
+) -> []:
+    positions_rad = np.radians(input_to_query_positions)
+
+    distance_max = distance_max_km / 6371
+
+    tree = BallTree(np.deg2rad(group_of_positions_to_search_in), metric="haversine")
+    indices = tree.query_radius(positions_rad, r=distance_max, return_distance=False)
+
+    return indices
+
+
+def map_ball_tree_result_with_ball_tree_entries(
+    indices: [], topology_object_positions: [], topology_objects: [TopologyObject]
+):
+    indices_with_its_entries_object = []
+
+    for i, position_indices in enumerate(indices):
+        topology_object_positions_as_np_array = np.array(topology_object_positions)[
+            position_indices
+        ]
+        nearest_topology_object = list(
+            filter(
+                lambda topology_object: (
+                    topology_object.get_coordinates().latitude,
+                    topology_object.get_coordinates().longitude,
+                )
+                in topology_object_positions_as_np_array,
+                topology_objects,
+            )
+        )
+        indices_with_its_entries_object.append(nearest_topology_object)
+
+    return indices_with_its_entries_object
+
+
+def calculate_topology_objects_in_range_of_topology_objects(
+    topology_object_inputs: list[TopologyObject],
+    topology_object_to_compares: list[TopologyObject],
+    distance_in_km: int,
+) -> dict:
+
+    topology_object_input_positions = [
+        (
+            topology_object.get_coordinates().latitude,
+            topology_object.get_coordinates().longitude,
+        )
+        for topology_object in topology_object_inputs
+    ]
+
+    topology_object_to_compare_positions = [
+        (
+            topology_object.get_coordinates().latitude,
+            topology_object.get_coordinates().longitude,
+        )
+        for topology_object in topology_object_to_compares
+    ]
+
+    topology_object_input_positions_as_np_array = np.array(
+        topology_object_input_positions
+    )
+    topology_object_to_compare_positions_as_np_array = np.array(
+        topology_object_to_compare_positions
+    )
+
+    indices = execute_balltree_query_with_haversine_distance(
+        topology_object_input_positions_as_np_array,
+        topology_object_to_compare_positions_as_np_array,
+        distance_in_km,
+    )
+
+    result_as_list_of_topology_object = map_ball_tree_result_with_ball_tree_entries(
+        indices, topology_object_to_compare_positions, topology_object_to_compares
+    )
+
+    result_dictionary = {}
+    for topology_object_input, research_result in zip(
+        topology_object_inputs, result_as_list_of_topology_object
+    ):
+
+        research_result.remove(topology_object_input)
+
+        result_dictionary.update({topology_object_input: research_result})
+
+    return result_dictionary
 
 
 class SkLearningDistanceModel(DistanceModel):
