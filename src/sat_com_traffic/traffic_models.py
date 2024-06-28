@@ -129,6 +129,8 @@ class GeographicalBasedTrafficModel(TrafficModel):
                     satellite
                 )
             )
+            if amount_of_satellite == 0:
+                amount_of_satellite = 1
 
             amount_of_user_per_satellite = amount_of_user / amount_of_satellite
             self.satellite_and_users.add((satellite, amount_of_user_per_satellite))
