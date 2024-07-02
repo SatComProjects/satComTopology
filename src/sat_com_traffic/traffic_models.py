@@ -24,7 +24,10 @@ class TrafficModel:
 
 class GeographicalBasedTrafficModel(TrafficModel):
     simulation_manager: SimulationManager
-    # Todo: Use property for satellite and user
+    # Todo:
+    #  - Use property for satellite and user
+    #  - move simulation_manager in constructor
+    #  - use simulation_manager configuration to get satellite range
 
     satellite_and_users: set
 
@@ -88,6 +91,12 @@ class GeographicalBasedTrafficModel(TrafficModel):
     def calculate_amount_of_potential_user_per_satellite(
         self, satellite_range_in_km: int = 100
     ) -> [(Satellite, int)]:
+        """
+        Calculate amount of potential users given a range of km for each satellites in the simulation manager.
+        This function should be used before executing other functions.
+        :param satellite_range_in_km:
+        :return:
+        """
         self.satellite_and_users = set()
         self.satellites_around_satellite_with_a_given_range(satellite_range_in_km)
         satellites = self.simulation_manager.get_satellites()
@@ -138,6 +147,18 @@ class GeographicalBasedTrafficModel(TrafficModel):
     def get_k_random_satellite_based_on_users_probability(
         self, k: int
     ) -> [(Satellite, int)]:
+        """
+        Get k random satellite based by probability distribution of population.
+        :param k: number of satellites to choose randomly
+        :exception: AttributeError if calculate_amount_of_potential_user_per_satellite hasn't been executed
+        :return: k random satellite based by probability and the amount of users
+        """
+
+        if self.satellite_and_users is None:
+            raise AttributeError(
+                "You should execute the method calculate_amount_of_potential_user_per_satellite(satellite_range_in_km)."
+            )
+
         satellites = [item[0] for item in self.satellite_and_users]
         weights = [item[1] for item in self.satellite_and_users]
 
@@ -145,7 +166,21 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
         return draws
 
-    def get_set_of_random_k_pairs_of_satellite(self, k: int):
+    def get_set_of_random_k_pairs_of_satellite(
+        self, k: int
+    ) -> [(Satellite, Satellite)]:
+        """
+        Generate k random pairs of satellites using population as weight.
+        :param k: number of satellites paris
+        :exception: AttributeError if calculate_amount_of_potential_user_per_satellite hasn't been executed
+        :return: A list of tuple containing pairs of satellites
+        """
+
+        if self.satellite_and_users is None:
+            raise AttributeError(
+                "You should execute the method calculate_amount_of_potential_user_per_satellite(satellite_range_in_km)."
+            )
+
         sources = self.get_k_random_satellite_based_on_users_probability(k)
         destinations = self.get_k_random_satellite_based_on_users_probability(k)
 

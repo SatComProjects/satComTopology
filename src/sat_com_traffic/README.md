@@ -1,18 +1,18 @@
 # sat_com_traffic Package
 ⚠️ This is an unstable package. 
-## Description
+## Description 📃 
 This package is designed to generate traffic. This package is unstable and will often
 be updated.
 This package expose a traffic model that we calculate the potential amount of user on ground below each
 satellite. Based on this value, it will calculate sources and destination.
 This package implement earth_internet_user_generator package.
 
-### **GeographicalBasedTrafficModel**, a model that generate population based traffic
+### **GeographicalBasedTrafficModel**, a model that generate population based traffic 🌍
 #### Introduction
 This model try to provide an accurate amount of constellation user across the earth. As we don't have 
 a lot of data, the generated figures are still fake, but they reflect the internet usage behavior in the world.
 
-#### The GHS Urban Centre Database 2015
+#### The GHS Urban Centre Database 2015 🇪🇺
 To have an accurate distribution of the earth population we use the "GHS Urban Centre Database 2015", created by
 Based on the description publication, the objective of this database is the following:
 
@@ -160,18 +160,49 @@ The following image illustrate the previous table:
 
 Each dot represent a Satellite. More the satellite is red more it has potential users (it shows the weights, not the flows in contrary to the previous table)
 
-### How to use 
-TODO
-### Identified limits of the model
+### How to use  🎓
+### Calculate amount of User for a satellite
+```python
+from sat_com_builder.configuration_manager import EmptyConfigurationManager
+from sat_com_traffic.traffic_models import GeographicalBasedTrafficModel
+
+empty_configuration = EmptyConfigurationManager()
+simulation_manager = empty_configuration.load_simulation()
+
+traffic_model = GeographicalBasedTrafficModel()
+traffic_model.center_urban_minimum_population = 1000000 # We will tak only urban center with population > 1000000
+traffic_model.simulation_manager = simulation_manager # Set the simulation_manager. Todo add simulation manager in the constructor
+
+traffic_model.calculate_amount_of_potential_user_per_satellite(satellite_range_in_km=500) # Calculate amount of potential user per satellite. Satellite cover a 500 km zone
+```
+#### Other useful methods
+```python
+from sat_com_builder.configuration_manager import EmptyConfigurationManager
+from sat_com_traffic.traffic_models import GeographicalBasedTrafficModel
+
+empty_configuration = EmptyConfigurationManager()
+simulation_manager = empty_configuration.load_simulation()
+
+traffic_model = GeographicalBasedTrafficModel()
+traffic_model.center_urban_minimum_population = 1000000 # We will tak only urban center with population > 1000000
+traffic_model.simulation_manager = simulation_manager # Set the simulation_manager. 
+
+traffic_model.calculate_amount_of_potential_user_per_satellite(satellite_range_in_km=500) # Calculate amount of potential user per satellite. Satellite cover a 500 km zone
+
+traffic_model.get_k_random_satellite_based_on_users_probability(k=10) # Get 10 random satellite with population as weight
+
+traffic_model.get_set_of_random_k_pairs_of_satellite(k=10) # Get 10 pair between randomly chosen satellites with population as weight
+```
+### Identified limits of the model ⚡
 - As explained in [the previous section](#the-ghs-urban-centre-database-2015), there are some values that we should take in account, plus currently the model doesn't reflect the use of in remote users
 - The users can be in roaming on land or on the sea
 - The military usage is totally absent. If we want to work on that we should maybe add warzone date
 - Difficulties to know the real amount of user. The relevant value is the ratio flows.
-- Most of user are located in wll developed and
+- Most of the users are located in wll developed and
 
 ### Todo
 - Make the parameters change easier.
 
-### Bibliography
+### Bibliography 📎
 European Commission, Joint Research Centre, Corbane, C., Freire, S., Maffenini, M. et al., Description of the GHS Urban Centre Database 2015 – Public release 2019 – Version 1.0, Publications Office, 2019, https://data.europa.eu/doi/10.2760/037310
 Internet Census 2012, https://internetcensus2012.github.io/InternetCensus2012/paper.html
