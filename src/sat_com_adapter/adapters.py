@@ -28,10 +28,14 @@ class NetworkXAdapter(Adapter):
         self.networkx_builder = networkx_builder
 
     def create_full_networkx_graph(
-        self, export_link_length: bool = False, export_object_position: bool = False
+        self,
+        export_link_length: bool = False,
+        export_object_position: bool = False,
+        enable_export_flows_data: bool = False,
     ) -> nx.Graph:
         """
         Return the networkx graph of the simulation.
+        :param enable_export_flows_data: If true the links flows figures will be exported
         :param export_link_length: if true the link length will be added to data
         :param export_object_position: if true the object position will be exported to data
         :return: nx.Graph containing the simulation
@@ -40,6 +44,7 @@ class NetworkXAdapter(Adapter):
             simulation_manager=self.simulation_manager,
             export_link_length=export_link_length,
             export_positions=export_object_position,
+            enable_export_flows_data=enable_export_flows_data,
         )
 
         self.networkx_builder.add_topology_objects()
