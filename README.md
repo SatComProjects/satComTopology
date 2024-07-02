@@ -32,6 +32,7 @@ This project si the laboratory 🔬 where you can **design** your topologies.
 - sat_com_adapter: [Topology Adapters](src/sat_com_adapter/README.md)
 - sat_com_trajectopy: [Topology Physic Manager](src/sat_com_trajectopy/README.md)
 - sat_com_application: [Topology Application](src/sat_com_application/README.md)
+- sat_com_topology_traffic: [Topology Traffic](src/sat_com_traffic/README.md) (Bêta version)
 
 ## Installation 📃
 ## Install Main Version
