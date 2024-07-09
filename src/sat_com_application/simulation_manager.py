@@ -542,7 +542,7 @@ class SimulationManager:
 
         satellites_in_range = (
             self.simulation.get_distance_model().spatial_position_in_range(
-                ground_station, self.get_satellites()
+                ground_station, self.get_satellites(), int(ground_station_range)
             )
         )
         for satellite in satellites_in_range:
@@ -558,6 +558,9 @@ class SimulationManager:
         Update the ground station links.
         :return:
         """
+
+        self.simulation.ground_station_links.clear()
+
         for ground_station in self.get_ground_stations():
             self.connect_ground_station_to_satellites(
                 ground_station, self.configuration.get("ground_station_link_range")
