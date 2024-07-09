@@ -284,10 +284,13 @@ class Link:
 
     link_maximum_capacity: int = 100
 
+    disabled: bool
+
     def __init__(self):
         self.flows = []
         self.source = None
         self.destination = None
+        self.disabled = False
 
     def get_used_capacity_between_hops_unidirectional(
         self, previous_hop: TopologyObject, next_hop: TopologyObject
