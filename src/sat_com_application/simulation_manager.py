@@ -16,7 +16,6 @@ from sat_com_model.models import (
     Flow,
 )
 from sat_com_model.specifications import (
-    LinkConnectTopologyObjects,
     SourceDestinationMatchWithLinkSpecification,
 )
 
@@ -598,24 +597,24 @@ class SimulationManager:
                 ground_station_link = self.get_ground_station_link(
                     ground_station, satellite
                 )
-                ground_station_link.enabled = True
+                ground_station_link.disabled = False
 
     def connect_ground_station_to_satellites(
         self,
         ground_station: GroundStation,
-        ground_station_range: float,
+        ground_station_range_in_km: float,
     ):
         """
         Connect ground station to satellites.
         Implement a way to limit the count of satellite connected to ground stations.
         :param ground_station: Ground Station to connect to satellites
-        :param ground_station_range: Range of satellites to connect to satellites
+        :param ground_station_range_in_km: Range of satellites to connect to satellites
         :return:
         """
 
         satellites_in_range = (
             self.simulation.get_distance_model().spatial_position_in_range(
-                ground_station, self.get_satellites(), int(ground_station_range)
+                ground_station, self.get_satellites(), int(ground_station_range_in_km)
             )
         )
         for satellite in satellites_in_range:
@@ -628,23 +627,24 @@ class SimulationManager:
                     "An object of type " + type(satellite).__name__ + " wasn't expected"
                 )
 
-    def __update_ground_station_in_static_mode(self):
+    def __update_ground_stations_in_static_mode(self):
+        """
+        This method will disable all ground station link that aren't connected
+        :return:
+        """
         for ground_station_link in self.get_ground_stations_links():
-            ground_station_link.enabled = False
+            ground_station_link.disabled = True
 
         for ground_station in self.get_ground_stations():
             self.enable_ground_station_links(
                 ground_station, self.configuration.get("ground_station_link_range")
             )
 
-    def __update_ground_station_links(self):
+    def __update_ground_stations_default(self):
         """
-        Update the ground station links. This will connect ground station to satellites based on their position and their
-        range.
-        Todo: Should be refactored if we implement angle calculation
+        This method will delete all ground station links and will create new ones
         :return:
         """
-
         self.simulation.ground_station_links.clear()
 
         for ground_station in self.get_ground_stations():
@@ -652,7 +652,23 @@ class SimulationManager:
                 ground_station, self.configuration.get("ground_station_link_range")
             )
 
-    def __update_satellites(self):
+    def update_ground_station_links(self):
+        """
+        Update the ground station links. This will connect ground station to satellites based on their position and their
+        range.
+        :return:
+        """
+
+        static_ground_station_link_mode = self.configuration.get(
+            "static_ground_station_link_mode", False
+        )
+        if static_ground_station_link_mode:
+            self.__update_ground_stations_in_static_mode()
+            return
+
+        self.__update_ground_stations_default()
+
+    def update_satellites(self):
         """
         Update the satellites. This will call the update method of each satellite object.
         :return:
@@ -660,7 +676,7 @@ class SimulationManager:
         for satellite in self.get_satellites():
             satellite.update()
 
-    def __update_ground_stations(self):
+    def update_ground_stations(self):
         """
         Update the ground stations. This will call the update method of each ground station object.
         :return:
@@ -668,7 +684,7 @@ class SimulationManager:
         for ground_station in self.get_ground_stations():
             ground_station.update()
 
-    def __update_user_terminal(self):
+    def update_user_terminal(self):
         """
         Update the user terminal object. This will call the update method of each user terminal object.
         :return:
@@ -676,7 +692,7 @@ class SimulationManager:
         for user_terminal in self.get_user_terminals():
             user_terminal.update()
 
-    def __update_user_terminal_links(self):
+    def update_user_terminal_links(self):
         raise NotImplementedError()
 
     def add_to_update_protocol(self, callable_update: Callable):
@@ -695,4 +711,4 @@ class SimulationManager:
         - GroundStations links
         :return:
         """
-        return {self.__update_satellites, self.__update_ground_station_links}
+        return {self.update_satellites, self.update_ground_station_links}

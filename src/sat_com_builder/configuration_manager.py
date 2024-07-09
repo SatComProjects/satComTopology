@@ -159,7 +159,7 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
         :return:
         """
         ground_station_link_range = self.plain_configuration.get(
-            "ground_station_link_range", 1000000
+            "ground_station_link_range", 100
         )
         simulation_manager.configuration.update(
             {"ground_station_link_range": ground_station_link_range}
@@ -169,10 +169,17 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
             "disable_ground_station_link_preload", False
         )
 
+        static_ground_station_link_mode = self.plain_configuration.get(
+            "static_ground_station_link_mode", False
+        )
+        simulation_manager.configuration.update(
+            {
+                "static_ground_station_link_mode": static_ground_station_link_mode,
+            }
+        )
+
         if not disable_ground_station_link_preload:
-            generate_ground_station_link_with_position(
-                simulation_manager, ground_station_link_range
-            )
+            simulation_manager.update_ground_station_links()
 
     def load_user_terminal_link_configuration(self, simulation: SimulationManager):
         raise NotImplementedError(
