@@ -155,13 +155,19 @@ class NetworkxBuilder:
 
         return self
 
-    def add_ground_station_links(self) -> "NetworkxBuilder":
+    def add_ground_station_links(self, without_disabled=False) -> "NetworkxBuilder":
         """
         Add Ground Station Links to the Networkx Builder.
         :return: Networkx Builder instance.
         """
         for ground_station_link in self.simulation_manager.get_ground_stations_links():
-            self.add_link(ground_station_link, {})
+
+            if not without_disabled or (
+                without_disabled and not ground_station_link.disabled
+            ):
+                self.add_link(
+                    ground_station_link, {"disabled": ground_station_link.disabled}
+                )
 
         return self
 

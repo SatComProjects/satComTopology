@@ -126,7 +126,12 @@ class CesiumRenderer:
         :return:  current instance of CesiumRenderer
         """
 
-        for ground_station_link in self.simulation_manager.get_ground_stations_links():
+        for ground_station_link in list(
+            filter(
+                lambda ground_station_link_object: not ground_station_link_object.disabled,
+                self.simulation_manager.get_ground_stations_links(),
+            )
+        ):
             self.append_next(
                 self.cesium_format.create_ground_station_link(ground_station_link)
             )
