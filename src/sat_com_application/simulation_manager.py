@@ -15,6 +15,10 @@ from sat_com_model.models import (
     UserTerminalLink,
     Flow,
 )
+from sat_com_model.specifications import (
+    LinkConnectTopologyObjects,
+    SourceDestinationMatchWithLinkSpecification,
+)
 
 
 def get_object_by_object_id(
@@ -552,6 +556,50 @@ class SimulationManager:
                     satellite, ground_station
                 )
 
+    def get_ground_station_link(
+        self, ground_station: GroundStation, satellite: Satellite
+    ):
+        satellite_ground_station_match = SourceDestinationMatchWithLinkSpecification(
+            satellite, ground_station
+        )
+        ground_station_satellite_match = SourceDestinationMatchWithLinkSpecification(
+            ground_station, satellite
+        )
+
+        link_connect_both_specification = (
+            satellite_ground_station_match | ground_station_satellite_match
+        )
+
+        link_founds = list(
+            filter(
+                lambda ground_station_link: link_connect_both_specification(
+                    ground_station_link
+                ),
+                self.get_ground_stations_links(),
+            )
+        )
+        if len(link_founds) == 0:
+            raise LinkNotFoundError()
+
+        if len(link_founds) > 1:
+            raise Exception("Too many links connect the same source destination")
+
+        return link_founds[0]
+
+    def enable_ground_station_links(self, ground_station, ground_station_range: float):
+        satellites_in_range = (
+            self.simulation.get_distance_model().spatial_position_in_range(
+                ground_station, self.get_satellites(), int(ground_station_range)
+            )
+        )
+
+        for satellite in satellites_in_range:
+            if isinstance(satellite, Satellite):
+                ground_station_link = self.get_ground_station_link(
+                    ground_station, satellite
+                )
+                ground_station_link.enabled = True
+
     def connect_ground_station_to_satellites(
         self,
         ground_station: GroundStation,
@@ -579,6 +627,15 @@ class SimulationManager:
                 raise ValueError(
                     "An object of type " + type(satellite).__name__ + " wasn't expected"
                 )
+
+    def __update_ground_station_in_static_mode(self):
+        for ground_station_link in self.get_ground_stations_links():
+            ground_station_link.enabled = False
+
+        for ground_station in self.get_ground_stations():
+            self.enable_ground_station_links(
+                ground_station, self.configuration.get("ground_station_link_range")
+            )
 
     def __update_ground_station_links(self):
         """
