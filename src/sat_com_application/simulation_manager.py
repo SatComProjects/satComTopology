@@ -538,6 +538,18 @@ class SimulationManager:
 
         return list_link
 
+    def connect_every_satellite_with_every_ground_stations(self):
+        """
+        This method will connect every satellite with every ground station, it will clear existing ground stations
+        links
+        :return:
+        """
+        self.simulation.ground_station_links.clear()
+
+        for ground_station in self.get_ground_stations():
+            for satellite in self.get_satellites():
+                self.create_ground_station_link_connection(satellite, ground_station)
+
     def connect_ground_station_to_satellites(
         self,
         ground_station: GroundStation,
