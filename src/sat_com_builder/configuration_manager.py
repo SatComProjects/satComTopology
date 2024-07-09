@@ -179,9 +179,6 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
         )
 
         if not disable_ground_station_link_preload:
-            if static_ground_station_link_mode:
-                simulation_manager.connect_every_satellite_with_every_ground_stations()
-
             simulation_manager.update_ground_station_links()
 
     def load_user_terminal_link_configuration(self, simulation: SimulationManager):

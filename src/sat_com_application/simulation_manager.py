@@ -557,6 +557,34 @@ class SimulationManager:
                     satellite, ground_station
                 )
 
+    def connect_every_satellite_with_every_ground_stations_and_disable_un_connected(
+        self, ground_station_range: int
+    ):
+        """
+        This method will connect every satellite with every ground station, it will clear existing ground stations
+        links
+        :return:
+        """
+        self.simulation.ground_station_links.clear()
+
+        for ground_station in self.get_ground_stations():
+
+            satellites_in_range = (
+                self.simulation.get_distance_model().spatial_position_in_range(
+                    ground_station, self.get_satellites(), ground_station_range
+                )
+            )
+            for satellite in self.get_satellites():
+                created_ground_station_link = (
+                    self.create_and_add_ground_station_link_connection(
+                        satellite, ground_station
+                    )
+                )
+
+                created_ground_station_link.disabled = (
+                    satellite not in satellites_in_range
+                )
+
     def get_ground_station_link(
         self, ground_station: GroundStation, satellite: Satellite
     ):
@@ -634,13 +662,11 @@ class SimulationManager:
         This method will disable all ground station link that aren't connected
         :return:
         """
-        for ground_station_link in self.get_ground_stations_links():
-            ground_station_link.disabled = True
+        self.simulation.ground_station_links.clear()
 
-        for ground_station in self.get_ground_stations():
-            self.enable_ground_station_links(
-                ground_station, self.configuration.get("ground_station_link_range")
-            )
+        self.connect_every_satellite_with_every_ground_stations_and_disable_un_connected(
+            self.configuration.get("ground_station_link_range")
+        )
 
     def __update_ground_stations_default(self):
         """
