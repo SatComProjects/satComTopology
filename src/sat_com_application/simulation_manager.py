@@ -250,7 +250,7 @@ class SimulationManager:
         """
         Add all satellites to the simulation from a list in argument
         :param satellites: List of satellites to add
-        :return: List of satellite
+        :return:
         """
         for satellite in satellites:
             self.add_satellite(satellite)
@@ -259,7 +259,7 @@ class SimulationManager:
         """
         Add all ground to the simulation from a list in argument
         :param ground_stations: List of ground stations to add
-        :return: List of ground station
+        :return:
         """
         for ground_station in ground_stations:
             self.add_ground_station(ground_station)
@@ -433,6 +433,7 @@ class SimulationManager:
         """
         Get the link connecting two topology objects.  It will return  the first link found. It shouldn't have
         2 links.
+        Todo: Use specification specification
         :param topology_object_a: Topology object source
         :param topology_object_b: Topology object destination
         :return: Link connecting two topology objects, raise LinkNotFoundError if not found
@@ -663,6 +664,9 @@ class SimulationManager:
             "static_ground_station_link_mode", False
         )
         if static_ground_station_link_mode:
+            if len(self.get_ground_stations_links()) == 0:
+                self.connect_every_satellite_with_every_ground_stations()
+
             self.__update_ground_stations_in_static_mode()
             return
 
