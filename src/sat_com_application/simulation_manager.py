@@ -1,4 +1,5 @@
 import uuid
+from typing import Callable
 
 from sat_com_application.time_managers import SimulationTimeManager
 from sat_com_model.exceptions import TopologyObjectNotFoundError, LinkNotFoundError
@@ -76,14 +77,24 @@ class SimulationManager:
     def __init__(self, simulation: Simulation):
         self.simulation = simulation
         self.configuration = dict()
+        self.enabled_update_functions = None
 
     def set_time_manager(self, time_manager: SimulationTimeManager):
         self.time_manager = time_manager
-        self.time_manager.register_action(self.update)
+        self.time_manager.register_action(self.__update)
 
-    def update(self):
-        self.simulation.update()
-        self.update_ground_station_links()
+    enabled_update_functions: set[Callable] | None
+
+    @property
+    def update_protocol(self) -> set:
+        if self.enabled_update_functions is None:
+            return self.get_default_update_protocol()
+        else:
+            return self.enabled_update_functions
+
+    def __update(self):
+        for update_function in self.update_protocol:
+            update_function()
 
     def append_flows(self, list_of_flows: list[list]) -> set[Link]:
         """
@@ -553,9 +564,11 @@ class SimulationManager:
                     "An object of type " + type(satellite).__name__ + " wasn't expected"
                 )
 
-    def update_ground_station_links(self):
+    def __update_ground_station_links(self):
         """
-        Update the ground station links.
+        Update the ground station links. This will connect ground station to satellites based on their position and their
+        range.
+        Todo: Should be refactored if we implement angle calculation
         :return:
         """
 
@@ -565,3 +578,48 @@ class SimulationManager:
             self.connect_ground_station_to_satellites(
                 ground_station, self.configuration.get("ground_station_link_range")
             )
+
+    def __update_satellites(self):
+        """
+        Update the satellites. This will call the update method of each satellite object.
+        :return:
+        """
+        for satellite in self.get_satellites():
+            satellite.update()
+
+    def __update_ground_stations(self):
+        """
+        Update the ground stations. This will call the update method of each ground station object.
+        :return:
+        """
+        for ground_station in self.get_ground_stations():
+            ground_station.update()
+
+    def __update_user_terminal(self):
+        """
+        Update the user terminal object. This will call the update method of each user terminal object.
+        :return:
+        """
+        for user_terminal in self.get_user_terminals():
+            user_terminal.update()
+
+    def __update_user_terminal_links(self):
+        raise NotImplementedError()
+
+    def add_to_update_protocol(self, callable_update: Callable):
+        self.enabled_update_functions.add(callable_update)
+
+    def remove_from_update_protocol(self, callable_remove: Callable):
+        self.enabled_update_functions.remove(callable_remove)
+
+    def set_callable_protocol(self, update_callables: set[Callable]):
+        self.enabled_update_functions = update_callables
+
+    def get_default_update_protocol(self) -> set:
+        """
+        The default update protocol will update:
+        - Satellites
+        - GroundStations links
+        :return:
+        """
+        return {self.__update_satellites, self.__update_ground_station_links}
