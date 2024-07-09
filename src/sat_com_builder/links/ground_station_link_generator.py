@@ -18,6 +18,6 @@ def generate_ground_station_link_with_position(
                 )
             )
             if distance < ground_station_link_range_in_meter:
-                simulation_manager.create_ground_station_link_connection(
+                simulation_manager.create_and_add_ground_station_link_connection(
                     satellite, ground_station
                 )

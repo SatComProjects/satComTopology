@@ -115,7 +115,7 @@ def transform_grid_to_inter_satellite_links(
         if satellite_a is not None and satellite_b is not None:
             try:
                 created_link = (
-                    simulation_service.create_inter_satellite_link_connection(
+                    simulation_service.create_and_add_inter_satellite_link_connection(
                         satellite_a, satellite_b
                     )
                 )

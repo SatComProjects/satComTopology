@@ -198,7 +198,7 @@ class SimulationManager:
         if len(matched_object) == 0:
             raise TopologyObjectNotFoundError()
 
-    def create_inter_satellite_link_connection(
+    def create_and_add_inter_satellite_link_connection(
         self, satellite_a: Satellite, satellite_b: Satellite
     ) -> InterSatelliteLink:
         """
@@ -213,11 +213,11 @@ class SimulationManager:
         self.simulation.inter_satellite_links.append(inter_satellite_link)
         return inter_satellite_link
 
-    def create_ground_station_link_connection(
+    def create_and_add_ground_station_link_connection(
         self, satellite: Satellite, ground_station: GroundStation
     ) -> GroundStationLink:
         """
-        Create ground station link between a satellite and a ground station
+        Create ground station link between a satellite and a ground station and append it to the simulation.
         :param satellite: Satellite instance
         :param ground_station: GroundStation instance
         :return: GroundStationLink instance
@@ -228,7 +228,7 @@ class SimulationManager:
         self.simulation.ground_station_links.append(ground_station_link)
         return ground_station_link
 
-    def create_user_terminal_link_connection(
+    def create_and_add_user_terminal_link_connection(
         self, satellite: Satellite, user_terminal: UserTerminal
     ) -> UserTerminalLink:
         """
@@ -548,7 +548,9 @@ class SimulationManager:
 
         for ground_station in self.get_ground_stations():
             for satellite in self.get_satellites():
-                self.create_ground_station_link_connection(satellite, ground_station)
+                self.create_and_add_ground_station_link_connection(
+                    satellite, ground_station
+                )
 
     def connect_ground_station_to_satellites(
         self,
@@ -570,7 +572,9 @@ class SimulationManager:
         )
         for satellite in satellites_in_range:
             if isinstance(satellite, Satellite):
-                self.create_ground_station_link_connection(satellite, ground_station)
+                self.create_and_add_ground_station_link_connection(
+                    satellite, ground_station
+                )
             else:
                 raise ValueError(
                     "An object of type " + type(satellite).__name__ + " wasn't expected"
