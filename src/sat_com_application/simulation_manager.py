@@ -381,7 +381,8 @@ class SimulationManager:
             filter(
                 lambda ground_station_link: ground_station_link_is_connected_to_ground_station(
                     ground_station_link, ground_station_id
-                ),
+                )
+                and ground_station_link.disabled == False,
                 self.simulation.ground_station_links,
             )
         )
