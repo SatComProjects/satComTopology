@@ -481,10 +481,6 @@ class Simulation:
 
         return topology_objects
 
-    def update(self):
-        for topology_object in self.get_all_topology_objects():
-            topology_object.update()
-
 
 def create_satellite(satellite_name, satellite_id) -> Satellite:
     """
