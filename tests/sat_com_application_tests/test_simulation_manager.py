@@ -121,8 +121,10 @@ class TestSimulationManager:
         satellite_1 = create_fake_satellite_with_object_id(1)
         satellite_2 = create_fake_satellite_with_object_id(2)
 
-        created_link = simulation_service.create_inter_satellite_link_connection(
-            satellite_1, satellite_2
+        created_link = (
+            simulation_service.create_and_add_inter_satellite_link_connection(
+                satellite_1, satellite_2
+            )
         )
 
         assert len(simulation_service.simulation.inter_satellite_links) == 1
@@ -135,7 +137,7 @@ class TestSimulationManager:
         ground_station = create_fake_ground_station_with_object_id(1)
         satellite = create_fake_satellite_with_object_id(1)
 
-        created_link = simulation_service.create_ground_station_link_connection(
+        created_link = simulation_service.create_and_add_ground_station_link_connection(
             satellite, ground_station
         )
         assert len(simulation_service.simulation.ground_station_links) == 1
@@ -150,7 +152,7 @@ class TestSimulationManager:
         satellite = create_fake_satellite_with_object_id(1)
         user_terminal = create_fake_user_terminal_with_object_id(1)
 
-        created_link = simulation_service.create_user_terminal_link_connection(
+        created_link = simulation_service.create_and_add_user_terminal_link_connection(
             satellite, user_terminal
         )
         assert len(simulation_service.simulation.user_terminal_links) == 1
@@ -169,14 +171,14 @@ class TestSimulationManager:
 
         user_terminal = create_fake_user_terminal_with_object_id(1)
 
-        simulation_service.create_ground_station_link_connection(
+        simulation_service.create_and_add_ground_station_link_connection(
             satellite_1, ground_station
         )
-        simulation_service.create_user_terminal_link_connection(
+        simulation_service.create_and_add_user_terminal_link_connection(
             satellite_2, user_terminal
         )
 
-        simulation_service.create_inter_satellite_link_connection(
+        simulation_service.create_and_add_inter_satellite_link_connection(
             satellite_1, satellite_2
         )
 

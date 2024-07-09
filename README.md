@@ -59,17 +59,17 @@ ground_station = simulation_manager.get_ground_station_by_object_id(0)
 
 satellite = simulation_manager.get_satellite_by_object_id(0)
 
-created_link = simulation_manager.create_ground_station_link_connection(
-  satellite, 
+created_link = simulation_manager.create_and_add_ground_station_link_connection(
+  satellite,
   ground_station
 )
 
 print(f"A new {created_link.type} has been created")
 print(
-    f"Source: {created_link.source.type} n° {created_link.source.object_id}, topology id: {created_link.source.topology_uniq_id}"
+  f"Source: {created_link.source.type} n° {created_link.source.object_id}, topology id: {created_link.source.topology_uniq_id}"
 )
 print(
-    f"Destination: {created_link.destination.type} n° {created_link.destination.object_id}, topology id: {created_link.source.topology_uniq_id}"
+  f"Destination: {created_link.destination.type} n° {created_link.destination.object_id}, topology id: {created_link.source.topology_uniq_id}"
 )
 ```
 #### Export a Simulation
