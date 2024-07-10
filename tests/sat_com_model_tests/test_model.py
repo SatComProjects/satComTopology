@@ -1,3 +1,5 @@
+import pytest
+
 from sat_com_model.exceptions import (
     GroundStationConnectionError,
     InterSatelliteConnectionError,
@@ -14,7 +16,6 @@ from sat_com_model.models import (
     Link,
     TopologyObject,
 )
-import pytest
 
 
 def assert_can_establish_connection(
