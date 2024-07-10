@@ -1,11 +1,10 @@
 import pytest
 
-from sat_com_model.models import GroundStation, Satellite, DistanceModel
+from sat_com_model.models import GroundStation, Satellite
 from sat_com_trajectopy.distance_models import (
     GeopyDistanceModel,
     SkLearningDistanceModel,
 )
-
 from tests.sat_com_model_tests.model_helper import (
     create_fake_satellite_with_object_id,
     FakeMovementModel,

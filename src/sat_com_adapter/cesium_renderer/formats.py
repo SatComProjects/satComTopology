@@ -2,7 +2,6 @@ from sat_com_adapter.cesium_renderer.factories import (
     CesiumElementFactory,
     CesiumJavaScriptElementFactory,
     CesiumCZMLElementFactory,
-    create_background_color,
 )
 from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import (
     UserTerminalHtmlFormatter,
@@ -15,7 +14,6 @@ from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import (
 from sat_com_adapter.cesium_renderer.utils import (
     get_topology_object_cesium_unique_identifier,
     get_link_cesium_unique_identifier,
-    level_from_green_to_red,
 )
 from sat_com_model.models import (
     Link,
