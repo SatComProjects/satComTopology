@@ -42,8 +42,8 @@ def generate_ground_stations_from_file(
     """
     ground_stations = []
     ground_station_id = 0
-    with open(ground_station_file_path, "r") as f:
-        for line in f:
+    with open(ground_station_file_path, "r") as file:
+        for line in file:
             split = line.split(",")
             if len(split) != 5:
                 raise ValueError("Basic ground station file has 5 columns")
@@ -60,5 +60,7 @@ def generate_ground_stations_from_file(
 
             ground_stations.append(ground_station)
             ground_station_id += 1
+
+        file.close()
 
     return ground_stations

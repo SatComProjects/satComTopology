@@ -249,3 +249,4 @@ class YamlConfigurationManager(ObjectBaseConfigurationManager):
             plain_configuration = yaml.safe_load(file)
             self.configuration_path = configuration_path
             super().__init__(plain_configuration)
+            file.close()
