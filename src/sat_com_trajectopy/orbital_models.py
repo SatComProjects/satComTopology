@@ -1,5 +1,4 @@
 import datetime
-from datetime import time
 
 from pyorbital.orbital import Orbital
 
