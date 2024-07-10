@@ -7,9 +7,6 @@ from sat_com_application.time_managers import SimulationTimeManager
 from sat_com_builder.ground_stations.generate_ground_stations import (
     generate_ground_stations_from_file,
 )
-from sat_com_builder.links.ground_station_link_generator import (
-    generate_ground_station_link_with_position,
-)
 from sat_com_builder.links.inter_satellite_link_generator import (
     create_inter_satellite_link_from_two_line_element,
 )
