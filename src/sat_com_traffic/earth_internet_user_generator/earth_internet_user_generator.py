@@ -1,7 +1,6 @@
 import datetime
 import importlib.resources
 import json
-import os
 import random
 
 import numpy as np
@@ -12,6 +11,7 @@ with importlib.resources.open_text(
     "world_data.json",
 ) as file:
     world_data_urban_area = json.load(file)
+    file.close()
 
 development_modifier = {1: 0.01, 2: 0.05, 3: 0.80}
 

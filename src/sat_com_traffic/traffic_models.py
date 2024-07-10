@@ -35,7 +35,9 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
     amount_of_satellite_per_latitude: dict
 
-    def satellites_around_satellite_with_a_given_range(self, range_in_km: int) -> dict:
+    def __get_satellites_around_satellite_with_a_given_range(
+        self, range_in_km: int
+    ) -> dict:
         self.satellites_and_they_neighboring_but_not_linked_satellite = (
             calculate_topology_objects_in_range_of_topology_objects(
                 self.simulation_manager.get_satellites(),
@@ -45,35 +47,6 @@ class GeographicalBasedTrafficModel(TrafficModel):
         )
         return self.satellites_and_they_neighboring_but_not_linked_satellite
 
-    def calculate_satellite_density_per_latitude(self):
-        latitude_max = 90
-        latitude_min = -90
-        step = 10
-
-        numbers = list(range(latitude_min, latitude_max + step, step))
-
-        latitudes_pairs = [
-            (numbers[i], numbers[i + 1]) for i in range(len(numbers) - 1)
-        ]
-
-        satellite_to_check = copy.deepcopy(self.simulation_manager.get_satellites())
-
-        satellite_per_latitudes = dict()
-
-        for pair in latitudes_pairs:
-            born_latitude_min, born_latitude_max = pair
-            satellite_per_latitudes[(born_latitude_min, born_latitude_max)] = 0
-            for satellite in satellite_to_check:
-                if (
-                    born_latitude_min
-                    <= satellite.get_coordinates().latitude
-                    <= born_latitude_max
-                ):
-                    satellite_per_latitudes[pair] += satellite
-
-        self.amount_of_satellite_per_latitude = satellite_per_latitudes
-        return self.amount_of_satellite_per_latitude
-
     def __init__(self, simulation_manager: SimulationManager = None):
         self.satellites_and_they_neighboring_but_not_linked_satellite = dict()
 
@@ -81,12 +54,6 @@ class GeographicalBasedTrafficModel(TrafficModel):
         self.simulation_manager = simulation_manager
         self.satellite_and_users = set()
         self.amount_of_satellite_per_latitude = dict()
-
-    def get_satellite_and_users(self):
-        if self.satellite_and_users is None:
-            self.calculate_amount_of_potential_user_per_satellite()
-
-        return self.satellite_and_users
 
     def calculate_amount_of_potential_user_per_satellite(
         self, satellite_range_in_km: int = 100
@@ -98,7 +65,7 @@ class GeographicalBasedTrafficModel(TrafficModel):
         :return:
         """
         self.satellite_and_users = set()
-        self.satellites_around_satellite_with_a_given_range(satellite_range_in_km)
+        self.__get_satellites_around_satellite_with_a_given_range(satellite_range_in_km)
         satellites = self.simulation_manager.get_satellites()
 
         satellite_positions = [
