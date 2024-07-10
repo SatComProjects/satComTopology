@@ -1,4 +1,5 @@
 import pytest
+
 from sat_com_model.models import (
     Simulation,
 )
