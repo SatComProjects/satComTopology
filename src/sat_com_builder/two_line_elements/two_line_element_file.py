@@ -37,4 +37,6 @@ def parse_two_line_element_to_instance(file_path: str) -> TwoLineElementFile:
 
             two_line_element_file.parsed_tles.append(current_entry)
 
+        file.close()
+
     return two_line_element_file
