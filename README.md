@@ -35,9 +35,17 @@ This project si the laboratory 🔬 where you can **design** your topologies.
 - sat_com_topology_traffic: [Topology Traffic](src/sat_com_traffic/README.md) (Bêta version)
 
 ## Installation 📃
-## Install Main Version
-```shell
+Uninstall if already installed:
+```sh
 pip uninstall sat_com_topology -y
+```
+### Install Main Version from GitLab
+```sh
+pip install git+https://gitlab.isae-supaero.fr/eqospace/sat-com-topology.git@main#egg=sat_com_topology
+```
+
+### Install Main Version from GitHub
+```shell
 pip install git+https://github.com/elbarbi/satComTopology.git@main#egg=sat_com_topology
 ```
 
@@ -106,7 +114,10 @@ networkx_adapter.adapt("OUTPUT_PATH")
 ## Tutorials 🎓
 Here are some tutorials in the Jupyter Notebook format:
 - [Create my first simulation](https://github.com/elbarbi/sat_com_topology_tutorials/blob/main/src/create_my_first_simulation.ipynb)
-- [Learn to  deeply use satComTopology] coming soon...
+- [Learn to  deeply use satComTopology](https://github.com/elbarbi/satComTopologyTutorials/blob/main/src/deeply_understand_sat_com_topology.ipynb)
+
+The tutorials aren't on gitlab yet, to have ask an access:
+louis.barbier at isae-supaero.fr
 
 ## Contributing
 The contributing guide is [here](https://github.com/elbarbi/satComTopology/blob/develop/CONTRIBUTING.md).
