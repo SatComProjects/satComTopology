@@ -1,0 +1,30 @@
+
+image: python:3.10
+
+stages:
+  - lint
+  - test
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+before_script:
+  - python -V
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+
+cache:
+  paths:
+    - .cache/pip
+
+lint:
+  stage: lint
+  script:
+    - pip install black
+    - black --check .
+
+test:
+  stage: test
+  script:
+    - pip install pytest
+    - pytest
