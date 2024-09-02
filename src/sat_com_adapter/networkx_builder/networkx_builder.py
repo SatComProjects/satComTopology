@@ -220,7 +220,7 @@ class NetworkxBuilder:
 
     def __set_node_coordinate_as_tuple(self, node_id: int):
         coordinates_on_grid = calculate_satellite_mesh_coordinates(
-            self.graph[node_id]["object_id"],
+            self.graph.nodes[node_id]["object_id"],
             self.simulation_manager.configuration.get("number_of_orbit_plane", 0),
             self.simulation_manager.configuration.get(
                 "number_of_satellite_per_orbit_plane", 0
