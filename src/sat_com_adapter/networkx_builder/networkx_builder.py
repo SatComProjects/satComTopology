@@ -229,8 +229,8 @@ class NetworkxBuilder:
                 "adjacent_inter_satellite_shifting", 0
             ),
         )
-        self.graph[node_id]["orbit_plane_id"] = coordinates_on_grid[0]
-        self.graph[node_id]["satellite_number"] = coordinates_on_grid[1]
+        self.graph.nodes[node_id]["orbit_plane_id"] = coordinates_on_grid[0]
+        self.graph.nodes[node_id]["satellite_number"] = coordinates_on_grid[1]
 
     def add_mesh_coordinates_on_satellites(self) -> "NetworkxBuilder":
         """
@@ -238,7 +238,8 @@ class NetworkxBuilder:
         :return:
         """
         node_satellites = filter(
-            lambda node: self.graph[node]["type"] == Satellite.type, self.graph.nodes
+            lambda node: self.graph.nodes[node]["type"] == Satellite.type,
+            self.graph.nodes,
         )
 
         for satellite_node in node_satellites:
