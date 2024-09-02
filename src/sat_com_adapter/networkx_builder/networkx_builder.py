@@ -1,7 +1,8 @@
 import networkx as nx
 
 from sat_com_application.simulation_manager import SimulationManager
-from sat_com_model.models import TopologyObject, Link
+from sat_com_model.models import TopologyObject, Link, Satellite
+from sat_com_trajectopy.grid_mesh_calculator import calculate_satellite_mesh_coordinates
 
 
 class NetworkxBuilder:
@@ -214,6 +215,34 @@ class NetworkxBuilder:
         self.add_inter_satellite_links()
         self.add_ground_station_links()
         self.add_user_terminal_links()
+
+        return self
+
+    def __set_node_coordinate_as_tuple(self, node_id: int):
+        coordinates_on_grid = calculate_satellite_mesh_coordinates(
+            self.graph[node_id]["object_id"],
+            self.simulation_manager.configuration.get("number_of_orbit_plane", 0),
+            self.simulation_manager.configuration.get(
+                "number_of_satellite_per_orbit_plane", 0
+            ),
+            self.simulation_manager.configuration.get(
+                "adjacent_inter_satellite_shifting", 0
+            ),
+        )
+        self.graph[node_id]["orbit_plane_id"] = coordinates_on_grid[0]
+        self.graph[node_id]["satellite_number"] = coordinates_on_grid[1]
+
+    def add_mesh_coordinates_on_satellites(self) -> "NetworkxBuilder":
+        """
+        Add mesh coordinates. Those are called in the literature logical coordinates.
+        :return:
+        """
+        node_satellites = filter(
+            lambda node: self.graph[node]["type"] == Satellite.type, self.graph.nodes
+        )
+
+        for satellite_node in node_satellites:
+            self.__set_node_coordinate_as_tuple(satellite_node)
 
         return self
 
