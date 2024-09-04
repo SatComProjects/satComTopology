@@ -395,6 +395,22 @@ class SimulationManager:
         """
         self.simulation.ground_station_links.remove(ground_station_link)
 
+    def remove_inter_satellite_link(self, inter_satellite_link: InterSatelliteLink):
+        """
+        Remove an Inter satellite  link
+        :param inter_satellite_link: Inter satellite Link to remove
+        :return:
+        """
+        self.simulation.inter_satellite_links.remove(inter_satellite_link)
+
+    def remove_user_terminal_link(self, user_terminal_link: UserTerminalLink):
+        """
+        Remove a user terminal link
+        :param user_terminal_link: User terminal link to remove
+        :return:
+        """
+        self.simulation.user_terminal_links.remove(user_terminal_link)
+
     def remove_all_ground_station_links(
         self, ground_station_links: [GroundStationLink]
     ):
@@ -656,6 +672,53 @@ class SimulationManager:
                 raise ValueError(
                     "An object of type " + type(satellite).__name__ + " wasn't expected"
                 )
+
+    def get_link_connected_to_topology_object(
+        self, topology_object: TopologyObject
+    ) -> set[Link]:
+        connected_links = set()
+        for link in self.get_all_links():
+            if link.source == topology_object or link.destination == topology_object:
+                connected_links.add(link)
+
+        return connected_links
+
+    def remove_cascade_topology_object(self, topology_object_id: int) -> []:
+        """
+        Remove from the simulation topology object and every related dependent objects (links)
+        :param topology_object_id: Topology object identifier
+        :return: List of every objects removed from this action
+        """
+
+        removed_objects = []
+
+        topology_object = self.get_topology_object_from_uniq_id(topology_object_id)
+
+        connected_links = self.get_link_connected_to_topology_object(topology_object)
+
+        removed_objects.append(topology_object)
+        removed_objects.extend(connected_links)
+
+        for link in connected_links:
+            if isinstance(link, InterSatelliteLink):
+                self.remove_inter_satellite_link(link)
+            elif isinstance(link, GroundStationLink):
+                self.remove_ground_station_link(link)
+            elif isinstance(link, UserTerminalLink):
+                self.remove_user_terminal_link(link)
+            else:
+                raise ValueError("Link type unknown: " + link.type)
+
+        if isinstance(topology_object, Satellite):
+            self.simulation.satellites.remove(topology_object)
+        elif isinstance(topology_object, GroundStation):
+            self.simulation.ground_stations.remove(topology_object)
+        elif isinstance(topology_object, UserTerminal):
+            self.simulation.user_terminals.remove(topology_object)
+        else:
+            raise ValueError("Topology object type unknown: " + topology_object.type)
+
+        return removed_objects
 
     def __update_ground_stations_in_static_mode(self):
         """
