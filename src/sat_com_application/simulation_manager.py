@@ -683,6 +683,41 @@ class SimulationManager:
 
         return connected_links
 
+    def remove_link(self, link: Link) -> Link:
+        """
+        Remove a link from simulation whatever the type
+        :param link:
+        :return:
+        """
+
+        if isinstance(link, InterSatelliteLink):
+            self.remove_inter_satellite_link(link)
+        elif isinstance(link, GroundStationLink):
+            self.remove_ground_station_link(link)
+        elif isinstance(link, UserTerminalLink):
+            self.remove_user_terminal_link(link)
+        else:
+            raise ValueError("Link type unknown: " + link.type)
+        return link
+
+    def __remove_topology_object(
+        self, topology_object: TopologyObject
+    ) -> TopologyObject:
+        """
+        WARNING SHOULD ONLY BE USED IN A CONTROLLED PLACE. EDGE EFFECT GUARANTEES
+        :return: Deleted topology object
+        """
+        if isinstance(topology_object, Satellite):
+            self.simulation.satellites.remove(topology_object)
+        elif isinstance(topology_object, GroundStation):
+            self.simulation.ground_stations.remove(topology_object)
+        elif isinstance(topology_object, UserTerminal):
+            self.simulation.user_terminals.remove(topology_object)
+        else:
+            raise ValueError("Topology object type unknown: " + topology_object.type)
+
+        return topology_object
+
     def remove_cascade_topology_object(self, topology_object_id: int) -> []:
         """
         Remove from the simulation topology object and every related dependent objects (links)
@@ -700,23 +735,9 @@ class SimulationManager:
         removed_objects.extend(connected_links)
 
         for link in connected_links:
-            if isinstance(link, InterSatelliteLink):
-                self.remove_inter_satellite_link(link)
-            elif isinstance(link, GroundStationLink):
-                self.remove_ground_station_link(link)
-            elif isinstance(link, UserTerminalLink):
-                self.remove_user_terminal_link(link)
-            else:
-                raise ValueError("Link type unknown: " + link.type)
+            self.remove_link(link)
 
-        if isinstance(topology_object, Satellite):
-            self.simulation.satellites.remove(topology_object)
-        elif isinstance(topology_object, GroundStation):
-            self.simulation.ground_stations.remove(topology_object)
-        elif isinstance(topology_object, UserTerminal):
-            self.simulation.user_terminals.remove(topology_object)
-        else:
-            raise ValueError("Topology object type unknown: " + topology_object.type)
+        self.__remove_topology_object(topology_object)
 
         return removed_objects
 
