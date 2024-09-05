@@ -17,8 +17,12 @@ from sat_com_builder.two_line_elements.two_line_element_file import (
     parse_two_line_element_to_instance,
     TwoLineElementFile,
 )
+from sat_com_model.exceptions import DistanceModelUndefinedError
 from sat_com_model.models import Simulation
-from sat_com_trajectopy.distance_models import GeopyDistanceModel
+from sat_com_trajectopy.distance_models import (
+    GeopyDistanceModel,
+    SkLearningDistanceModel,
+)
 from sat_com_trajectopy.satellites.generate_satellite import (
     generate_satellites_from_two_line_elements_with_pyorbital_model,
 )
@@ -61,6 +65,13 @@ class ObjectBaseConfigurationManager(ConfigurationManager):
             if distance_model == "geopy":
                 geopy_distance_model = GeopyDistanceModel()
                 simulation.set_distance_model(geopy_distance_model)
+
+            elif distance_model == "sklearn":
+                sklearn_distance_model = SkLearningDistanceModel()
+                simulation.set_distance_model(sklearn_distance_model)
+
+            else:
+                raise DistanceModelUndefinedError()
 
         return simulation
 
