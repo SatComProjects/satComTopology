@@ -250,8 +250,8 @@ def calculate_topology_objects_in_range_of_topology_objects(
     for topology_object_input, research_result in zip(
         topology_object_inputs, result_as_list_of_topology_object
     ):
-
-        research_result.remove(topology_object_input)
+        if topology_object_input in research_result:
+            research_result.remove(topology_object_input)
 
         result_dictionary.update({topology_object_input: research_result})
 
@@ -374,16 +374,11 @@ class SkLearningDistanceModel(DistanceModel):
 
         query_result = np.array(target_latitudes_longitudes)[indices[0]]
 
-        spatial_point_result = list(
-            filter(
-                lambda spatial_point: (
-                    spatial_point.spatial_position.latitude,
-                    spatial_point.spatial_position.longitude,
-                )
-                in query_result,
-                target_points,
-            )
-        )
+        spatial_point_result = [
+            target_points[i]
+            for i, point in enumerate(target_latitudes_longitudes)
+            if any((point == query_result).all(axis=1))
+        ]
 
         return spatial_point_result
 
