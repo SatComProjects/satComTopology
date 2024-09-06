@@ -192,16 +192,23 @@ def map_ball_tree_result_with_ball_tree_entries(
         topology_object_positions_as_np_array = np.array(topology_object_positions)[
             position_indices
         ]
-        nearest_topology_object = list(
-            filter(
-                lambda topology_object: (
-                    topology_object.get_coordinates().latitude,
-                    topology_object.get_coordinates().longitude,
+
+        nearest_topology_object = [
+            topology_object
+            for topology_object in topology_objects
+            if np.any(
+                np.all(
+                    np.array(
+                        [
+                            topology_object.get_coordinates().latitude,
+                            topology_object.get_coordinates().longitude,
+                        ]
+                    )
+                    == topology_object_positions_as_np_array,
+                    axis=1,
                 )
-                in topology_object_positions_as_np_array,
-                topology_objects,
             )
-        )
+        ]
         indices_with_its_entries_object.append(nearest_topology_object)
 
     return indices_with_its_entries_object
