@@ -70,6 +70,18 @@ class NetworkxBuilder:
     def add_link(self, link: Link, data: dict = None) -> "NetworkxBuilder":
         """
         Add a Link to the Networkx Builder.
+
+        if export link length is exported, the distance meter will be exported, accessible from the
+        key "distance"
+        if used_capacity_between_previous_and_last_hop is enabled the unidirectional used capacity
+        will be exported, accessible from the key "used_capacity_between_previous_and_last_hop", with the
+        following structure:
+        For link with source=1 and destination=2:
+        The Key will always be the first node from the edge.
+        "used_capacity_between_previous_and_last_hop": {
+             1: x, # for 1 -> 2
+             2: y, # for 2 -> 1
+        }
         :param link: Link to be added.
         :param data: Dictionary of data to be added to the edge.
         :return: Networkx Builder instance.
@@ -90,12 +102,12 @@ class NetworkxBuilder:
 
         if self.enable_export_flows_data:
             flows = dict()
-            flows[(source.topology_uniq_id, destination.topology_uniq_id)] = (
+            flows[source.topology_uniq_id] = (
                 link.get_used_capacity_between_hops_unidirectional(
                     link.source, link.destination
                 )
             )
-            flows[(destination.topology_uniq_id, source.topology_uniq_id)] = (
+            flows[destination.topology_uniq_id] = (
                 link.get_used_capacity_between_hops_unidirectional(
                     link.destination, link.source
                 )
