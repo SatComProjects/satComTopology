@@ -4,7 +4,7 @@ from unittest.mock import Mock
 from sat_com_adapter.networkx_builder.networkx_builder import NetworkxBuilder
 
 
-class TestNetworkxAdapter:
+class TestNetworkxBuilder:
     @pytest.fixture
     def simulation_manager(self):
         mock_manager = Mock()
