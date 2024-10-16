@@ -13,11 +13,93 @@ Todo:
 - Configure output file in the YAML configuration file .
 
 ## Example
-
 ### NetworkX Adapter
+#### NetworkX Builder
+NetworkX builder is the object used to create networkX graph, it will be used in the NetworkXAdapter. NetworkX Builder
+will define what we want to export in the adapter. 
+The adapter is the layer that export the Builder into a file.
 
+##### Available options
+- export_positions: boolean, if True, will export the nodes positions
+- export_link_length: boolean, if True, will export link length (distance in meters)
+- enable_export_flows_data: boolean, if True, will export data about the amount of flows crossing links in both directions
+##### Code
+```py
+from sat_com_adapter.networkx_builder.networkx_builder import NetworkxBuilder
+from sat_com_adapter.adapters import NetworkXAdapter
+from sat_com_application.simulation_manager import SimulationManager
+from sat_com_model.models import Simulation
+
+my_example_simulation = Simulation()
+example_simulation_manager = SimulationManager(my_example_simulation)
+
+network_x_builder = NetworkxBuilder(example_simulation_manager, 
+                                    export_positions=True, 
+                                    export_link_length= True, 
+                                    enable_export_flows_data= True
+                                    )
+
+my_networkx_graph = network_x_builder.graph
+
+networkx_adapter = NetworkXAdapter(example_simulation_manager)
+networkx_adapter.adapt("my_out_put_directory") # Export the graph (not mandatory)
+```
+
+#### Graph Structure
+```py
+graph_as_dict_structure = {
+    "directed": False,
+    "multigraph": False,
+    "graph": {},
+    "nodes": [
+        {
+            "type": "Satellite",
+            "id": 0,
+            "position": { # if export_positions =  True
+              "longitude": 50,
+              "latitude": 65,
+              "altitude": 500, # In kilometer ?
+            }
+        },
+        {
+            "type": "Satellite",
+            "id": 1,
+            "position": { # if export_positions =  True
+              "longitude": 50,
+              "latitude": 65,
+              "altitude": 500, # In kilometer ?
+            },
+
+        }
+    ],
+    "links": [
+        {
+            "type": "InterSatelliteLink",
+            "direction": "ORBITAL",
+            "source": 1,
+            "target": 2,
+            "used_capacity_between_previous_and_last_hop": { # if enable_export_flows_data is True
+              1: 150, # previous hop is 1 (link "source"), next hop is 2
+              2: 200  # previous hop is 2 (link "destination"), next hop is 1
+            },
+            "distance": 5000, # In meters
+        },
+        {
+            "type": "InterSatelliteLink",
+            "direction": "ADJACENT",
+            "source": 1,
+            "target": 24,
+            "used_capacity_between_previous_and_last_hop": { # if enable_export_flows_data is True
+              1: 15, # previous hop is 1 (link "source"), next hop is 2
+              24: 142  # previous hop is 24 (link "destination"), next hop is 1
+            },
+            "distance": 5000, # In meters          
+        }
+    ]
+}
+
+```
 #### With file export
-
 ```python
 from sat_com_adapter.adapters import NetworkXAdapter
 from sat_com_application.simulation_manager import SimulationManager
@@ -77,7 +159,6 @@ example_simulation_manager = SimulationManager(my_example_simulation)
 network_x_adapter = NetworkXAdapter(example_simulation_manager)
 
 my_nx_graph = network_x_adapter.create_full_networkx_graph(export_link_length=True, export_object_position=True)
-
 ```
 You can still use json_graph api from networkX to export a file later.
 
