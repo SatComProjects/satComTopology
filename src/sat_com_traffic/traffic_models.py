@@ -151,3 +151,39 @@ class GeographicalBasedTrafficModel(TrafficModel):
         destinations = self.get_k_random_satellite_based_on_users_probability(k)
 
         return list(zip(sources, destinations))
+
+    def get_set_of_random_k_pairs_of_satellite_distinct(
+        self, k: int
+    ) -> [(Satellite, Satellite)]:
+        """
+        Generate k random pairs of satellites using population as weight.
+        Ensures no satellite is paired with itself.
+
+        :param k: number of satellite pairs
+        :exception: AttributeError if calculate_amount_of_potential_user_per_satellite hasn't been executed
+        :return: A list of tuple containing pairs of satellites
+        """
+
+        if self.satellite_and_users is None:
+            raise AttributeError(
+                "You should execute the method calculate_amount_of_potential_user_per_satellite(satellite_range_in_km)."
+            )
+
+        sources = self.get_k_random_satellite_based_on_users_probability(k)
+        destinations = self.get_k_random_satellite_based_on_users_probability(k)
+
+        pairs = []
+
+        for i in range(k):
+            source = sources[i]
+            destination = destinations[i]
+
+            # Ensure the source is not the same as the destination
+            while source == destination:
+                destination = random.choice(
+                    self.get_k_random_satellite_based_on_users_probability(1)
+                )
+
+            pairs.append((source, destination))
+
+        return pairs
