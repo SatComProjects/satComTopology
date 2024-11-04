@@ -645,6 +645,19 @@ class SimulationManager:
                 )
                 ground_station_link.disabled = False
 
+    def get_connected_satellites_to_ground_station(
+        self, ground_station: GroundStation
+    ) -> list[Satellite]:
+        satellites_connected = set()
+
+        for ground_station_link in self.get_ground_stations_links():
+            if ground_station_link.source == ground_station:
+                satellites_connected.add(ground_station_link.destination)
+            if ground_station_link.destination == ground_station:
+                satellites_connected.add(ground_station_link.source)
+
+        return list(satellites_connected)
+
     def connect_ground_station_to_satellites(
         self,
         ground_station: GroundStation,
