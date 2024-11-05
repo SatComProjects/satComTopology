@@ -244,12 +244,19 @@ class CesiumRenderer:
         return self
 
     def add_inter_satellites_flows(self) -> "CesiumRenderer":
+        link_capacities = [
+            link.total_capacity_between_hops_bidirectional()
+            for link in self.simulation_manager.get_inter_satellites_links()
+        ]
+        maximum_busy_inter_satellite_link = max(link_capacities)
+
         for (
             inter_satellite_link
         ) in self.simulation_manager.get_inter_satellites_links():
+
             self.append_next(
                 self.cesium_format.create_inter_satellite_link_flow(
-                    inter_satellite_link
+                    inter_satellite_link, maximum_busy_inter_satellite_link
                 )
             )
         return self
