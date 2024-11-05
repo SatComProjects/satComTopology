@@ -176,11 +176,11 @@ class CesiumFormat:
         )
 
     def create_inter_satellite_link_flow(
-        self, inter_satellite_link: InterSatelliteLink
+        self, inter_satellite_link: InterSatelliteLink, maximum_capacity: float
     ):
         color_level = (
             inter_satellite_link.total_capacity_between_hops_bidirectional()
-            / (inter_satellite_link.link_maximum_capacity * 2)
+            / maximum_capacity
         ) * 100
 
         html_description = InterSatelliteLinkHtmlFormatter(
