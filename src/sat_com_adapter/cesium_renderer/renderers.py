@@ -191,7 +191,7 @@ class CesiumRenderer:
         return self
 
     def add_route_from_link(
-        self, link: Link, underlined: bool = False, color: str = None
+        self, link: Link, underlined: bool = False, color: str = "RED"
     ) -> "CesiumRenderer":
         """
         Underline a link based on the link given in parameter
@@ -205,7 +205,7 @@ class CesiumRenderer:
             return self.append_next(
                 self.cesium_format.create_link(
                     link=link,
-                    color="RED",
+                    color=color,
                     description=LinkHtmlFormatter(link).format_to_html(),
                     properties={},
                 )

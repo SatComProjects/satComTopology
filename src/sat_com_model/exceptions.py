@@ -40,3 +40,15 @@ class DistanceModelUndefinedError(Exception):
 
 class LinkNotFoundError(Exception):
     pass
+
+
+class GroundObjectDomainNotFoundError(Exception):
+    pass
+
+
+class WalkerShellNotFoundError(Exception):
+    pass
+
+
+class InvalidGroundObjectTypeError(Exception):
+    pass

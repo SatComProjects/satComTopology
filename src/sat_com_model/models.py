@@ -1,4 +1,8 @@
+from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Optional, List, ClassVar
+
+from pydantic import BaseModel, Field, ConfigDict
 
 from .exceptions import (
     InterSatelliteConnectionError,
@@ -17,17 +21,10 @@ class InterSatelliteLinkDirection(Enum):
     UNDEFINED = 3
 
 
-class SpatialPosition:
-    longitude: float
-    latitude: float
-    altitude: float
-
-    def __init__(
-        self, longitude: float = None, latitude: float = None, altitude: float = None
-    ):
-        self.longitude = longitude
-        self.latitude = latitude
-        self.altitude = altitude
+class SpatialPosition(BaseModel):
+    longitude: float = Field(default=None)
+    latitude: float = Field(default=None)
+    altitude: float = Field(default=None)
 
     def to_longitude_latitude(self) -> (float, float):
         return self.longitude, self.latitude
@@ -45,25 +42,20 @@ class SpatialPosition:
         return f"Longitude: {self.longitude}, Latitude: {self.latitude}, Altitude: {self.altitude}"
 
 
-class SpatialPoint:
+class SpatialPoint(BaseModel):
     """
     This is the lower element of the stack. Every element in the topology has a position
     """
 
-    _spatial_position: SpatialPosition
-
-    simulation_context: "Simulation"
+    spatial_position_info: SpatialPosition = Field(default_factory=SpatialPosition)
 
     @property
     def spatial_position(self):
-        return self._spatial_position
+        return self.spatial_position_info
 
     @spatial_position.setter
     def spatial_position(self, value):
-        self._spatial_position = value
-
-    def __init__(self):
-        self._spatial_position = SpatialPosition()
+        self.spatial_position_info = value
 
     def __str__(self):
         return self.spatial_position.__str__()
@@ -100,11 +92,24 @@ class TopologyObject(SpatialPoint):
     """Identifier provided by the simulator (uniq for avery topology object)"""
     topology_uniq_id: int = None
 
+    """"""
+    domain: str = Field(default="public")
+
     """Identifier given by the data provider (ex: satellite identifier, uniq for every satellite)"""
     object_id: int = None
 
     """This is the object type as string, used for debugging and export purposes"""
-    type = "TypologyObject"
+    type: ClassVar[str] = "TypologyObject"
+
+    @property
+    def domain_id(self) -> str:
+        return (
+            "{affiliation_business}-{object_id}".format(
+                affiliation_business=self.domain, object_id=self.object_id
+            )
+            .lower()
+            .replace(" ", "-")
+        )
 
     def get_type(self) -> str:
         return self.type
@@ -129,12 +134,13 @@ class TopologyObject(SpatialPoint):
         pass
 
 
-class MovementModel:
+class MovementModel(ABC):
     """
     This is the movement model class. This abstract class should be implemented using an orbit trajectory
     library.
     """
 
+    @abstractmethod
     def is_ascending(self) -> bool:
         """
         Return True if the Orbital object is in its ascending phase.
@@ -142,6 +148,7 @@ class MovementModel:
         """
         pass
 
+    @abstractmethod
     def get_longitude_latitude(self) -> SpatialPosition:
         """
         Return the longitude, latitude  and elevation on ground of the orbital object
@@ -149,6 +156,7 @@ class MovementModel:
         """
         pass
 
+    @abstractmethod
     def get_position_earth_general_inertial(self) -> (float, float, float):
         """
         This method returns the position of the orbital object in the referential of EGI.
@@ -164,6 +172,8 @@ class OrbitalObject(TopologyObject):
     """
 
     movement_model: MovementModel = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def set_movement_model(self, movement_model: MovementModel):
         """
@@ -212,7 +222,7 @@ class OrbitalObject(TopologyObject):
 
 class Satellite(OrbitalObject):
     satellite_name: str
-    type = "Satellite"
+    type: ClassVar[str] = "Satellite"
 
     def __str__(self):
         return (
@@ -224,21 +234,14 @@ class Satellite(OrbitalObject):
 
 
 class GroundObject(TopologyObject):
-    in_range_satellites: {Satellite: float}
-
-    def __init__(self):
-        super().__init__()
-        self.in_range_satellites = dict()
+    pass
 
 
 class GroundStation(GroundObject):
-    city: str
+    city: str = Field(default="unknown")
+    type: ClassVar[str] = "GroundStation"
 
-    type = "GroundStation"
-
-    def __init__(self, city_name: str = "unknown"):
-        super().__init__()
-        self.city = city_name
+    def __post_init__(self):
         self.spatial_position.longitude = 0
         self.spatial_position.latitude = 0
         self.spatial_position.altitude = 0
@@ -253,9 +256,9 @@ class GroundStation(GroundObject):
 
 
 class UserTerminal(GroundObject):
-    user_name: str
+    user_name: str = Field(default="unknown")
 
-    type = "UserTerminal"
+    type: ClassVar[str] = "UserTerminal"
 
 
 class Flow:
@@ -324,7 +327,7 @@ class Link:
 
 
 class InterSatelliteLink(Link):
-    type = "InterSatelliteLink"
+    type: str = "InterSatelliteLink"
 
     inter_satellite_direction: InterSatelliteLinkDirection
 
@@ -349,7 +352,7 @@ class InterSatelliteLink(Link):
 
 
 class GroundStationLink(Link):
-    type = "GroundStationLink"
+    type: str = "GroundStationLink"
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_source_is_a_gsl_and_destination_a_satellite = isinstance(
@@ -366,7 +369,12 @@ class GroundStationLink(Link):
         )
 
         if cant_connect:
-            raise GroundStationConnectionError()
+            raise GroundStationConnectionError(
+                "Incompatible types: "
+                + source.__class__.__name__
+                + " and "
+                + destination.__class__.__name__
+            )
 
         super().connect(source, destination)
 
@@ -422,18 +430,47 @@ class DistanceModel:
         pass
 
 
-def ground_station_link_is_connected_to_ground_station(
-    ground_station_link: GroundStationLink, ground_station_object_id: int
+def ground_station_link_is_connected_to_topology_object(
+    ground_station_link: GroundStationLink, topology_object_id: str
 ) -> bool:
     source = ground_station_link.source
     destination = ground_station_link.destination
 
     if isinstance(source, GroundStation):
-        return source.object_id == ground_station_object_id
+        return source.topology_uniq_id == topology_object_id
     elif isinstance(destination, GroundStation):
-        return destination.object_id == ground_station_object_id
+        return destination.topology_uniq_id == topology_object_id
     else:
         raise ValueError("This ground station link is corrupted")
+
+
+class WalkerShell(BaseModel):
+    identifier: str
+    type: str
+    amount_of_orbit_plane: int
+    amount_of_satellite_per_orbit_plane: int
+
+    adjacent_inter_satellite_shifting: int = Field(default=0)
+    maximum_inter_satellite_range_distance: Optional[float] = None
+    maximum_ground_station_range: Optional[float] = None
+    maximum_user_terminal_range: Optional[float] = None
+    maximum_connected_ground_object: Optional[int] = None
+    maximum_connected_user_terminal: Optional[int] = None
+    maximum_connected_ground_station: Optional[int] = None
+
+    ground_object_white_list: List[str] = Field(default_factory=list)
+
+
+class GroundObjectDomain(BaseModel):
+
+    identifier: str
+    type: str
+
+    elevation_above_horizon: float = Field(default=20)
+    maximum_satellite_range_distance: float = Field(default=1000)
+    maximum_satellite_connected_count: Optional[int] = None
+    shell_white_lists: List[str] = Field(default_factory=list)
+    maximum_connected_satellites: Optional[int] = None
 
 
 class Simulation:
@@ -441,26 +478,35 @@ class Simulation:
 
     simulation_name: str
 
-    satellites: list[Satellite]
-    inter_satellite_links: list[InterSatelliteLink]
+    satellites: List[Satellite]
+    inter_satellite_links: List[InterSatelliteLink]
 
-    ground_stations: list[GroundStation]
-    ground_station_links: list[GroundStationLink]
+    ground_stations: List[GroundStation]
+    ground_station_links: List[GroundStationLink]
 
-    user_terminals: list[UserTerminal]
-    user_terminal_links: list[UserTerminalLink]
+    user_terminals: List[UserTerminal]
+    user_terminal_links: List[UserTerminalLink]
+
+    walker_shells: List[WalkerShell]
+    ground_object_domains: List[GroundObjectDomain]
 
     distance_model: DistanceModel = None
 
     def __init__(self):
         self.simulation_name = "Unknown"
         self.object_uuid_index = 0
-        self.satellites = []
-        self.inter_satellite_links = []
-        self.ground_stations = []
-        self.ground_station_links = []
-        self.user_terminals = []
-        self.user_terminal_links = []
+        self.satellites = list()
+        self.inter_satellite_links = list()
+        self.ground_stations = list()
+        self.ground_station_links = list()
+        self.user_terminals = list()
+        self.user_terminal_links = list()
+        self.walker_shells = list()
+        self.ground_object_domains = list()
+
+        self.ground_object_domains.append(
+            GroundObjectDomain(identifier="public", type="ground_object")
+        )
 
     def get_distance_model(self) -> DistanceModel:
         if self.distance_model is None:
@@ -485,44 +531,53 @@ class Simulation:
         return topology_objects
 
 
-def create_satellite(satellite_name, satellite_id) -> Satellite:
+def create_satellite(
+    satellite_name: str,
+    object_id: int,
+    domain: str = "public",
+) -> Satellite:
     """
-    Create a satellite with parameters
-    todo: check what we have to put inside a satellite object
-    :param satellite_name: Name of the satellite
-    :param satellite_id: Identifier of the satellite
+    This function creates a Satellite object.
+    :param satellite_name: The name of the satellite
+    :param object_id: The business id of the satellite
+    :param domain: The constellation identifier of the satellite.
     :return:
     """
-    created_satellite = Satellite()
+    created_satellite = Satellite(
+        satellite_name=satellite_name, object_id=object_id, domain=domain
+    )
 
-    created_satellite.object_id = satellite_id
+    created_satellite.object_id = object_id
     created_satellite.satellite_name = satellite_name
+    created_satellite.domain = domain
 
     return created_satellite
 
 
-def create_ground_station(ground_station_id: int) -> GroundStation:
+def create_ground_station(object_id: int, domain: str = "public") -> GroundStation:
     """
-    Create a ground station
-    :param ground_station_id: identifier of the ground station
+    Create a ground station.
+    :param domain: Owner of the ground station
+    :param object_id: identifier of the ground station.
     :return:
     """
     created_ground_station = GroundStation()
-    created_ground_station.object_id = ground_station_id
+    created_ground_station.object_id = object_id
+    created_ground_station.domain = domain
 
     return created_ground_station
 
 
-def create_user_terminal(user_id, username) -> UserTerminal:
+def create_user_terminal(object_id: int, domain: str = "public") -> UserTerminal:
     """
-    Create a user terminal
-    :param username: username
-    :param user_id: identifier of the user
+    Create a user terminal.
+    :param domain: Owner domain of the company
+    :param object_id: Object identifier
     :return:
     """
 
     created_user = UserTerminal()
-    created_user.user_name = username
-    created_user.object_id = user_id
+    created_user.object_id = object_id
+    created_user.domain = domain
 
     return created_user

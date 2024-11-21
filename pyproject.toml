@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sat_com_topology"
-version = "3.1"
+version = "3.2"
 authors = [
   { name="Louis BARBIER", email="louis.barbier@isae-supaero.fr" },
 ]
@@ -22,7 +22,8 @@ dependencies = [
     'geopy>=2.4.1',
     'scikit-learn~=1.5.0',
     'PyYAML>=6.0.1',
-    'timezonefinder>=6.5.0'
+    'timezonefinder>=6.5.0',
+    'sgp4>=2.23'
 ]
 
 [project.urls]
@@ -44,4 +45,5 @@ packages = [
     "src/sat_com_trajectopy",
     "src/sat_com_application",
     "src/sat_com_traffic",
+    "src/sat_com_constellation"
 ]
