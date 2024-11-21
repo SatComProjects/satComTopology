@@ -65,7 +65,8 @@ satellites_have_same_name = current_satellite.name == target_satellite.name
 satellites_are_the_same = satellites_have_same_id and satellites_have_same_name
 
 if satellites_are_the_same:
-  # Do your things
+    pass
+    # Do your things
 ```
 ### Type everything
 Python include typing. You have to type variables in method, function and classes.

@@ -41,7 +41,7 @@ def assert_cant_establish_connection(
 
 @pytest.fixture
 def satellite() -> Satellite:
-    return Satellite()
+    return Satellite(object_id=0, satellite_name="Test Satellite 0")
 
 
 @pytest.fixture
@@ -89,7 +89,7 @@ class TestLinks:
     def test_impossible_connection_between_satellites_using_gsl(
         self, gsl_link: GroundStationLink, satellite
     ):
-        second_satellite = Satellite()
+        second_satellite = Satellite(satellite_name="Test Satellite 1", object_id=1)
         assert_cant_establish_connection(
             gsl_link,
             GroundStationConnectionError,
@@ -119,7 +119,7 @@ class TestLinks:
     def test_satellites_cannot_connect_using_gsl_link(
         self, gsl_link: GroundStationLink, satellite: Satellite
     ):
-        other_satellite = Satellite()
+        other_satellite = Satellite(satellite_name="Test Satellite 2", object_id=2)
 
         assert_cant_establish_connection(
             gsl_link, GroundStationConnectionError, satellite, other_satellite
@@ -147,7 +147,7 @@ class TestLinks:
     def test_satellite_can_connect_to_satellite_using_isl(
         self, isl_link: InterSatelliteLink, satellite: Satellite
     ):
-        other_satellite = Satellite()
+        other_satellite = Satellite(object_id=1, satellite_name="Test Satellite 1")
         assert_can_establish_connection(isl_link, satellite, other_satellite)
 
     def test_satellite_cant_connect_to_gs_with_isl(

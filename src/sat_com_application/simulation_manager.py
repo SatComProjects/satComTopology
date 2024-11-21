@@ -2,7 +2,12 @@ import uuid
 from typing import Callable
 
 from sat_com_application.time_managers import SimulationTimeManager
-from sat_com_model.exceptions import TopologyObjectNotFoundError, LinkNotFoundError
+from sat_com_model.exceptions import (
+    TopologyObjectNotFoundError,
+    LinkNotFoundError,
+    WalkerShellNotFoundError,
+    GroundObjectDomainNotFoundError,
+)
 from sat_com_model.models import (
     Simulation,
     Satellite,
@@ -14,6 +19,8 @@ from sat_com_model.models import (
     GroundStationLink,
     UserTerminalLink,
     Flow,
+    WalkerShell,
+    GroundObjectDomain,
 )
 from sat_com_model.specifications import (
     SourceDestinationMatchWithLinkSpecification,
@@ -21,16 +28,17 @@ from sat_com_model.specifications import (
 
 
 def get_object_by_object_id(
-    object_id: int, topology_objects: list
+    object_id: int, topology_objects: list, domain: str = "public"
 ) -> Satellite | GroundStation | UserTerminal:
     """
     Return the topology object matching its object_id
+    :param domain: Domain where the object belong. If missing public domain will be provided
     :param object_id: the object identifier (satellite.object_id, ground_station.object_id, etc.)
     :param topology_objects: The list of objects from its type /!\\ SHOULDN'T BE A LIST OF TOPOLOGY_OBJECT
     :return:
     """
     matching_objects_iterator = filter(
-        lambda x: x.object_id == object_id, topology_objects
+        lambda x: x.object_id == object_id and x.domain == domain, topology_objects
     )
     matched_object = list(matching_objects_iterator)
 
@@ -77,10 +85,13 @@ class SimulationManager:
 
     time_manager: SimulationTimeManager
 
+    static_ground_station_link_mode: bool
+
     def __init__(self, simulation: Simulation):
         self.simulation = simulation
         self.configuration = dict()
         self.enabled_update_functions = None
+        self.static_ground_station_link_mode = False
 
     def set_time_manager(self, time_manager: SimulationTimeManager):
         self.time_manager = time_manager
@@ -156,29 +167,50 @@ class SimulationManager:
 
         return all_links
 
-    def get_satellite_by_object_id(self, object_id: int) -> Satellite:
+    def get_satellite_by_object_id(
+        self, object_id: int, domain: str = "public"
+    ) -> Satellite:
         """
         Get satellite by its object id. (Satellite identifier)
+        :param domain: The domain to check whereas identifier belongs. If not provided "public" domain will be provided
         :param object_id:  Satellite identifier
         :return: Satellite instance
         """
-        return get_object_by_object_id(object_id, self.simulation.satellites)
+        return get_object_by_object_id(
+            object_id=object_id,
+            domain=domain,
+            topology_objects=self.simulation.satellites,
+        )
 
-    def get_ground_station_by_object_id(self, object_id: int) -> GroundStation:
+    def get_ground_station_by_object_id(
+        self, object_id: int, domain: str = "public"
+    ) -> GroundStation:
         """
         Get ground station by its object id. (Ground station identifier)
+        :param domain: The domain to check whereas identifier belongs. If not provided "public" domain will be provided
         :param object_id:  Ground station identifier
         :return: Ground station instance
         """
-        return get_object_by_object_id(object_id, self.simulation.ground_stations)
+        return get_object_by_object_id(
+            object_id=object_id,
+            domain=domain,
+            topology_objects=self.simulation.ground_stations,
+        )
 
-    def get_user_terminal_by_object_id(self, object_id: int) -> UserTerminal:
+    def get_user_terminal_by_object_id(
+        self, object_id: int, domain: str = "public"
+    ) -> UserTerminal:
         """
         Get user terminal by its object id. (User terminal identifier)
+        :param domain: The domain to check whereas identifier belongs. If domain missing, public domain will be provided
         :param object_id: User terminal identifier
         :return: User terminal instance
         """
-        return get_object_by_object_id(object_id, self.simulation.user_terminals)
+        return get_object_by_object_id(
+            object_id=object_id,
+            domain=domain,
+            topology_objects=self.simulation.user_terminals,
+        )
 
     def get_topology_object_from_uniq_id(self, uniq_id: int) -> TopologyObject:
         """
@@ -263,6 +295,15 @@ class SimulationManager:
         """
         for ground_station in ground_stations:
             self.add_ground_station(ground_station)
+
+    def add_all_user_terminals(self, user_terminals: list[UserTerminal]):
+        """
+        Add all user terminals to the simulation from a list in argument
+        :param user_terminals: List of user terminals to add
+        :return:
+        """
+        for user_terminal in user_terminals:
+            self.add_user_terminals(user_terminal)
 
     def get_ascending_satellites(self) -> list[Satellite]:
         """
@@ -573,8 +614,38 @@ class SimulationManager:
                     satellite, ground_station
                 )
 
+    def connect_every_satellite_with_every_user_terminals_and_disable_un_connected(
+        self,
+    ):
+        """
+        This method will connect every satellite with every user terminal, it will clear existing user terminals
+        links
+        :return:
+        """
+        self.simulation.ground_station_links.clear()
+
+        for user_terminal in self.get_user_terminals():
+            simulation_domain = self.get_ground_object_domain(user_terminal.domain)
+            satellites_in_range = (
+                self.simulation.get_distance_model().spatial_position_in_range(
+                    user_terminal,
+                    self.get_satellites(),
+                    int(simulation_domain.maximum_satellite_range_distance),
+                )
+            )
+            for satellite in self.get_satellites():
+                created_user_terminal_link = (
+                    self.create_and_add_user_terminal_link_connection(
+                        satellite, user_terminal
+                    )
+                )
+
+                created_user_terminal_link.disabled = (
+                    satellite not in satellites_in_range
+                )
+
     def connect_every_satellite_with_every_ground_stations_and_disable_un_connected(
-        self, ground_station_range: int
+        self,
     ):
         """
         This method will connect every satellite with every ground station, it will clear existing ground stations
@@ -584,10 +655,12 @@ class SimulationManager:
         self.simulation.ground_station_links.clear()
 
         for ground_station in self.get_ground_stations():
-
+            simulation_domain = self.get_ground_object_domain(ground_station.domain)
             satellites_in_range = (
                 self.simulation.get_distance_model().spatial_position_in_range(
-                    ground_station, self.get_satellites(), ground_station_range
+                    ground_station,
+                    self.get_satellites(),
+                    int(simulation_domain.maximum_satellite_range_distance),
                 )
             )
             for satellite in self.get_satellites():
@@ -651,12 +724,44 @@ class SimulationManager:
         satellites_connected = set()
 
         for ground_station_link in self.get_ground_stations_links():
-            if ground_station_link.source == ground_station:
+            if (
+                ground_station_link.source is not None
+                and ground_station_link.source == ground_station
+            ):
                 satellites_connected.add(ground_station_link.destination)
             if ground_station_link.destination == ground_station:
                 satellites_connected.add(ground_station_link.source)
 
         return list(satellites_connected)
+
+    def connect_user_terminal_to_satellites(
+        self, user_terminal: UserTerminal, maximum_satellite_range_distance: float
+    ):
+        """
+        This method will connect every satellite with every ground station
+        :param user_terminal:
+        :param maximum_satellite_range_distance:
+        :return:
+        """
+        if len(self.get_satellites()) == 0:
+            return
+
+        satellites_in_range = (
+            self.simulation.get_distance_model().spatial_position_in_range(
+                user_terminal,
+                self.get_satellites(),
+                int(maximum_satellite_range_distance),
+            )
+        )
+        for satellite in satellites_in_range:
+            if isinstance(satellite, Satellite):
+                self.create_and_add_user_terminal_link_connection(
+                    satellite, user_terminal
+                )
+            else:
+                raise ValueError(
+                    "An object of type " + type(satellite).__name__ + " wasn't expected"
+                )
 
     def connect_ground_station_to_satellites(
         self,
@@ -670,6 +775,9 @@ class SimulationManager:
         :param ground_station_range_in_km: Range of satellites to connect to satellites
         :return:
         """
+
+        if len(self.get_satellites()) == 0:
+            return
 
         satellites_in_range = (
             self.simulation.get_distance_model().spatial_position_in_range(
@@ -754,6 +862,15 @@ class SimulationManager:
 
         return removed_objects
 
+    def __update_user_terminal_links_in_static_mode(self):
+        """
+        This method will disable all ground station link that aren't connected
+        :return:
+        """
+        self.simulation.user_terminal_links.clear()
+
+        self.connect_every_satellite_with_every_ground_stations_and_disable_un_connected()
+
     def __update_ground_stations_in_static_mode(self):
         """
         This method will disable all ground station link that aren't connected
@@ -761,20 +878,34 @@ class SimulationManager:
         """
         self.simulation.ground_station_links.clear()
 
-        self.connect_every_satellite_with_every_ground_stations_and_disable_un_connected(
-            self.configuration.get("ground_station_link_range")
-        )
+        self.connect_every_satellite_with_every_ground_stations_and_disable_un_connected()
+
+    def __update_user_terminal_links_default(self):
+        self.simulation.user_terminal_links.clear()
+        for user_terminal in self.get_user_terminals():
+            simulation_domain = self.get_ground_object_domain(user_terminal.domain)
+
+            self.connect_user_terminal_to_satellites(
+                user_terminal, simulation_domain.maximum_satellite_range_distance
+            )
 
     def __update_ground_stations_default(self):
         """
         This method will delete all ground station links and will create new ones
+        Todo: Implement new features:
+            - white list
+            - physical layer rules for handling connections (angle)
+            - Amount of connections, etc
+            - Basically, everything inside GroundObjectDomain
         :return:
         """
         self.simulation.ground_station_links.clear()
 
         for ground_station in self.get_ground_stations():
+            simulation_domain = self.get_ground_object_domain(ground_station.domain)
+
             self.connect_ground_station_to_satellites(
-                ground_station, self.configuration.get("ground_station_link_range")
+                ground_station, simulation_domain.maximum_satellite_range_distance
             )
 
     def update_ground_station_links(self):
@@ -784,17 +915,13 @@ class SimulationManager:
         :return:
         """
 
-        static_ground_station_link_mode = self.configuration.get(
-            "static_ground_station_link_mode", False
-        )
-        if static_ground_station_link_mode:
+        if self.static_ground_station_link_mode:
             if len(self.get_ground_stations_links()) == 0:
                 self.connect_every_satellite_with_every_ground_stations()
 
             self.__update_ground_stations_in_static_mode()
-            return
-
-        self.__update_ground_stations_default()
+        else:
+            self.__update_ground_stations_default()
 
     def update_satellites(self):
         """
@@ -821,7 +948,13 @@ class SimulationManager:
             user_terminal.update()
 
     def update_user_terminal_links(self):
-        raise NotImplementedError()
+        if self.static_ground_station_link_mode:
+            if len(self.get_user_terminal_links()) == 0:
+                self.connect_every_satellite_with_every_ground_stations()
+
+            self.__update_user_terminal_links_in_static_mode()
+        else:
+            self.__update_user_terminal_links_default()
 
     def add_to_update_protocol(self, callable_update: Callable):
         self.enabled_update_functions.add(callable_update)
@@ -840,3 +973,37 @@ class SimulationManager:
         :return:
         """
         return {self.update_satellites, self.update_ground_station_links}
+
+    def add_walker_shell(self, walker_shell: WalkerShell):
+        self.simulation.walker_shells.append(walker_shell)
+
+    def add_ground_object_domain(self, ground_object_domain: GroundObjectDomain):
+        self.simulation.ground_object_domains.append(ground_object_domain)
+
+    def get_walker_shell(self, identifier: str) -> WalkerShell:
+        walker_shells_found = [
+            walker_shell
+            for walker_shell in self.simulation.walker_shells
+            if walker_shell.identifier == identifier
+        ]
+        if len(walker_shells_found) == 1:
+            return walker_shells_found[0]
+
+        elif len(walker_shells_found) == 0:
+            raise WalkerShellNotFoundError("No walker shell found")
+        else:
+            raise ValueError("Multiple walker shells found with the same identifier")
+
+    def get_ground_object_domain(self, identifier: str) -> GroundObjectDomain:
+        ground_object_domains_found = [
+            ground_object_domain
+            for ground_object_domain in self.simulation.ground_object_domains
+            if ground_object_domain.identifier == identifier
+        ]
+        if len(ground_object_domains_found) == 1:
+            return ground_object_domains_found[0]
+
+        elif len(ground_object_domains_found) == 0:
+            raise GroundObjectDomainNotFoundError("No Ground Domain found")
+        else:
+            raise ValueError("Multiple found object found with the same identifier")
