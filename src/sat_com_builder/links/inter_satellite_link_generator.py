@@ -220,13 +220,13 @@ def create_inter_satellite_links_for_walker_constellation(
     if walker_shell_properties.type == "star":
         generated_grid = create_inter_satellite_links_for_walker_star_constellation(
             walker_shell_properties.constellation_property,
-            walker_shell_properties.connectivity_property,
+            walker_shell_properties.orbital_connectivity_property,
         )
 
     elif walker_shell_properties.type == "delta":
         generated_grid = create_inter_satellite_links_for_walker_delta_constellation(
             walker_shell_properties.constellation_property,
-            walker_shell_properties.connectivity_property,
+            walker_shell_properties.orbital_connectivity_property,
         )
     else:
         raise ValueError("Unknown type of walker constellation")
