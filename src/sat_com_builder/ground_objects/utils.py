@@ -19,8 +19,8 @@ def generate_ground_object_from_file(
             ground_object = GroundObjectData(
                 id=int(split[0]),
                 label=split[1],
-                longitude=float(split[2]),
-                latitude=float(split[3]),
+                longitude=float(split[3]),
+                latitude=float(split[2]),
                 altitude=float(split[4]),
             )
             ground_objects.append(ground_object)
