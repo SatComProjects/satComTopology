@@ -53,25 +53,7 @@ class WalkerConstellation(Constellation):
         self.argument_of_perigee_degree = 0.0
         self.eccentricity = 0.0001
 
-    @staticmethod
-    def create_from_constellation_property(
-        walker_constellation_property: WalkerConstellationProperty,
-    ) -> "WalkerConstellation":
-        walker_constellation = WalkerConstellation(walker_constellation_property)
-        walker_constellation.__init_constellation()
-        return walker_constellation
-
-    @staticmethod
-    def create_from_constellation_full_data(
-        walker_constellation_configuration: WalkerConstellationData,
-    ) -> "WalkerConstellation":
-        walker_constellation = WalkerConstellation(
-            walker_constellation_configuration.constellation_property
-        )
-        walker_constellation.generated_two_line_elements = (
-            walker_constellation_configuration.constellation_two_line_elements
-        )
-        return walker_constellation
+        self.__init_constellation()
 
     def __init_constellation(self):
         self.generated_two_line_elements = generate_two_line_elements(

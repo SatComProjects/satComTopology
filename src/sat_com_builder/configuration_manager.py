@@ -132,16 +132,12 @@ class BaseConfigurationManager(ConfigurationManager):
 
         for shell in self.simulation_property.walker_shells:
             if shell.type == "star":
-                shell_constellation = (
-                    WalkerStarConstellation.create_from_constellation_property(
-                        walker_constellation_property=shell.constellation_property
-                    )
+                shell_constellation = WalkerStarConstellation(
+                    walker_constellation_property=shell.constellation_property
                 )
             elif shell.type == "delta":
-                shell_constellation = (
-                    WalkerDeltaConstellation.create_from_constellation_property(
-                        walker_constellation_property=shell.constellation_property
-                    )
+                shell_constellation = WalkerDeltaConstellation(
+                    walker_constellation_property=shell.constellation_property
                 )
             else:
                 raise ValueError("Walker constellation type not found: " + shell.type)
