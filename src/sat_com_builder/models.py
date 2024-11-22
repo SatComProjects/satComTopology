@@ -15,7 +15,7 @@ class GroundObjectData(BaseModel):
 
 class GroundConnectivityProperty(BaseModel):
     elevation_above_horizon: float = Field(default=20)
-    maximum_satellite_range_distance: Optional[float]
+    maximum_satellite_range_distance: Optional[float] = None
     maximum_satellite_connected_count: Optional[int] = None
     shell_white_lists: List[str] = Field(default_factory=list)
     maximum_connected_satellites: Optional[int] = None
