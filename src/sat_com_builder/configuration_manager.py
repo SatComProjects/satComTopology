@@ -48,7 +48,6 @@ class BaseConfigurationManager(ConfigurationManager):
 
     def __init__(self, simulation_property: SimulationProperty):
         self.simulation_property = simulation_property
-        self.walker_shells = set[WalkerShellProperty]()
 
     def __load_inter_satellite_configuration(
         self, simulation_manager: SimulationManager
@@ -60,7 +59,7 @@ class BaseConfigurationManager(ConfigurationManager):
         :return:
         """
 
-        for shell in self.walker_shells:
+        for shell in self.simulation_property.walker_shells:
             create_inter_satellite_links_for_walker_constellation(
                 simulation_manager=simulation_manager, walker_shell_properties=shell
             )
