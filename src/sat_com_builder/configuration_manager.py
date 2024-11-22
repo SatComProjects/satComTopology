@@ -13,7 +13,7 @@ from sat_com_builder.ground_objects.generate_user_terminals import (
 from sat_com_builder.links.inter_satellite_link_generator import (
     create_inter_satellite_links_for_walker_constellation,
 )
-from sat_com_builder.models import SimulationProperty, WalkerShellProperty
+from sat_com_builder.models import SimulationProperty
 from sat_com_builder.utils import parse_date
 from sat_com_constellation.models import (
     WalkerStarConstellation,
