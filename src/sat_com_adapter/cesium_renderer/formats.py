@@ -11,6 +11,7 @@ from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import (
     InterSatelliteLinkHtmlFormatter,
     SatelliteHtmlFormatter,
 )
+from sat_com_adapter.cesium_renderer.models import CesiumProperty
 from sat_com_adapter.cesium_renderer.utils import (
     get_topology_object_cesium_unique_identifier,
     get_link_cesium_unique_identifier,
@@ -24,6 +25,7 @@ from sat_com_model.models import (
     GroundStation,
     UserTerminal,
     InterSatelliteLinkDirection,
+    GroundObject,
 )
 
 SATELLITE_RADIUS = 30000
@@ -32,7 +34,21 @@ SATELLITE_RADIUS = 30000
 class CesiumFormat:
     cesium_element_creator: CesiumElementFactory
 
-    def create_link(self, link: Link, color, description, properties: dict):
+    def __init__(self, cesium_property: CesiumProperty):
+        self.cesium_property = cesium_property
+
+        self.ground_objects_custom_properties = {
+            ground_object_custom_property.ground_object_domain: ground_object_custom_property.cesium_property
+            for ground_object_custom_property in self.cesium_property.ground_object_domain_custom_properties
+        }
+        self.shells_customs_properties = {
+            shell_custom_property.shell_identifier: shell_custom_property.cesium_property
+            for shell_custom_property in self.cesium_property.shell_custom_custom_properties
+        }
+
+    def create_link(
+        self, link: Link, color, width: float, description, properties: dict
+    ):
         source = link.source
         destination = link.destination
 
@@ -56,6 +72,7 @@ class CesiumFormat:
             cesium_uniq_identifier=link_unique_id,
             a_name=str(source.topology_uniq_id),
             b_name=str(destination.topology_uniq_id),
+            width=width,
             color=color,
             description=description,
             properties=properties,
@@ -63,7 +80,16 @@ class CesiumFormat:
         return created_link
 
     def create_satellite(self, satellite: Satellite, properties: dict = None):
-        display_color = "LIGHTSTEELBLUE" if satellite.is_ascending() else "KHAKI"
+        satellites_cesium_property = self.shells_customs_properties.get(
+            satellite.walker_shell.identifier,
+            self.cesium_property.cesium_renderer_shell_property,
+        )
+
+        display_color = (
+            satellites_cesium_property.ascending_satellite_color
+            if satellite.is_ascending()
+            else satellites_cesium_property.descending_satellite_color
+        )
         cesium_uniq_identifier = get_topology_object_cesium_unique_identifier(
             satellite.topology_uniq_id
         )
@@ -77,6 +103,7 @@ class CesiumFormat:
                     "ascending" if satellite.is_ascending() else "descending"
                 ),
                 "type": satellite.type,
+                **satellite.model_dump(),
             }
         )
 
@@ -85,7 +112,7 @@ class CesiumFormat:
             position=satellite.get_coordinates(),
             cesium_uniq_identifier=cesium_uniq_identifier,
             color=display_color,
-            radius=SATELLITE_RADIUS,
+            radius=satellites_cesium_property.satellites_size,
             description=SatelliteHtmlFormatter(satellite).format_to_html(),
             properties=properties,
         )
@@ -95,7 +122,12 @@ class CesiumFormat:
     def create_ground_station(
         self, ground_station: GroundStation, properties: dict = None
     ):
-        display_color = "ORCHID"
+        ground_object_domain_properties = self.ground_objects_custom_properties.get(
+            ground_station.ground_object_domain.identifier,
+            self.cesium_property.cesium_renderer_ground_object_property,
+        )
+
+        display_color = ground_object_domain_properties.ground_object_color
 
         cesium_uniq_identifier = get_topology_object_cesium_unique_identifier(
             ground_station.topology_uniq_id
@@ -109,14 +141,14 @@ class CesiumFormat:
         if properties is None:
             properties = {}
 
-        properties.update({"type": ground_station.type})
+        properties.update(**ground_station.model_dump())
 
         ground_station_js = self.cesium_element_creator.create_sphere(
             sphere_name=ground_station_name,
             position=ground_station.get_coordinates(),
             cesium_uniq_identifier=cesium_uniq_identifier,
             color=display_color,
-            radius=5000,
+            radius=ground_object_domain_properties.ground_object_size,
             description=GroundStationHtmlFormatter(ground_station).format_to_html(),
             properties=properties,
         )
@@ -124,7 +156,12 @@ class CesiumFormat:
         return ground_station_js
 
     def create_user_terminal(self, user_terminal: UserTerminal):
-        display_color = "INDIANRED"
+        ground_object_domain_properties = self.ground_objects_custom_properties.get(
+            user_terminal.ground_object_domain.identifier,
+            self.cesium_property.cesium_renderer_ground_object_property,
+        )
+
+        display_color = ground_object_domain_properties.ground_object_color
 
         cesium_uniq_identifier = get_topology_object_cesium_unique_identifier(
             user_terminal.topology_uniq_id
@@ -141,14 +178,23 @@ class CesiumFormat:
             position=user_terminal.get_coordinates(),
             cesium_uniq_identifier=cesium_uniq_identifier,
             color=display_color,
-            radius=5000,
+            radius=ground_object_domain_properties.ground_object_size,
             description=UserTerminalHtmlFormatter(user_terminal).format_to_html(),
         )
 
         return terminal_user_js
 
     def create_ground_station_link(self, ground_station_link: GroundStationLink):
-        display_color = "FIREBRICK"
+        if isinstance(ground_station_link.source, GroundObject):
+            ground_object_property = self.ground_objects_custom_properties.get(
+                ground_station_link.source.ground_object_domain.identifier,
+                self.cesium_property.cesium_renderer_ground_object_property,
+            )
+        else:
+            ground_object_property = self.ground_objects_custom_properties.get(
+                ground_station_link.destination.ground_object_domain.identifier,
+                self.cesium_property.cesium_renderer_ground_object_property,
+            )
 
         html_description = (
             GroundStationLinkHtmlFormatter(ground_station_link).format_to_html(),
@@ -156,13 +202,23 @@ class CesiumFormat:
 
         return self.create_link(
             link=ground_station_link,
-            color=display_color,
+            color=ground_object_property.ground_object_link_color,
+            width=ground_object_property.ground_object_link_width,
             description=html_description,
             properties={},
         )
 
     def create_user_terminal_link(self, user_terminal_link: UserTerminalLink):
-        display_color = "DEEPPINK"
+        if isinstance(user_terminal_link.source, GroundObject):
+            ground_object_property = self.ground_objects_custom_properties.get(
+                user_terminal_link.source.ground_object_domain.identifier,
+                self.cesium_property.cesium_renderer_ground_object_property,
+            )
+        else:
+            ground_object_property = self.ground_objects_custom_properties.get(
+                user_terminal_link.destination.ground_object_domain.identifier,
+                self.cesium_property.cesium_renderer_ground_object_property,
+            )
 
         html_description = (
             UserTerminalLinkHtmlFormatter(user_terminal_link).format_to_html(),
@@ -170,7 +226,8 @@ class CesiumFormat:
 
         return self.create_link(
             link=user_terminal_link,
-            color=display_color,
+            color=ground_object_property,
+            width=ground_object_property.ground_object_link_width,
             description=html_description,
             properties={},
         )
@@ -207,15 +264,21 @@ class CesiumFormat:
             link=inter_satellite_link,
             color="COLOR_GREEN_TO_RED_" + str(int(color_level)),
             description=html_description,
+            width=self.cesium_property.link_flow_width,
             properties={},
         )
 
     def create_inter_satellite_link(self, inter_satellite_link: InterSatelliteLink):
+        satellites_property = self.shells_customs_properties.get(
+            inter_satellite_link.source.walker_shell.identifier,
+            self.cesium_property.cesium_renderer_shell_property,
+        )
+
         display_color = (
-            "YELLOWGREEN"
+            satellites_property.orbital_inter_satellite_link_color
             if inter_satellite_link.inter_satellite_direction
             == InterSatelliteLinkDirection.ORBITAL
-            else "PERU"
+            else satellites_property.adjacent_inter_satellite_link_color
         )
 
         html_description = (
@@ -225,6 +288,7 @@ class CesiumFormat:
         return self.create_link(
             link=inter_satellite_link,
             color=display_color,
+            width=satellites_property.inter_satellite_link_width,
             description=html_description,
             properties={},
         )

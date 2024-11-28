@@ -105,14 +105,17 @@ class BaseConfigurationManager(ConfigurationManager):
 
             if ground_object.type == "ground_station":
                 ground_stations = generate_ground_stations_from_file(
-                    ground_station_file_path=ground_object.data_file
+                    ground_station_file_path=ground_object.data_file,
+                    ground_object_domain=ground_object_domain,
                 )
+
                 simulation_manager.add_all_ground_stations(ground_stations)
 
             elif ground_object.type == "user_terminal":
 
                 user_terminals = generate_user_terminal_from_file(
-                    user_terminal_file_path=ground_object.data_file
+                    user_terminal_file_path=ground_object.data_file,
+                    ground_object_domain=ground_object_domain,
                 )
                 simulation_manager.add_all_user_terminals(user_terminals)
             else:
@@ -142,11 +145,11 @@ class BaseConfigurationManager(ConfigurationManager):
             else:
                 raise ValueError("Walker constellation type not found: " + shell.type)
 
-            simulation_manager.add_walker_shell(
-                WalkerShell(
-                    **shell.constellation_property.model_dump(), **shell.model_dump()
-                )
+            walker_shell = WalkerShell(
+                **shell.constellation_property.model_dump(), **shell.model_dump()
             )
+
+            simulation_manager.add_walker_shell(walker_shell)
 
             if movement_model == "pyorbital":
                 satellites = generate_satellites_from_walker_constellation(
@@ -155,6 +158,9 @@ class BaseConfigurationManager(ConfigurationManager):
                 )
             else:
                 raise ValueError("Invalid movement model: " + str(movement_model))
+
+            for satellite in satellites:
+                satellite.walker_shell = walker_shell
 
             simulation_manager.add_all_satellites(satellites)
 

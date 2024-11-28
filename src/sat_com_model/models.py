@@ -166,6 +166,35 @@ class MovementModel(ABC):
         pass
 
 
+class WalkerShell(BaseModel):
+    identifier: str
+    type: str
+    amount_of_orbit_plane: int
+    amount_of_satellite_per_orbit_plane: int
+
+    adjacent_inter_satellite_shifting: int = Field(default=0)
+    maximum_inter_satellite_range_distance: Optional[float] = None
+    maximum_ground_station_range: Optional[float] = None
+    maximum_user_terminal_range: Optional[float] = None
+    maximum_connected_ground_object: Optional[int] = None
+    maximum_connected_user_terminal: Optional[int] = None
+    maximum_connected_ground_station: Optional[int] = None
+
+    ground_object_white_list: List[str] = Field(default_factory=list)
+
+
+class GroundObjectDomain(BaseModel):
+
+    identifier: str
+    type: str
+
+    elevation_above_horizon: float = Field(default=20)
+    maximum_satellite_range_distance: float = Field(default=1000)
+    maximum_satellite_connected_count: Optional[int] = None
+    shell_white_lists: List[str] = Field(default_factory=list)
+    maximum_connected_satellites: Optional[int] = None
+
+
 class OrbitalObject(TopologyObject):
     """
     Any object in orbit
@@ -224,6 +253,8 @@ class Satellite(OrbitalObject):
     satellite_name: str
     type: ClassVar[str] = "Satellite"
 
+    walker_shell: Optional[WalkerShell] = None
+
     def __str__(self):
         return (
             super().__str__()
@@ -234,7 +265,7 @@ class Satellite(OrbitalObject):
 
 
 class GroundObject(TopologyObject):
-    pass
+    ground_object_domain: Optional[GroundObjectDomain] = None
 
 
 class GroundStation(GroundObject):
@@ -442,35 +473,6 @@ def ground_station_link_is_connected_to_topology_object(
         return destination.topology_uniq_id == topology_object_id
     else:
         raise ValueError("This ground station link is corrupted")
-
-
-class WalkerShell(BaseModel):
-    identifier: str
-    type: str
-    amount_of_orbit_plane: int
-    amount_of_satellite_per_orbit_plane: int
-
-    adjacent_inter_satellite_shifting: int = Field(default=0)
-    maximum_inter_satellite_range_distance: Optional[float] = None
-    maximum_ground_station_range: Optional[float] = None
-    maximum_user_terminal_range: Optional[float] = None
-    maximum_connected_ground_object: Optional[int] = None
-    maximum_connected_user_terminal: Optional[int] = None
-    maximum_connected_ground_station: Optional[int] = None
-
-    ground_object_white_list: List[str] = Field(default_factory=list)
-
-
-class GroundObjectDomain(BaseModel):
-
-    identifier: str
-    type: str
-
-    elevation_above_horizon: float = Field(default=20)
-    maximum_satellite_range_distance: float = Field(default=1000)
-    maximum_satellite_connected_count: Optional[int] = None
-    shell_white_lists: List[str] = Field(default_factory=list)
-    maximum_connected_satellites: Optional[int] = None
 
 
 class Simulation:

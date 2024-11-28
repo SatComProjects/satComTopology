@@ -28,6 +28,7 @@ class CesiumElementFactory:
         cesium_uniq_identifier: str,
         a_name: str = "A",
         b_name: str = "B",
+        width: float = 1.0,
         color: str = "GREEN",
         description: str = "",
         properties=None,
@@ -103,12 +104,14 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
         cesium_uniq_identifier: str,
         a_name: str = "A",
         b_name: str = "B",
+        width: float = 1.0,
         color: str = "GREEN",
         description: str = "",
         properties=None,
     ) -> dict:
         """
         Create a CZML dictionary for a line.
+        :param width: Link width of the line.
         :param position_a: Starting position of the line.
         :param position_b: Ending position of the line.
         :param cesium_uniq_identifier: Unique identifier for the line.
@@ -256,12 +259,14 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
         cesium_uniq_identifier: str,
         a_name: str = "A",
         b_name: str = "B",
+        width: float = 1.0,
         color: str = "GREEN",
         description: str = "",
         properties=None,
     ):
         """
         Create a line on the cesium render.
+        :param width:
         :param position_a: Starting position of the line.
         :param position_b: Ending position of the line.
         :param cesium_uniq_identifier: Unique identifier for the line.
