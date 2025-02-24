@@ -61,6 +61,6 @@ class SimulationTimeManager(TimeManager):
         self.current_time = self.current_time + datetime.timedelta(seconds=seconds)
         self.execute_actions()
 
-    def tick_until_the_end(self):
+    def tick_until_the_end(self, ticking_time_in_seconds: float = 1):
         while self.current_time <= self.end_date:
-            self.tick()
+            self.tick(ticking_time_in_seconds)
