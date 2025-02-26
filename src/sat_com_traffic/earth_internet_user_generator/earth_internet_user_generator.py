@@ -28,19 +28,24 @@ daily_multiplier = {
 def map_ball_tree_result_with_urban_area(
     indices: [], center_points_of_urban_areas: [], urbans_area: []
 ):
+    urban_area_positions_set = {
+        (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"]): urban_area
+        for urban_area in urbans_area
+    }
+
     indices_with_its_urban_area_object = []
 
-    for i, position_indices in enumerate(indices):
-        nearest_urban_area_positions = np.array(center_points_of_urban_areas)[
-            position_indices
+    center_points_of_urban_areas_np = np.array(center_points_of_urban_areas)
+
+    for position_indices in indices:
+        nearest_urban_area_positions = center_points_of_urban_areas_np[position_indices]
+
+        nearest_urban_areas = [
+            urban_area_positions_set[(lat, lon)]
+            for lat, lon in nearest_urban_area_positions
+            if (lat, lon) in urban_area_positions_set
         ]
-        nearest_urban_areas = list(
-            filter(
-                lambda urban_area: (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"])
-                in nearest_urban_area_positions,
-                urbans_area,
-            )
-        )
+
         indices_with_its_urban_area_object.append(nearest_urban_areas)
 
     return indices_with_its_urban_area_object
@@ -64,19 +69,15 @@ def get_urban_areas_around_positions(
     distance_max_km: int,
     minimum_urban_area_population: int = 100000,
 ):
-    world_data_urban_area_filtered = list(
-        filter(
-            lambda urban_area: urban_area["POPULATION"] > minimum_urban_area_population,
-            world_data_urban_area,
-        )
-    )
-
-    center_points_of_urban_areas = [
-        (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"])
-        for urban_area in world_data_urban_area_filtered
+    filtered_urban_areas = [
+        (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"], urban_area)
+        for urban_area in world_data_urban_area
+        if urban_area["POPULATION"] > minimum_urban_area_population
     ]
 
-    center_points_of_urban_areas = np.array(center_points_of_urban_areas)
+    center_points_of_urban_areas = np.array(
+        [(urban_area[0], urban_area[1]) for urban_area in filtered_urban_areas]
+    )
 
     positions = np.array(positions)
 
@@ -85,7 +86,7 @@ def get_urban_areas_around_positions(
     )
 
     results = map_ball_tree_result_with_urban_area(
-        indices, center_points_of_urban_areas, world_data_urban_area_filtered
+        indices, center_points_of_urban_areas, filtered_urban_areas
     )
 
     return results
