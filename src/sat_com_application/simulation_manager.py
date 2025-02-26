@@ -218,20 +218,11 @@ class SimulationManager:
         :param uniq_id: Unique identifier
         :return: Topology instance
         """
-        matching_objects_iterator = filter(
-            lambda x: x.topology_uniq_id == uniq_id,
-            self.get_all_topology_objects(),
-        )
-        matched_object = list(matching_objects_iterator)
+        for obj in self.get_all_topology_objects():
+            if obj.topology_uniq_id == uniq_id:
+                return obj
 
-        if len(matched_object) == 1:
-            return matched_object[0]
-
-        if len(matched_object) > 1:
-            raise Exception()
-
-        if len(matched_object) == 0:
-            raise TopologyObjectNotFoundError()
+        raise TopologyObjectNotFoundError()
 
     def create_and_add_inter_satellite_link_connection(
         self, satellite_a: Satellite, satellite_b: Satellite
@@ -310,12 +301,7 @@ class SimulationManager:
         Return all satellites in ascending phase
         :return: List of satellites
         """
-        return list(
-            filter(
-                lambda satellite: satellite.is_ascending(),
-                self.simulation.satellites,
-            )
-        )
+        return [sat for sat in self.simulation.satellites if sat.is_ascending()]
 
     def get_satellites(self) -> list[Satellite]:
         """
@@ -364,12 +350,7 @@ class SimulationManager:
         Get all simulation descending satellites
         :return: List of descending satellites
         """
-        return list(
-            filter(
-                lambda satellite: not satellite.is_ascending(),
-                self.simulation.satellites,
-            )
-        )
+        return [sat for sat in self.simulation.satellites if not sat.is_ascending()]
 
     def get_distance_between_two_topology_object_km(
         self, object_1: TopologyObject, object_2: TopologyObject
@@ -418,15 +399,14 @@ class SimulationManager:
         :param ground_station_id:
         :return:
         """
-        return list(
-            filter(
-                lambda ground_station_link: ground_station_link_is_connected_to_ground_station(
-                    ground_station_link, ground_station_id
-                )
-                and ground_station_link.disabled == False,
-                self.simulation.ground_station_links,
+        return [
+            link
+            for link in self.simulation.ground_station_links
+            if ground_station_link_is_connected_to_ground_station(
+                link, ground_station_id
             )
-        )
+            and not link.disabled
+        ]
 
     def remove_ground_station_link(self, ground_station_link: GroundStationLink):
         """
