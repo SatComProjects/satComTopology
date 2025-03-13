@@ -17,7 +17,7 @@ def get_color_js(color):
         else:
             return "Incorrect Color:" + color + "  " + str(color_rgba)
     else:
-        return f"new Cesium.Color({color})"
+        return f"Cesium.Color.{color}"
 
 
 class CesiumElementFactory:
