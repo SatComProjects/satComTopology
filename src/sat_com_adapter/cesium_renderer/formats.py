@@ -103,7 +103,6 @@ class CesiumFormat:
                     "ascending" if satellite.is_ascending() else "descending"
                 ),
                 "type": satellite.type,
-                **satellite.model_dump(),
             }
         )
 
