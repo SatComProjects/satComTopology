@@ -23,7 +23,7 @@ constellation_properties = WalkerConstellationProperty(
     mean_revolution_per_day=15.5,
 )
 
-walker_delta_constellation = WalkerDeltaConstellation.create_from_constellation_property(
+walker_delta_constellation = WalkerDeltaConstellation(
     constellation_properties
 )
 
@@ -45,7 +45,7 @@ constellation_properties = WalkerConstellationProperty(
     mean_revolution_per_day=15.5,
 )
 
-walker_star_constellation = WalkerStarConstellation.create_from_constellation_property(
+walker_star_constellation = WalkerStarConstellation(
     constellation_properties
 )
 
