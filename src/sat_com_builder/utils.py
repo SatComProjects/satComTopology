@@ -11,6 +11,7 @@ def parse_date(date_str: str) -> datetime:
         "%d-%m-%Y %H:%M:%S",
         "%Y-%m-%dT%H:%M:%S",
         "%Y-%m-%d %H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S.%fZ",
     ]
 
     for fmt in date_formats:
