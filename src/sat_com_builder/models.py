@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from sat_com_constellation.models import WalkerConstellationProperty
 
@@ -67,6 +67,16 @@ class WalkerShellProperty(BaseModel):
     ground_object_white_list: List[str] = Field(default_factory=list)
 
 
+class GroundConnectivity(BaseModel):
+    """
+    Represents connectivity between GroundObjects.
+    """
+
+    type: str = Field(default="ground-to-ground")
+
+    links: List[Tuple[Tuple[str, int], Tuple[str, int]]] = Field(default_factory=list)
+
+
 class SimulationProperty(BaseModel):
     """
     Simulation Properties
@@ -93,3 +103,7 @@ class SimulationProperty(BaseModel):
 
     disable_ground_station_link_preload: bool = Field(default=False)
     static_ground_station_link_mode: bool = Field(default=False)
+
+    ground_connectivity_properties: List[GroundConnectivity] = Field(
+        default_factory=list
+    )

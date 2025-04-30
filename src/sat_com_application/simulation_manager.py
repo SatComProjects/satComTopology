@@ -1,5 +1,5 @@
 import uuid
-from typing import Callable
+from typing import Callable, TypeVar
 
 from sat_com_application.time_managers import SimulationTimeManager
 from sat_com_model.exceptions import (
@@ -21,6 +21,9 @@ from sat_com_model.models import (
     Flow,
     WalkerShell,
     GroundObjectDomain,
+    GroundObject,
+    GroundObjectLink,
+    PointOfPresence,
 )
 from sat_com_model.specifications import (
     SourceDestinationMatchWithLinkSpecification,
@@ -29,7 +32,7 @@ from sat_com_model.specifications import (
 
 def get_object_by_object_id(
     object_id: int, topology_objects: list, domain: str = "public"
-) -> Satellite | GroundStation | UserTerminal:
+) -> Satellite | GroundStation | UserTerminal | PointOfPresence:
     """
     Return the topology object matching its object_id
     :param domain: Domain where the object belong. If missing public domain will be provided
@@ -37,18 +40,20 @@ def get_object_by_object_id(
     :param topology_objects: The list of objects from its type /!\\ SHOULDN'T BE A LIST OF TOPOLOGY_OBJECT
     :return:
     """
-    matching_objects_iterator = filter(
-        lambda x: x.object_id == object_id and x.domain == domain, topology_objects
-    )
-    matched_object = list(matching_objects_iterator)
 
-    if len(matched_object) == 1:
-        return matched_object[0]
+    matched_objects = [
+        topology_object
+        for topology_object in topology_objects
+        if topology_object.object_id == object_id and topology_object.domain == domain
+    ]
 
-    if len(matched_object) > 1:
+    if len(matched_objects) == 1:
+        return matched_objects[0]
+
+    if len(matched_objects) > 1:
         raise Exception()
 
-    if len(matched_object) == 0:
+    if len(matched_objects) == 0:
         raise TopologyObjectNotFoundError()
 
 
@@ -148,12 +153,28 @@ class SimulationManager:
         user_terminal.topology_uniq_id = self.simulation.request_an_id()
         self.simulation.user_terminals.append(user_terminal)
 
+    def add_point_of_presence(self, point_of_presence: PointOfPresence):
+        """
+        Add point of presence to the simulation. Automatically attribute an uniq topology id
+        :param point_of_presence: Point of presence instance to add
+        :return:
+        """
+        point_of_presence.topology_uniq_id = self.simulation.request_an_id()
+        self.simulation.point_of_presences.append(point_of_presence)
+
     def get_all_topology_objects(self) -> list[TopologyObject]:
         """
         Get all topology objects from the simulation.
         :return: List of topology objects
         """
         return self.simulation.get_all_topology_objects()
+
+    def get_all_ground_objects(self) -> list[GroundObject]:
+        """
+        Get all ground objects from the simulation.
+        :return: List of ground objects
+        """
+        return self.simulation.get_all_ground_objects()
 
     def get_all_links(self) -> list[Link]:
         """
@@ -164,6 +185,7 @@ class SimulationManager:
         all_links.extend(self.simulation.inter_satellite_links)
         all_links.extend(self.simulation.ground_station_links)
         all_links.extend(self.simulation.user_terminal_links)
+        all_links.extend(self.simulation.ground_object_links)
 
         return all_links
 
@@ -269,6 +291,16 @@ class SimulationManager:
         self.simulation.user_terminal_links.append(user_terminal_link)
         return user_terminal_link
 
+    def create_and_add_ground_object_link_connection(
+        self, ground_object_1: GroundObject, ground_object_2: GroundObject
+    ) -> GroundObjectLink:
+        ground_object_link = GroundObjectLink()
+        ground_object_link.connect(ground_object_1, ground_object_2)
+
+        self.simulation.ground_object_links.append(ground_object_link)
+
+        return ground_object_link
+
     def add_all_satellites(self, satellites: list[Satellite]):
         """
         Add all satellites to the simulation from a list in argument
@@ -295,6 +327,10 @@ class SimulationManager:
         """
         for user_terminal in user_terminals:
             self.add_user_terminals(user_terminal)
+
+    def add_all_point_of_presences(self, point_of_presences: list[PointOfPresence]):
+        for point_of_presence in point_of_presences:
+            self.add_point_of_presence(point_of_presence)
 
     def get_ascending_satellites(self) -> list[Satellite]:
         """
@@ -393,7 +429,7 @@ class SimulationManager:
 
     def get_ground_station_links_connected_to_a_ground_station(
         self, ground_station_id: int
-    ) -> [GroundStationLink]:
+    ) -> list[GroundStationLink]:
         """
         Return all ground station links connected to a ground station
         :param ground_station_id:
@@ -433,7 +469,7 @@ class SimulationManager:
         self.simulation.user_terminal_links.remove(user_terminal_link)
 
     def remove_all_ground_station_links(
-        self, ground_station_links: [GroundStationLink]
+        self, ground_station_links: list[GroundStationLink]
     ):
         """
         Remove  a list of ground station links
@@ -544,8 +580,8 @@ class SimulationManager:
             )
             flow = Flow()
             flow.id = flow_id
-            flow.next_hop = output_destination
-            flow.previous_hop = input_source
+            flow.next_hop = output_destination.topology_uniq_id
+            flow.previous_hop = input_source.topology_uniq_id
             flow.source = topology_object_id_source
             flow.destination = topology_object_id_destination
 
@@ -819,7 +855,9 @@ class SimulationManager:
 
         return topology_object
 
-    def remove_cascade_topology_object(self, topology_object_id: int) -> []:
+    def remove_cascade_topology_object(
+        self, topology_object_id: int
+    ) -> list[TopologyObject]:
         """
         Remove from the simulation topology object and every related dependent objects (links)
         :param topology_object_id: Topology object identifier
@@ -987,3 +1025,6 @@ class SimulationManager:
             raise GroundObjectDomainNotFoundError("No Ground Domain found")
         else:
             raise ValueError("Multiple found object found with the same identifier")
+
+    def get_point_of_presences(self):
+        return self.simulation.point_of_presences

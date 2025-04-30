@@ -30,7 +30,7 @@ def generate_ground_stations_from_file(
             altitude=ground_station_object.altitude,
         )
         ground_station.ground_object_domain = ground_object_domain
-        ground_station.city = ground_station_object.label
+        ground_station.label = ground_station_object.label
         ground_stations.append(ground_station)
 
     return ground_stations
