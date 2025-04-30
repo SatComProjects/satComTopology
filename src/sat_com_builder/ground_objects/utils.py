@@ -1,11 +1,9 @@
 from sat_com_builder.models import GroundObjectData
 
 
-def generate_ground_object_from_file(
-    file_path: str,
-) -> list[GroundObjectData]:
+def generate_ground_object_from_file(file_path: str) -> list[GroundObjectData]:
     """
-    Read and add every ground object from file.
+    Read and add every ground object from a file.
     :param file_path:
     :return:
     """

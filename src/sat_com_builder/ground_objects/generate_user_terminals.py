@@ -31,6 +31,7 @@ def generate_user_terminal_from_file(
             latitude=user_terminal_object.latitude,
             altitude=user_terminal_object.altitude,
         )
+        user_terminal.label = user_terminal_object.label
         user_terminal.ground_object_domain = ground_object_domain
         user_terminals.append(user_terminal)
 

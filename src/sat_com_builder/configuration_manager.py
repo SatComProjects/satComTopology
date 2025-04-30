@@ -2,10 +2,21 @@ from abc import ABC, abstractmethod
 
 import yaml
 
-from sat_com_application.simulation_manager import SimulationManager
+from sat_com_application.simulation_manager import (
+    SimulationManager,
+    get_object_by_object_id,
+)
 from sat_com_application.time_managers import SimulationTimeManager
+from sat_com_builder import (
+    GROUND_STATION_TYPES_STR,
+    POINT_OF_PRESENCE_TYPES_STR,
+    USER_TERMINAL_TYPES_STR,
+)
 from sat_com_builder.ground_objects.generate_ground_stations import (
     generate_ground_stations_from_file,
+)
+from sat_com_builder.ground_objects.generate_point_of_presences import (
+    generate_point_of_presences,
 )
 from sat_com_builder.ground_objects.generate_user_terminals import (
     generate_user_terminal_from_file,
@@ -64,7 +75,42 @@ class BaseConfigurationManager(ConfigurationManager):
                 simulation_manager=simulation_manager, walker_shell_properties=shell
             )
 
-    def __load_ground_link_configuration(self, simulation_manager: SimulationManager):
+    def __load_static_ground_to_ground_link_configuration(
+        self, simulation_manager: SimulationManager
+    ):
+        """
+        Load ground to ground links configuration. It will generate ground to ground links based on the
+        ground object configuration previously loaded.
+        :param simulation_manager:
+        :return:
+        """
+
+        for (
+            ground_connectivity
+        ) in self.simulation_property.ground_connectivity_properties:
+            for link in ground_connectivity.links:
+                source_domain, source_object_id = link[0][0], link[0][1]
+                destination_domain, destination_object_id = link[1][0], link[1][1]
+
+                object_source = get_object_by_object_id(
+                    object_id=source_object_id,
+                    topology_objects=simulation_manager.get_all_ground_objects(),
+                    domain=source_domain,
+                )
+
+                object_destination = get_object_by_object_id(
+                    object_id=destination_object_id,
+                    topology_objects=simulation_manager.get_all_ground_objects(),
+                    domain=destination_domain,
+                )
+
+                simulation_manager.create_and_add_ground_object_link_connection(
+                    object_source, object_destination
+                )
+
+    def __load_satellite_to_ground_link_configuration(
+        self, simulation_manager: SimulationManager
+    ):
         """
         Load ground station links configuration. It will generate ground station link based on their position and the
         in range satellites.
@@ -103,7 +149,7 @@ class BaseConfigurationManager(ConfigurationManager):
                 ground_object_domain=ground_object_domain
             )
 
-            if ground_object.type == "ground_station":
+            if ground_object.type in GROUND_STATION_TYPES_STR:
                 ground_stations = generate_ground_stations_from_file(
                     ground_station_file_path=ground_object.data_file,
                     ground_object_domain=ground_object_domain,
@@ -111,15 +157,25 @@ class BaseConfigurationManager(ConfigurationManager):
 
                 simulation_manager.add_all_ground_stations(ground_stations)
 
-            elif ground_object.type == "user_terminal":
+            elif ground_object.type in USER_TERMINAL_TYPES_STR:
 
                 user_terminals = generate_user_terminal_from_file(
                     user_terminal_file_path=ground_object.data_file,
                     ground_object_domain=ground_object_domain,
                 )
                 simulation_manager.add_all_user_terminals(user_terminals)
+
+            elif ground_object.type in POINT_OF_PRESENCE_TYPES_STR:
+                point_of_presences = generate_point_of_presences(
+                    point_of_presence_file_path=ground_object.data_file,
+                    ground_object_domain=ground_object_domain,
+                )
+                simulation_manager.add_all_point_of_presences(point_of_presences)
+
             else:
-                raise InvalidGroundObjectTypeError()
+                raise InvalidGroundObjectTypeError(
+                    "Invalid ground object type: " + str(ground_object.type)
+                )
 
     def __load_satellite_configuration(self, simulation_manager: SimulationManager):
         """
@@ -214,7 +270,13 @@ class BaseConfigurationManager(ConfigurationManager):
 
         self.__load_inter_satellite_configuration(simulation_manager=simulation_manager)
 
-        self.__load_ground_link_configuration(simulation_manager=simulation_manager)
+        self.__load_satellite_to_ground_link_configuration(
+            simulation_manager=simulation_manager
+        )
+
+        self.__load_static_ground_to_ground_link_configuration(
+            simulation_manager=simulation_manager
+        )
 
         return simulation_manager
 

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Optional, List, ClassVar
+from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -266,10 +267,10 @@ class Satellite(OrbitalObject):
 
 class GroundObject(TopologyObject):
     ground_object_domain: Optional[GroundObjectDomain] = None
+    label: str = Field(default="unknown")
 
 
 class GroundStation(GroundObject):
-    city: str = Field(default="unknown")
     type: ClassVar[str] = "GroundStation"
 
     def __post_init__(self):
@@ -287,19 +288,38 @@ class GroundStation(GroundObject):
 
 
 class UserTerminal(GroundObject):
-    user_name: str = Field(default="unknown")
+    """
+    User terminal is a special type of ground station. It receives and emit data to the constellation
+    """
 
     type: ClassVar[str] = "UserTerminal"
 
 
+class PointOfPresence(GroundObject):
+    """
+    Point of presence is a special type of ground station.
+    It is used to connect an infrastructure to the internet backbone.
+    """
+
+    type: ClassVar[str] = "PointOfPresence"
+
+    def __str__(self):
+        return (
+            super().__str__()
+            + "Point of presence id: {point_of_presence_id} city: {city} ".format(
+                point_of_presence_id=self.object_id, city=self.city
+            )
+        )
+
+
 class Flow:
-    id: int
+    id: UUID
 
-    source: TopologyObject
-    destination: TopologyObject
+    source: int
+    destination: int
 
-    previous_hop: TopologyObject
-    next_hop: TopologyObject
+    previous_hop: int
+    next_hop: int
 
     size: int = 1
 
@@ -433,6 +453,36 @@ class UserTerminalLink(Link):
         super().connect(source, destination)
 
 
+class GroundObjectLink(Link):
+    """
+    This is the link between a ground object and another ground object
+    """
+
+    type = "GroundLink"
+
+    sub_type: str = Field(default="ground-object-to-ground-object")
+
+    source: GroundObject
+    destination: GroundObject
+
+    def connect(self, source: GroundObject, destination: GroundObject):
+        if source == destination:
+            raise ConnectionBetweenSameSatelliteForbiddenError(
+                "You cannot connect with same source and destination"
+            )
+
+        if isinstance(source, GroundObject) and isinstance(destination, GroundObject):
+            self.source = source
+            self.destination = destination
+        else:
+            raise GroundStationConnectionError(
+                "Incompatible types: "
+                + source.__class__.__name__
+                + " and "
+                + destination.__class__.__name__
+            )
+
+
 class DistanceModel:
     def get_distance_meters(
         self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
@@ -483,11 +533,15 @@ class Simulation:
     satellites: List[Satellite]
     inter_satellite_links: List[InterSatelliteLink]
 
+    ground_object_links: List[GroundObjectLink]
+
     ground_stations: List[GroundStation]
     ground_station_links: List[GroundStationLink]
 
     user_terminals: List[UserTerminal]
     user_terminal_links: List[UserTerminalLink]
+
+    point_of_presences: List[PointOfPresence]
 
     walker_shells: List[WalkerShell]
     ground_object_domains: List[GroundObjectDomain]
@@ -505,6 +559,8 @@ class Simulation:
         self.user_terminal_links = list()
         self.walker_shells = list()
         self.ground_object_domains = list()
+        self.ground_object_links = list()
+        self.point_of_presences = list()
 
         self.ground_object_domains.append(
             GroundObjectDomain(identifier="public", type="ground_object")
@@ -529,8 +585,16 @@ class Simulation:
         topology_objects.extend(self.satellites)
         topology_objects.extend(self.ground_stations)
         topology_objects.extend(self.user_terminals)
+        topology_objects.extend(self.point_of_presences)
 
         return topology_objects
+
+    def get_all_ground_objects(self):
+        ground_objects = []
+        ground_objects.extend(self.ground_stations)
+        ground_objects.extend(self.user_terminals)
+        ground_objects.extend(self.point_of_presences)
+        return ground_objects
 
 
 def create_satellite(
@@ -583,3 +647,18 @@ def create_user_terminal(object_id: int, domain: str = "public") -> UserTerminal
     created_user.domain = domain
 
     return created_user
+
+
+def create_point_of_presence(object_id: int, domain: str = "public") -> PointOfPresence:
+    """
+    Create a point of presence.
+    :param domain: Owner domain of the company
+    :param object_id: Object identifier
+    :return:
+    """
+
+    created_point_of_presence = PointOfPresence()
+    created_point_of_presence.object_id = object_id
+    created_point_of_presence.domain = domain
+
+    return created_point_of_presence

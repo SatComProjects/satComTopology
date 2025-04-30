@@ -150,7 +150,7 @@ class NetworkxBuilder:
         """
         for ground_station in self.simulation_manager.get_ground_stations():
             data = dict()
-            data.update(city=ground_station.city)
+            data.update(city=ground_station.label)
             self.add_topology_object(ground_station, data)
 
         return self
@@ -165,6 +165,18 @@ class NetworkxBuilder:
             data.update(user_name=user_terminal.user_name)
 
             self.add_topology_object(user_terminal, data)
+
+        return self
+
+    def add_point_of_presences(self) -> "NetworkxBuilder":
+        """
+        Add Point of Presences to the Networkx Builder.
+        :return: Networkx Builder instance.
+        """
+        for point_of_presence in self.simulation_manager.get_point_of_presences():
+            data = dict()
+            data.update(city=point_of_presence.label)
+            self.add_topology_object(point_of_presence, data)
 
         return self
 
