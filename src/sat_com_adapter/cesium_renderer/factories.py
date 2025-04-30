@@ -137,7 +137,7 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
                         position_b.altitude * 1000,
                     ]
                 },
-                "width": 1,
+                "width": width,
                 "arcType": "NONE",
                 "material": {"solidColor": {"color": {"rgba": color_to_rgba(color)}}},
             },
