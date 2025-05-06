@@ -1,9 +1,9 @@
-
 image: python:3.10
 
 stages:
   - lint
   - test
+  - deploy
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -28,3 +28,16 @@ test:
   script:
     - pip install pytest
     - pytest
+
+pages:
+  stage: deploy
+  script:
+    - cd sphinx
+    - make html
+    - mv _build/html ../public
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+    - develop
