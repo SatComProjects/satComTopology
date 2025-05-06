@@ -9,9 +9,7 @@ from sat_com_adapter.cesium_renderer.formats import (
     CesiumJavaScriptFormat,
     CesiumCZMLFormat,
 )
-from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import (
-    LinkHtmlFormatter,
-)
+from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import HtmlFormatter
 from sat_com_adapter.cesium_renderer.models import CesiumProperty
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import (
@@ -22,7 +20,6 @@ from sat_com_model.models import (
     Satellite,
     GroundObjectLink,
 )
-from sat_com_trajectopy.grid_mesh_calculator import calculate_satellite_mesh_coordinates
 
 
 class CesiumRenderer:
@@ -196,7 +193,7 @@ class CesiumRenderer:
                     link=link,
                     color=color,
                     width=3.0,
-                    description=LinkHtmlFormatter(link).format_to_html(),
+                    description=HtmlFormatter(link).format(),
                     properties={},
                     on_ground=False,
                 )
