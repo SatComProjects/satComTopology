@@ -15,8 +15,8 @@ from tests.sat_com_model_tests.model_helper import (
 
 class TestSimulationManager:
     """
-    This class regroup every method to manage simulation_service.
-    Every function which can manage simulation_service should be here.
+    This class regroups every method to manage simulation_service.
+    Every function that can manage simulation_service should be here.
     We shouldn't put logic into the models.
     """
 
@@ -121,6 +121,9 @@ class TestSimulationManager:
         satellite_1 = create_fake_satellite_with_object_id(1)
         satellite_2 = create_fake_satellite_with_object_id(2)
 
+        simulation_service.add_satellite(satellite_1)
+        simulation_service.add_satellite(satellite_2)
+
         created_link = (
             simulation_service.create_and_add_inter_satellite_link_connection(
                 satellite_1, satellite_2
@@ -137,6 +140,9 @@ class TestSimulationManager:
         ground_station = create_fake_ground_station_with_object_id(1)
         satellite = create_fake_satellite_with_object_id(1)
 
+        simulation_service.add_ground_station(ground_station)
+        simulation_service.add_satellite(satellite)
+
         created_link = simulation_service.create_and_add_ground_station_link_connection(
             satellite, ground_station
         )
@@ -150,7 +156,11 @@ class TestSimulationManager:
     def test_create_user_terminal_link(self, simulation_service):
         assert len(simulation_service.simulation.user_terminal_links) == 0
         satellite = create_fake_satellite_with_object_id(1)
+
         user_terminal = create_fake_user_terminal_with_object_id(1)
+
+        simulation_service.add_user_terminals(user_terminal)
+        simulation_service.add_satellite(satellite)
 
         created_link = simulation_service.create_and_add_user_terminal_link_connection(
             satellite, user_terminal
@@ -170,6 +180,11 @@ class TestSimulationManager:
         ground_station = create_fake_ground_station_with_object_id(1)
 
         user_terminal = create_fake_user_terminal_with_object_id(1)
+
+        simulation_service.add_satellite(satellite_1)
+        simulation_service.add_satellite(satellite_2)
+        simulation_service.add_ground_station(ground_station)
+        simulation_service.add_user_terminals(user_terminal)
 
         simulation_service.create_and_add_ground_station_link_connection(
             satellite_1, ground_station

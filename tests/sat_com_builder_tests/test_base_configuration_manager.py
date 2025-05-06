@@ -16,28 +16,28 @@ class TestBaseConfigurationManager:
 
         generate_ground_stations_from_file.return_value = [
             GroundStation(
-                city="Paris",
+                label="Paris",
                 object_id=0,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
                 ),
             ),
             GroundStation(
-                city="Marseille",
+                label="Marseille",
                 object_id=1,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
                 ),
             ),
             GroundStation(
-                city="Lyon",
+                label="Lyon",
                 object_id=2,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
                 ),
             ),
             GroundStation(
-                city="Turin",
+                label="Turin",
                 object_id=3,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
@@ -46,28 +46,28 @@ class TestBaseConfigurationManager:
         ]
         generate_user_terminal_from_file.return_value = [
             UserTerminal(
-                user_name="Louis",
+                label="Louis",
                 object_id=0,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
                 ),
             ),
             UserTerminal(
-                user_name="Leon",
+                label="Leon",
                 object_id=1,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
                 ),
             ),
             UserTerminal(
-                user_name="Marie",
+                label="Marie",
                 object_id=2,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
                 ),
             ),
             UserTerminal(
-                user_name="Anne",
+                label="Anne",
                 object_id=2,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10

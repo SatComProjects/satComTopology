@@ -31,6 +31,7 @@ class CesiumElementFactory:
         width: float = 1.0,
         color: str = "GREEN",
         description: str = "",
+        on_ground: bool = False,
         properties=None,
     ):
         pass
@@ -107,10 +108,12 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
         width: float = 1.0,
         color: str = "GREEN",
         description: str = "",
+        on_ground: bool = False,
         properties=None,
     ) -> dict:
         """
         Create a CZML dictionary for a line.
+        :param on_ground:
         :param width: Link width of the line.
         :param position_a: Starting position of the line.
         :param position_b: Ending position of the line.
@@ -122,6 +125,8 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
         :param properties: Additional properties of the line.
         :return: CZML dictionary representing the line.
         """
+
+        arc_type = "GEODESIC" if on_ground else "NONE"
         czml_dict = {
             "id": cesium_uniq_identifier,
             "name": f"Link from {a_name} to {b_name}",
@@ -138,7 +143,7 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
                     ]
                 },
                 "width": width,
-                "arcType": "NONE",
+                "arcType": arc_type,
                 "material": {"solidColor": {"color": {"rgba": color_to_rgba(color)}}},
             },
         }
@@ -262,10 +267,12 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
         width: float = 1.0,
         color: str = "GREEN",
         description: str = "",
+        on_ground: bool = False,
         properties=None,
     ):
         """
         Create a line on the cesium render.
+        :param on_ground:
         :param width:
         :param position_a: Starting position of the line.
         :param position_b: Ending position of the line.
@@ -277,6 +284,8 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
         :param properties: Additional properties of the sphere.
         :return:
         """
+
+        arc_type = "GEODESIC" if on_ground else "NONE"
         link = (
             "\n"
             + "       viewer.entities.add({\n"
@@ -294,7 +303,7 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
             + f"              {position_b.altitude * 1000},\n"
             + "            ]),\n"
             + "          width: 1,\n"
-            + "          arcType: Cesium.ArcType.NONE,\n"
+            + f"          arcType: Cesium.ArcType.{arc_type},\n"
             + f"         material: {get_color_js(color)},\n"
             + "          },\n"
             + "       });\n"

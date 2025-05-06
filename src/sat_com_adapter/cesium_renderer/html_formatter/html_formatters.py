@@ -7,6 +7,7 @@ from sat_com_model.models import (
     UserTerminal,
     GroundStationLink,
     UserTerminalLink,
+    GroundObjectLink,
 )
 
 
@@ -179,6 +180,23 @@ class UserTerminalLinkHtmlFormatter(LinkHtmlFormatter):
     def __init__(self, user_terminal_link: UserTerminalLink):
         super().__init__(user_terminal_link)
         self.user_terminal_link = user_terminal_link
+
+    def format_to_html(self) -> str:
+        html = super().format_to_html()
+        return html
+
+
+class StaticGroundObjectLinkHtmlFormatter(LinkHtmlFormatter):
+    """
+    Tool that format any Ground Station Link in Html.
+    useful for the Cesium infobox.
+    """
+
+    ground_object_link: GroundObjectLink
+
+    def __init__(self, ground_object_link: GroundObjectLink):
+        super().__init__(ground_object_link)
+        self.ground_object_link = ground_object_link
 
     def format_to_html(self) -> str:
         html = super().format_to_html()

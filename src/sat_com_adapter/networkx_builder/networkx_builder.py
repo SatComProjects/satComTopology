@@ -150,7 +150,7 @@ class NetworkxBuilder:
         """
         for ground_station in self.simulation_manager.get_ground_stations():
             data = dict()
-            data.update(city=ground_station.label)
+            data.update(label=ground_station.label)
             self.add_topology_object(ground_station, data)
 
         return self
@@ -162,7 +162,7 @@ class NetworkxBuilder:
         """
         for user_terminal in self.simulation_manager.get_user_terminals():
             data = dict()
-            data.update(user_name=user_terminal.user_name)
+            data.update(label=user_terminal.label)
 
             self.add_topology_object(user_terminal, data)
 
@@ -175,7 +175,7 @@ class NetworkxBuilder:
         """
         for point_of_presence in self.simulation_manager.get_point_of_presences():
             data = dict()
-            data.update(city=point_of_presence.label)
+            data.update(label=point_of_presence.label)
             self.add_topology_object(point_of_presence, data)
 
         return self
@@ -220,6 +220,18 @@ class NetworkxBuilder:
 
         return self
 
+    def add_static_ground_object_links(self) -> "NetworkxBuilder":
+        """
+        Add Static Ground Object Links to the Networkx Builder.
+        :return: Networkx Builder instance.
+        """
+        for (
+            static_ground_object_link
+        ) in self.simulation_manager.get_static_ground_object_links():
+            self.add_link(static_ground_object_link, {})
+
+        return self
+
     def add_topology_objects(self) -> "NetworkxBuilder":
         """
         Add Topology Objects to the Networkx Builder.
@@ -239,6 +251,7 @@ class NetworkxBuilder:
         self.add_inter_satellite_links()
         self.add_ground_station_links()
         self.add_user_terminal_links()
+        self.add_static_ground_object_links()
 
         return self
 
