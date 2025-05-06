@@ -20,6 +20,7 @@ class NetworkxBuilder:
             :arg export_positions: Enable export the satellite position
             :arg export_link_length: Enable export the satellite link length (ground distance between links)
             :arg enable_export_flows_data: Enable the export of the flow metric
+            :arg export_grid_coordinates: Enable the export of the grid coordinates for walker shells
         """
         self.simulation_manager = simulation_manager
         simulation_date_as_str = simulation_manager.time_manager.current_time.strftime(
@@ -37,6 +38,10 @@ class NetworkxBuilder:
         self.enable_export_link_length = kwargs.get("export_link_length", False)
 
         self.enable_export_flows_data = kwargs.get("enable_export_flows_data", False)
+
+        self.enable_xport_grid_coordinates = kwargs.get(
+            "export_grid_coordinates", False
+        )
 
     def add_topology_object(
         self, topology_object: TopologyObject, data: dict = None
@@ -62,6 +67,20 @@ class NetworkxBuilder:
         data.update(
             type=topology_object.get_type(), object_id=topology_object.object_id
         )
+
+        if self.enable_xport_grid_coordinates and isinstance(
+            topology_object, Satellite
+        ):
+            coordinates_on_grid = calculate_satellite_mesh_coordinates(
+                topology_object.object_id,
+                topology_object.walker_shell.amount_of_orbit_plane,
+                topology_object.walker_shell.amount_of_satellite_per_orbit_plane,
+                topology_object.walker_shell.adjacent_inter_satellite_shifting,
+            )
+            data.update(
+                orbit_plane_id=coordinates_on_grid[0],
+                satellite_number=coordinates_on_grid[1],
+            )
 
         self.graph.add_node(topology_object.topology_uniq_id, **data)
 
@@ -255,34 +274,34 @@ class NetworkxBuilder:
 
         return self
 
-    def __set_node_coordinate_as_tuple(self, node_id: int):
-        coordinates_on_grid = calculate_satellite_mesh_coordinates(
-            self.graph.nodes[node_id]["object_id"],
-            self.simulation_manager.configuration.get("number_of_orbit_plane", 0),
-            self.simulation_manager.configuration.get(
-                "number_of_satellite_per_orbit_plane", 0
-            ),
-            self.simulation_manager.configuration.get(
-                "adjacent_inter_satellite_shifting", 0
-            ),
-        )
-        self.graph.nodes[node_id]["orbit_plane_id"] = coordinates_on_grid[0]
-        self.graph.nodes[node_id]["satellite_number"] = coordinates_on_grid[1]
-
-    def add_mesh_coordinates_on_satellites(self) -> "NetworkxBuilder":
-        """
-        Add mesh coordinates. Those are called in the literature logical coordinates.
-        :return:
-        """
-        node_satellites = filter(
-            lambda node: self.graph.nodes[node]["type"] == Satellite.type,
-            self.graph.nodes,
-        )
-
-        for satellite_node in node_satellites:
-            self.__set_node_coordinate_as_tuple(satellite_node)
-
-        return self
+    # def __set_node_coordinate_as_tuple(self, node_id: int):
+    #     coordinates_on_grid = calculate_satellite_mesh_coordinates(
+    #         self.graph.nodes[node_id]["object_id"],
+    #         self.simulation_manager.configuration.get("number_of_orbit_plane", 0),
+    #         self.simulation_manager.configuration.get(
+    #             "number_of_satellite_per_orbit_plane", 0
+    #         ),
+    #         self.simulation_manager.configuration.get(
+    #             "adjacent_inter_satellite_shifting", 0
+    #         ),
+    #     )
+    #     self.graph.nodes[node_id]["orbit_plane_id"] = coordinates_on_grid[0]
+    #     self.graph.nodes[node_id]["satellite_number"] = coordinates_on_grid[1]
+    #
+    # def add_mesh_coordinates_on_satellites(self) -> "NetworkxBuilder":
+    #     """
+    #     Add mesh coordinates. Those are called in the literature logical coordinates.
+    #     :return:
+    #     """
+    #     node_satellites = filter(
+    #         lambda node: self.graph.nodes[node]["type"] == Satellite.type,
+    #         self.graph.nodes,
+    #     )
+    #
+    #     for satellite_node in node_satellites:
+    #         self.__set_node_coordinate_as_tuple(satellite_node)
+    #
+    #     return self
 
     def build(self) -> nx.Graph:
         """
