@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional, List, ClassVar
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, computed_field
 
 from .exceptions import (
     InterSatelliteConnectionError,
@@ -240,6 +240,18 @@ class OrbitalObject(TopologyObject):
         :return:
         """
         return self.get_movement_model().is_ascending()
+
+    @computed_field
+    @property
+    def orbital_phase(self) -> str:
+        """
+        Return the orbital phase of the object. It can be ascending or descending.
+        :return:
+        """
+        if self.is_ascending():
+            return "ascending"
+        else:
+            return "descending"
 
     def get_coordinates(self) -> SpatialPosition:
         """
