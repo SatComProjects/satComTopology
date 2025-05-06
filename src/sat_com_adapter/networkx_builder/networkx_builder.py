@@ -39,7 +39,7 @@ class NetworkxBuilder:
 
         self.enable_export_flows_data = kwargs.get("enable_export_flows_data", False)
 
-        self.enable_xport_grid_coordinates = kwargs.get(
+        self.enable_export_grid_coordinates = kwargs.get(
             "export_grid_coordinates", False
         )
 
@@ -68,7 +68,7 @@ class NetworkxBuilder:
             type=topology_object.get_type(), object_id=topology_object.object_id
         )
 
-        if self.enable_xport_grid_coordinates and isinstance(
+        if self.enable_export_grid_coordinates and isinstance(
             topology_object, Satellite
         ):
             coordinates_on_grid = calculate_satellite_mesh_coordinates(
