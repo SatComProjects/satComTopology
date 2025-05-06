@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sat_com_topology"
-version = "4"
+version = "4.1.0"
 authors = [
   { name="Louis BARBIER", email="louis.barbier@isae-supaero.fr" },
 ]
@@ -20,7 +20,7 @@ dependencies = [
     'networkx>=3.2.1',
     'pyorbital>=1.8.2',
     'geopy>=2.4.1',
-    'scikit-learn~=1.5.0',
+    'scikit-learn~=1.6.1',
     'PyYAML>=6.0.1',
     'timezonefinder>=6.5.9',
     'sgp4>=2.23',
