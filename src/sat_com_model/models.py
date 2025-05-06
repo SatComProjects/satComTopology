@@ -251,7 +251,9 @@ class OrbitalObject(TopologyObject):
 
     @property
     def spatial_position(self):
-        return self.get_movement_model().get_longitude_latitude()
+        computed_spatial_position = self.get_movement_model().get_longitude_latitude()
+        self.spatial_position_info = computed_spatial_position
+        return computed_spatial_position
 
     def update(self):
         self.get_coordinates()
