@@ -93,13 +93,13 @@ class TopologyObject(SpatialPoint):
     """
 
     """Identifier provided by the simulator (uniq for avery topology object)"""
-    topology_uniq_id: int = None
+    topology_uniq_id: int = Field(default=None)
 
     """"""
     domain: str = Field(default="public")
 
     """Identifier given by the data provider (ex: satellite identifier, uniq for every satellite)"""
-    object_id: int = None
+    object_id: int = Field(default=None)
 
     """This is the object type as string, used for debugging and export purposes"""
     type: ClassVar[str] = "TypologyObject"
@@ -319,39 +319,34 @@ class PointOfPresence(GroundObject):
         )
 
 
-class Flow:
-    id: UUID
+class Flow(BaseModel):
+    id: UUID = Field(default=None)
 
-    source: int
-    destination: int
+    source: int = Field(default=None)
+    destination: int = Field(default=None)
 
-    previous_hop: int
-    next_hop: int
+    previous_hop: int = Field(default=None)
+    next_hop: int = Field(default=None)
 
-    size: int = 1
+    size: int = Field(default=1)
 
 
-class Link:
+class Link(BaseModel):
     """
     This is the communication Link. The link connects two Topological object.
     Links are considered as bidirectional for this first version.
     """
 
-    type: str
-    source: TopologyObject | None
-    destination: TopologyObject | None
+    type: ClassVar[str] = "Link"
 
-    flows: list[Flow]
+    source: TopologyObject = Field(default=None)
+    destination: TopologyObject = Field(default=None)
 
-    link_maximum_capacity: int = 100
+    flows: list[Flow] = Field(default_factory=list)
 
-    disabled: bool
+    link_maximum_capacity: int = Field(default=1000)
 
-    def __init__(self):
-        self.flows = []
-        self.source = None
-        self.destination = None
-        self.disabled = False
+    disabled: bool = Field(default=False)
 
     def get_used_capacity_between_hops_unidirectional(
         self, previous_hop: TopologyObject, next_hop: TopologyObject
@@ -376,6 +371,12 @@ class Link:
         return total_used_capacity
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
+
+        if source.topology_uniq_id is None or destination.topology_uniq_id is None:
+            raise TopologyIdentifierNotDefinedError(
+                "You cannot connect two objects without topology identifier"
+            )
+
         if source == destination:
             raise ConnectionBetweenSameSatelliteForbiddenError(
                 "You cannot connect with same source and destination"
@@ -385,9 +386,11 @@ class Link:
 
 
 class InterSatelliteLink(Link):
-    type: str = "InterSatelliteLink"
+    type: ClassVar[str] = "InterSatelliteLink"
 
-    inter_satellite_direction: InterSatelliteLinkDirection
+    inter_satellite_direction: InterSatelliteLinkDirection = Field(
+        default=InterSatelliteLinkDirection.UNDEFINED
+    )
 
     def connect(
         self,
@@ -410,7 +413,7 @@ class InterSatelliteLink(Link):
 
 
 class GroundStationLink(Link):
-    type: str = "GroundStationLink"
+    type: ClassVar[str] = "GroundStationLink"
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_source_is_a_gsl_and_destination_a_satellite = isinstance(
@@ -438,7 +441,7 @@ class GroundStationLink(Link):
 
 
 class UserTerminalLink(Link):
-    type = "UserTerminalLink"
+    type: ClassVar[str] = "UserTerminalLink"
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_source_is_a_user_and_destination_a_satellite = isinstance(
@@ -465,12 +468,12 @@ class GroundObjectLink(Link):
     This is the link between a ground object and another ground object
     """
 
-    type = "GroundObjectLink"
+    type: ClassVar[str] = "GroundObjectLink"
 
     sub_type: str = Field(default="ground-object-to-ground-object")
 
-    source: GroundObject
-    destination: GroundObject
+    source: GroundObject = Field(default=None)
+    destination: GroundObject = Field(default=None)
 
     def connect(self, source: GroundObject, destination: GroundObject):
         if source == destination:

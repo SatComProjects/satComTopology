@@ -54,7 +54,7 @@ def satellite() -> Satellite:
 def ground_station() -> GroundStation:
     groud_station = GroundStation()
     groud_station.topology_uniq_id = 0
-    return GroundStation()
+    return groud_station
 
 
 @pytest.fixture
@@ -67,21 +67,18 @@ def user_terminal() -> UserTerminal:
 @pytest.fixture
 def gsl_link() -> GroundStationLink:
     groud_statio_link = GroundStationLink()
-    groud_statio_link.topology_uniq_id = 2
     return groud_statio_link
 
 
 @pytest.fixture
 def isl_link() -> InterSatelliteLink:
     isl_link = InterSatelliteLink()
-    isl_link.topology_uniq_id = 3
     return isl_link
 
 
 @pytest.fixture
 def user_link() -> UserTerminalLink:
     user_terminal_link = UserTerminalLink()
-    user_terminal_link.topology_uniq_id = 4
     return user_terminal_link
 
 
@@ -102,7 +99,6 @@ def point_of_presence_2() -> PointOfPresence:
 @pytest.fixture
 def static_ground_object_link_1() -> GroundObjectLink:
     static_ground_object_link_1 = GroundObjectLink()
-    static_ground_object_link_1.topology_uniq_id = 7
     return static_ground_object_link_1
 
 
@@ -123,6 +119,7 @@ def satellite_2() -> Satellite:
 class TestLinks:
     def test_cant_establish_connection_between_same_object(self):
         single_topology_object = TopologyObject()
+        single_topology_object.topology_uniq_id = 0
         link = Link()
         assert_cant_establish_connection(
             link,
@@ -132,7 +129,10 @@ class TestLinks:
         )
 
     def test_bi_directional_connection_between_satellite_and_ground_station_using_gsl(
-        self, gsl_link: GroundStationLink, ground_station, satellite
+        self,
+        gsl_link: GroundStationLink,
+        ground_station: GroundStation,
+        satellite: Satellite,
     ):
         assert_can_establish_connection(gsl_link, ground_station, satellite)
         assert_can_establish_connection(gsl_link, satellite, ground_station)
@@ -199,6 +199,7 @@ class TestLinks:
         self, isl_link: InterSatelliteLink, satellite: Satellite
     ):
         other_satellite = Satellite(object_id=1, satellite_name="Test Satellite 1")
+        other_satellite.topology_uniq_id = 9684
         assert_can_establish_connection(isl_link, satellite, other_satellite)
 
     def test_satellite_cant_connect_to_gs_with_isl(
