@@ -20,6 +20,7 @@ from sat_com_model.models import (
     GroundStationLink,
     UserTerminalLink,
     Satellite,
+    GroundObjectLink,
 )
 from sat_com_trajectopy.grid_mesh_calculator import calculate_satellite_mesh_coordinates
 
@@ -197,6 +198,7 @@ class CesiumRenderer:
                     width=3.0,
                     description=LinkHtmlFormatter(link).format_to_html(),
                     properties={},
+                    on_ground=False,
                 )
             )
 
@@ -208,6 +210,9 @@ class CesiumRenderer:
 
         if isinstance(link, UserTerminalLink):
             self.append_next(self.cesium_format.create_user_terminal_link(link))
+
+        if isinstance(link, GroundObjectLink):
+            self.append_next(self.cesium_format.create_static_ground_objects_link(link))
 
         return self
 

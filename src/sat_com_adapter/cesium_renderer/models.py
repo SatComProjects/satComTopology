@@ -35,6 +35,31 @@ class CesiumRendererGroundObjectProperty(BaseModel):
     ground_object_model_path: Optional[str] = Field(default=None)
 
 
+class CesiumRendererStaticGroundObjectConnectivityProperty(BaseModel):
+    ground_object_to_ground_object_link_color: str = Field(default="RED")
+    ground_object_to_ground_object_link_width: float = Field(default=1)
+
+
+class CesiumRendererCustomStaticGroundObjectConnectivity(BaseModel):
+    cesium_static_ground_object_connectivity_property: (
+        CesiumRendererStaticGroundObjectConnectivityProperty
+    ) = Field(default=CesiumRendererStaticGroundObjectConnectivityProperty)
+
+
+class CesiumRendererDomainToDomainGroundObjectConnectivity(
+    CesiumRendererCustomStaticGroundObjectConnectivity
+):
+    domain_a: str = Field(default="public")
+    domain_b: str = Field(default="private")
+
+
+class CesiumRendererGroundObjectTypeToTypeRendererCustomProperty(
+    CesiumRendererCustomStaticGroundObjectConnectivity
+):
+    type_a: str = Field(default="ground_station")
+    type_b: str = Field(default="point_of_presence")
+
+
 class GroundObjectDomainCustomProperty(BaseModel):
     ground_object_domain: str
     cesium_property: CesiumRendererGroundObjectProperty
@@ -59,8 +84,15 @@ class CesiumProperty(BaseModel):
         default_factory=CesiumRendererShellProperty
     )
 
-    shell_custom_custom_properties: List[ShellCustomProperty] = Field(default=list())
+    shell_custom_properties: List[ShellCustomProperty] = Field(default=list())
 
     ground_object_domain_custom_properties: List[GroundObjectDomainCustomProperty] = (
         Field(default=list())
     )
+    cesium_static_ground_property_connectivity: (
+        CesiumRendererStaticGroundObjectConnectivityProperty
+    ) = Field(default_factory=CesiumRendererStaticGroundObjectConnectivityProperty)
+
+    cesium_static_custom_ground_connectivity_properties: List[
+        CesiumRendererCustomStaticGroundObjectConnectivity
+    ] = Field(default=list())

@@ -10,8 +10,14 @@ from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import (
     UserTerminalLinkHtmlFormatter,
     InterSatelliteLinkHtmlFormatter,
     SatelliteHtmlFormatter,
+    StaticGroundObjectLinkHtmlFormatter,
 )
-from sat_com_adapter.cesium_renderer.models import CesiumProperty
+from sat_com_adapter.cesium_renderer.models import (
+    CesiumProperty,
+    CesiumRendererStaticGroundObjectConnectivityProperty,
+    CesiumRendererDomainToDomainGroundObjectConnectivity,
+    CesiumRendererGroundObjectTypeToTypeRendererCustomProperty,
+)
 from sat_com_adapter.cesium_renderer.utils import (
     get_topology_object_cesium_unique_identifier,
     get_link_cesium_unique_identifier,
@@ -26,6 +32,7 @@ from sat_com_model.models import (
     UserTerminal,
     InterSatelliteLinkDirection,
     GroundObject,
+    GroundObjectLink,
 )
 
 SATELLITE_RADIUS = 30000
@@ -43,11 +50,17 @@ class CesiumFormat:
         }
         self.shells_customs_properties = {
             shell_custom_property.shell_identifier: shell_custom_property.cesium_property
-            for shell_custom_property in self.cesium_property.shell_custom_custom_properties
+            for shell_custom_property in self.cesium_property.shell_custom_properties
         }
 
     def create_link(
-        self, link: Link, color, width: float, description, properties: dict
+        self,
+        link: Link,
+        color,
+        width: float,
+        description: str,
+        on_ground: bool,
+        properties: dict,
     ):
         source = link.source
         destination = link.destination
@@ -74,6 +87,7 @@ class CesiumFormat:
             b_name=str(destination.topology_uniq_id),
             width=width,
             color=color,
+            on_ground=on_ground,
             description=description,
             properties=properties,
         )
@@ -195,15 +209,16 @@ class CesiumFormat:
                 self.cesium_property.cesium_renderer_ground_object_property,
             )
 
-        html_description = (
-            GroundStationLinkHtmlFormatter(ground_station_link).format_to_html(),
-        )
+        html_description = GroundStationLinkHtmlFormatter(
+            ground_station_link
+        ).format_to_html()
 
         return self.create_link(
             link=ground_station_link,
             color=ground_object_property.ground_object_link_color,
             width=ground_object_property.ground_object_link_width,
             description=html_description,
+            on_ground=False,
             properties={},
         )
 
@@ -219,15 +234,16 @@ class CesiumFormat:
                 self.cesium_property.cesium_renderer_ground_object_property,
             )
 
-        html_description = (
-            UserTerminalLinkHtmlFormatter(user_terminal_link).format_to_html(),
-        )
+        html_description = UserTerminalLinkHtmlFormatter(
+            user_terminal_link
+        ).format_to_html()
 
         return self.create_link(
             link=user_terminal_link,
-            color=ground_object_property,
+            color=ground_object_property.ground_object_link_color,
             width=ground_object_property.ground_object_link_width,
             description=html_description,
+            on_ground=False,
             properties={},
         )
 
@@ -242,6 +258,7 @@ class CesiumFormat:
         html_description = InterSatelliteLinkHtmlFormatter(
             inter_satellite_link
         ).format_to_html()
+
         html_description += "{source} to {destination}: {capacity}/{max_capacity}<br>".format(
             source=inter_satellite_link.source.topology_uniq_id,
             destination=inter_satellite_link.destination.topology_uniq_id,
@@ -264,6 +281,7 @@ class CesiumFormat:
             color="COLOR_GREEN_TO_RED_" + str(int(color_level)),
             description=html_description,
             width=self.cesium_property.link_flow_width,
+            on_ground=False,
             properties={},
         )
 
@@ -280,15 +298,71 @@ class CesiumFormat:
             else satellites_property.adjacent_inter_satellite_link_color
         )
 
-        html_description = (
-            InterSatelliteLinkHtmlFormatter(inter_satellite_link).format_to_html(),
-        )
+        html_description = InterSatelliteLinkHtmlFormatter(
+            inter_satellite_link
+        ).format_to_html()
 
         return self.create_link(
             link=inter_satellite_link,
             color=display_color,
             width=satellites_property.inter_satellite_link_width,
             description=html_description,
+            on_ground=False,
+            properties={},
+        )
+
+    def __get_connectivity_properties(
+        self, ground_object_link: GroundObjectLink
+    ) -> CesiumRendererStaticGroundObjectConnectivityProperty:
+        source = ground_object_link.source
+        destination = ground_object_link.destination
+
+        custom_static_properties = (
+            self.cesium_property.cesium_static_custom_ground_connectivity_properties
+        )
+
+        for properties in custom_static_properties:
+            if isinstance(
+                properties, CesiumRendererDomainToDomainGroundObjectConnectivity
+            ):
+                if (
+                    properties.domain_a == source.ground_object_domain.identifier
+                    and properties.domain_b
+                    == destination.ground_object_domain.identifier
+                ) or (
+                    properties.domain_a == destination.ground_object_domain.identifier
+                    and properties.domain_b == source.ground_object_domain.identifier
+                ):
+                    return properties.cesium_static_ground_object_connectivity_property
+
+            if isinstance(
+                properties, CesiumRendererGroundObjectTypeToTypeRendererCustomProperty
+            ):
+                if (
+                    properties.type_a == source.type
+                    and properties.type_b == destination.type
+                ) or (
+                    properties.type_a == destination.type
+                    and properties.type_b == source.type
+                ):
+                    return properties.cesium_static_ground_object_connectivity_property
+
+        return self.cesium_property.cesium_static_ground_property_connectivity_property
+
+    def create_static_ground_objects_link(self, ground_object_link: GroundObjectLink):
+
+        ground_object_property = self.__get_connectivity_properties(ground_object_link)
+
+        html_description = StaticGroundObjectLinkHtmlFormatter(
+            ground_object_link
+        ).format_to_html()
+
+        return self.create_link(
+            link=ground_object_link,
+            color=ground_object_property.ground_object_to_ground_object_link_color,
+            width=ground_object_property.ground_object_to_ground_object_link_width,
+            description=html_description,
+            on_ground=True,
             properties={},
         )
 

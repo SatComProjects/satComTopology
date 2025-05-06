@@ -13,6 +13,8 @@ from .exceptions import (
     TopologyIdentifierNotDefinedError,
     OrbitalObjectMovementModelUndefinedError,
     DistanceModelUndefinedError,
+    GroundObjectLinkConnectionError,
+    ConnectionBetweenSameTopologyForbiddenError,
 )
 
 
@@ -126,6 +128,11 @@ class TopologyObject(SpatialPoint):
             return self.topology_uniq_id
         else:
             raise TopologyIdentifierNotDefinedError()
+
+    def __eq__(self, other):
+        if not isinstance(other, TopologyObject):
+            return False
+        return self.topology_uniq_id == other.topology_uniq_id
 
     def update(self):
         """
@@ -458,7 +465,7 @@ class GroundObjectLink(Link):
     This is the link between a ground object and another ground object
     """
 
-    type = "GroundLink"
+    type = "GroundObjectLink"
 
     sub_type: str = Field(default="ground-object-to-ground-object")
 
@@ -467,7 +474,7 @@ class GroundObjectLink(Link):
 
     def connect(self, source: GroundObject, destination: GroundObject):
         if source == destination:
-            raise ConnectionBetweenSameSatelliteForbiddenError(
+            raise ConnectionBetweenSameTopologyForbiddenError(
                 "You cannot connect with same source and destination"
             )
 
@@ -475,7 +482,7 @@ class GroundObjectLink(Link):
             self.source = source
             self.destination = destination
         else:
-            raise GroundStationConnectionError(
+            raise GroundObjectLinkConnectionError(
                 "Incompatible types: "
                 + source.__class__.__name__
                 + " and "

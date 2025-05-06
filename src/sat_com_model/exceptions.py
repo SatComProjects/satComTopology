@@ -6,6 +6,10 @@ class ConnectionBetweenSameSatelliteForbiddenError(TopologyConnectionError):
     pass
 
 
+class ConnectionBetweenSameTopologyForbiddenError(TopologyConnectionError):
+    pass
+
+
 class InterSatelliteConnectionError(TopologyConnectionError):
     pass
 
@@ -15,6 +19,10 @@ class GroundStationConnectionError(TopologyConnectionError):
 
 
 class UserTerminalConnectionError(TopologyConnectionError):
+    pass
+
+
+class GroundObjectLinkConnectionError(TopologyConnectionError):
     pass
 
 

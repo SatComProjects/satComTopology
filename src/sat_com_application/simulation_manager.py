@@ -381,6 +381,13 @@ class SimulationManager:
         """
         return self.simulation.ground_station_links
 
+    def get_static_ground_object_links(self):
+        """
+        Get all simulation static ground object links
+        :return: List of static ground object links
+        """
+        return self.simulation.ground_object_links
+
     def get_descending_satellites(self) -> list[Satellite]:
         """
         Get all simulation descending satellites
