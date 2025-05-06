@@ -3,15 +3,8 @@ from sat_com_adapter.cesium_renderer.factories import (
     CesiumJavaScriptElementFactory,
     CesiumCZMLElementFactory,
 )
-from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import (
-    UserTerminalHtmlFormatter,
-    GroundStationHtmlFormatter,
-    GroundStationLinkHtmlFormatter,
-    UserTerminalLinkHtmlFormatter,
-    InterSatelliteLinkHtmlFormatter,
-    SatelliteHtmlFormatter,
-    StaticGroundObjectLinkHtmlFormatter,
-)
+from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import HtmlFormatter
+
 from sat_com_adapter.cesium_renderer.models import (
     CesiumProperty,
     CesiumRendererStaticGroundObjectConnectivityProperty,
@@ -126,7 +119,7 @@ class CesiumFormat:
             cesium_uniq_identifier=cesium_uniq_identifier,
             color=display_color,
             radius=satellites_cesium_property.satellites_size,
-            description=SatelliteHtmlFormatter(satellite).format_to_html(),
+            description=HtmlFormatter(satellite).format(),
             properties=properties,
         )
 
@@ -162,7 +155,7 @@ class CesiumFormat:
             cesium_uniq_identifier=cesium_uniq_identifier,
             color=display_color,
             radius=ground_object_domain_properties.ground_object_size,
-            description=GroundStationHtmlFormatter(ground_station).format_to_html(),
+            description=HtmlFormatter(ground_station).format(),
             properties=properties,
         )
 
@@ -192,7 +185,7 @@ class CesiumFormat:
             cesium_uniq_identifier=cesium_uniq_identifier,
             color=display_color,
             radius=ground_object_domain_properties.ground_object_size,
-            description=UserTerminalHtmlFormatter(user_terminal).format_to_html(),
+            description=HtmlFormatter(user_terminal).format(),
         )
 
         return terminal_user_js
@@ -209,9 +202,7 @@ class CesiumFormat:
                 self.cesium_property.cesium_renderer_ground_object_property,
             )
 
-        html_description = GroundStationLinkHtmlFormatter(
-            ground_station_link
-        ).format_to_html()
+        html_description = HtmlFormatter(ground_station_link).format()
 
         return self.create_link(
             link=ground_station_link,
@@ -234,9 +225,7 @@ class CesiumFormat:
                 self.cesium_property.cesium_renderer_ground_object_property,
             )
 
-        html_description = UserTerminalLinkHtmlFormatter(
-            user_terminal_link
-        ).format_to_html()
+        html_description = HtmlFormatter(user_terminal_link).format()
 
         return self.create_link(
             link=user_terminal_link,
@@ -255,9 +244,7 @@ class CesiumFormat:
             / maximum_capacity
         ) * 100
 
-        html_description = InterSatelliteLinkHtmlFormatter(
-            inter_satellite_link
-        ).format_to_html()
+        html_description = HtmlFormatter(inter_satellite_link).format()
 
         html_description += "{source} to {destination}: {capacity}/{max_capacity}<br>".format(
             source=inter_satellite_link.source.topology_uniq_id,
@@ -298,9 +285,7 @@ class CesiumFormat:
             else satellites_property.adjacent_inter_satellite_link_color
         )
 
-        html_description = InterSatelliteLinkHtmlFormatter(
-            inter_satellite_link
-        ).format_to_html()
+        html_description = HtmlFormatter(inter_satellite_link).format()
 
         return self.create_link(
             link=inter_satellite_link,
@@ -353,9 +338,7 @@ class CesiumFormat:
 
         ground_object_property = self.__get_connectivity_properties(ground_object_link)
 
-        html_description = StaticGroundObjectLinkHtmlFormatter(
-            ground_object_link
-        ).format_to_html()
+        html_description = HtmlFormatter(ground_object_link).format()
 
         return self.create_link(
             link=ground_object_link,
