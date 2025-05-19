@@ -2,8 +2,6 @@ from typing import Optional, List
 
 from pydantic import BaseModel, Field
 
-from sat_com_model.models import WalkerShell, GroundObjectDomain
-
 
 class CesiumRendererShellProperty(BaseModel):
     ascending_satellite_color: str = Field(default="LIGHTSTEELBLUE")
