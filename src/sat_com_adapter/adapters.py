@@ -3,6 +3,7 @@ import json
 import networkx as nx
 from networkx.readwrite import json_graph
 
+from sat_com_adapter.cesium_renderer.models import CesiumProperty
 from sat_com_adapter.cesium_renderer.renderers import CesiumRenderer, CesiumHtmlRenderer
 from sat_com_adapter.networkx_builder.networkx_builder import NetworkxBuilder
 from sat_com_application.simulation_manager import SimulationManager
@@ -92,7 +93,9 @@ class CesiumAdapter(Adapter):
         :return: CesiumRenderer instance
         """
         self.cesium_token = cesium_token
-        return CesiumHtmlRenderer(self.simulation_manager, self.cesium_token)
+        return CesiumHtmlRenderer(
+            self.simulation_manager, CesiumProperty(cesium_token=cesium_token)
+        )
 
     def set_custom_renderer(self, cesium_renderer: CesiumRenderer):
         """
