@@ -101,7 +101,7 @@ class CesiumFormat:
             satellite.topology_uniq_id
         )
 
-        properties = satellite.model_dump()
+        properties = satellite.model_dump(mode="json")
 
         satellite_js = self.cesium_element_creator.create_sphere(
             sphere_name=satellite.satellite_name,
@@ -135,7 +135,7 @@ class CesiumFormat:
             topology_id=ground_station.topology_uniq_id,
         )
 
-        properties.update(**ground_station.model_dump())
+        properties.update(**ground_station.model_dump(mode="json"))
 
         ground_station_js = self.cesium_element_creator.create_sphere(
             sphere_name=ground_station_name,
@@ -168,7 +168,7 @@ class CesiumFormat:
         )
         properties = dict()
 
-        properties.update(**user_terminal.model_dump())
+        properties.update(**user_terminal.model_dump(mode="json"))
 
         terminal_user_js = self.cesium_element_creator.create_sphere(
             sphere_name=ground_station_name,
@@ -197,7 +197,7 @@ class CesiumFormat:
         html_description = HtmlFormatter(ground_station_link).format()
 
         properties = dict()
-        properties.update(**ground_station_link.model_dump())
+        properties.update(**ground_station_link.model_dump(mode="json"))
 
         return self.create_link(
             link=ground_station_link,
@@ -223,7 +223,7 @@ class CesiumFormat:
         html_description = HtmlFormatter(user_terminal_link).format()
 
         properties = dict()
-        properties.update(**user_terminal_link.model_dump())
+        properties.update(**user_terminal_link.model_dump(mode="json"))
 
         return self.create_link(
             link=user_terminal_link,
@@ -263,7 +263,7 @@ class CesiumFormat:
         )
 
         properties = dict()
-        properties.update(**inter_satellite_link.model_dump())
+        properties.update(**inter_satellite_link.model_dump(mode="json"))
 
         return self.create_link(
             link=inter_satellite_link,
@@ -290,7 +290,7 @@ class CesiumFormat:
         html_description = HtmlFormatter(inter_satellite_link).format()
 
         properties = dict()
-        properties.update(**inter_satellite_link.model_dump())
+        properties.update(**inter_satellite_link.model_dump(mode="json"))
 
         return self.create_link(
             link=inter_satellite_link,
@@ -346,7 +346,7 @@ class CesiumFormat:
         html_description = HtmlFormatter(ground_object_link).format()
 
         properties = dict()
-        properties.update(**ground_object_link.model_dump())
+        properties.update(**ground_object_link.model_dump(mode="json"))
 
         return self.create_link(
             link=ground_object_link,
