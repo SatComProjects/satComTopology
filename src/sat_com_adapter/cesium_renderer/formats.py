@@ -100,8 +100,10 @@ class CesiumFormat:
         cesium_uniq_identifier = get_topology_object_cesium_unique_identifier(
             satellite.topology_uniq_id
         )
+        if properties is None:
+            properties = dict()
 
-        properties = satellite.model_dump(mode="json")
+        properties.update(**satellite.model_dump(mode="json"))
 
         satellite_js = self.cesium_element_creator.create_sphere(
             sphere_name=satellite.satellite_name,
@@ -135,6 +137,9 @@ class CesiumFormat:
             topology_id=ground_station.topology_uniq_id,
         )
 
+        if properties is None:
+            properties = dict()
+
         properties.update(**ground_station.model_dump(mode="json"))
 
         ground_station_js = self.cesium_element_creator.create_sphere(
@@ -149,7 +154,9 @@ class CesiumFormat:
 
         return ground_station_js
 
-    def create_user_terminal(self, user_terminal: UserTerminal):
+    def create_user_terminal(
+        self, user_terminal: UserTerminal, properties: dict = None
+    ):
         ground_object_domain_properties = self.ground_objects_custom_properties.get(
             user_terminal.ground_object_domain.identifier,
             self.cesium_property.cesium_renderer_ground_object_property,
@@ -166,9 +173,11 @@ class CesiumFormat:
             object_id=user_terminal.object_id,
             topology_id=user_terminal.topology_uniq_id,
         )
-        properties = dict()
 
-        properties.update(**user_terminal.model_dump(mode="json"))
+        if properties is None:
+            properties = dict()
+
+        properties.update(**user_terminal.model(mode="json"))
 
         terminal_user_js = self.cesium_element_creator.create_sphere(
             sphere_name=ground_station_name,
@@ -208,7 +217,9 @@ class CesiumFormat:
             properties=properties,
         )
 
-    def create_user_terminal_link(self, user_terminal_link: UserTerminalLink):
+    def create_user_terminal_link(
+        self, user_terminal_link: UserTerminalLink, properties: dict = None
+    ):
         if isinstance(user_terminal_link.source, GroundObject):
             ground_object_property = self.ground_objects_custom_properties.get(
                 user_terminal_link.source.ground_object_domain.identifier,
@@ -222,7 +233,9 @@ class CesiumFormat:
 
         html_description = HtmlFormatter(user_terminal_link).format()
 
-        properties = dict()
+        if properties is None:
+            properties = dict()
+
         properties.update(**user_terminal_link.model_dump(mode="json"))
 
         return self.create_link(
@@ -235,7 +248,10 @@ class CesiumFormat:
         )
 
     def create_inter_satellite_link_flow(
-        self, inter_satellite_link: InterSatelliteLink, maximum_capacity: float
+        self,
+        inter_satellite_link: InterSatelliteLink,
+        maximum_capacity: float,
+        properties: dict = None,
     ):
         color_level = (
             inter_satellite_link.total_capacity_between_hops_bidirectional()
@@ -262,7 +278,9 @@ class CesiumFormat:
             max_capacity=inter_satellite_link.link_maximum_capacity,
         )
 
-        properties = dict()
+        if properties is None:
+            properties = dict()
+
         properties.update(**inter_satellite_link.model_dump(mode="json"))
 
         return self.create_link(
@@ -274,7 +292,9 @@ class CesiumFormat:
             properties=properties,
         )
 
-    def create_inter_satellite_link(self, inter_satellite_link: InterSatelliteLink):
+    def create_inter_satellite_link(
+        self, inter_satellite_link: InterSatelliteLink, properties: dict = None
+    ):
         satellites_property = self.shells_customs_properties.get(
             inter_satellite_link.source.walker_shell.identifier,
             self.cesium_property.cesium_renderer_shell_property,
@@ -289,7 +309,8 @@ class CesiumFormat:
 
         html_description = HtmlFormatter(inter_satellite_link).format()
 
-        properties = dict()
+        if properties is None:
+            properties = dict()
         properties.update(**inter_satellite_link.model_dump(mode="json"))
 
         return self.create_link(
@@ -339,13 +360,17 @@ class CesiumFormat:
 
         return self.cesium_property.cesium_static_ground_property_connectivity_property
 
-    def create_static_ground_objects_link(self, ground_object_link: GroundObjectLink):
+    def create_static_ground_objects_link(
+        self, ground_object_link: GroundObjectLink, properties: dict = None
+    ):
 
         ground_object_property = self.__get_connectivity_properties(ground_object_link)
 
         html_description = HtmlFormatter(ground_object_link).format()
 
-        properties = dict()
+        if properties is None:
+            properties = dict()
+
         properties.update(**ground_object_link.model_dump(mode="json"))
 
         return self.create_link(
