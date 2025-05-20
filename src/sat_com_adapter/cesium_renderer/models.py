@@ -29,6 +29,7 @@ class CesiumRendererGroundObjectProperty(BaseModel):
     ground_object_size: float = Field(default=5000)
 
     ground_object_link_color: str = Field(default="FIREBRICK")
+    ground_object_link_width: float = Field(default=1)
 
     ground_object_model_path: Optional[str] = Field(default=None)
 
