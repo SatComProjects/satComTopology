@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, List, ClassVar
+from typing import Optional, List
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, computed_field
@@ -102,7 +102,7 @@ class TopologyObject(SpatialPoint):
     object_id: int = Field(default=None)
 
     """This is the object type as string, used for debugging and export purposes"""
-    type: ClassVar[str] = "TypologyObject"
+    type: str = Field(default="TypologyObject", frozen=True)
 
     @property
     def domain_id(self) -> str:
@@ -273,7 +273,7 @@ class OrbitalObject(TopologyObject):
 
 class Satellite(OrbitalObject):
     satellite_name: str
-    type: ClassVar[str] = "Satellite"
+    type: str = Field(default="Satellite", frozen=True)
 
     walker_shell: Optional[WalkerShell] = None
 
@@ -292,7 +292,7 @@ class GroundObject(TopologyObject):
 
 
 class GroundStation(GroundObject):
-    type: ClassVar[str] = "GroundStation"
+    type: str = Field(default="GroundStation", frozen=True)
 
     def __post_init__(self):
         self.spatial_position.longitude = 0
@@ -313,7 +313,7 @@ class UserTerminal(GroundObject):
     User terminal is a special type of ground station. It receives and emit data to the constellation
     """
 
-    type: ClassVar[str] = "UserTerminal"
+    type: str = Field(default="UserTerminal", frozen=True)
 
 
 class PointOfPresence(GroundObject):
@@ -322,7 +322,7 @@ class PointOfPresence(GroundObject):
     It is used to connect an infrastructure to the internet backbone.
     """
 
-    type: ClassVar[str] = "PointOfPresence"
+    type: str = Field(default="PointOfPresence", frozen=True)
 
     def __str__(self):
         return (
@@ -351,7 +351,7 @@ class Link(BaseModel):
     Links are considered as bidirectional for this first version.
     """
 
-    type: ClassVar[str] = "Link"
+    type: str = Field(default="Link", frozen=True)
 
     source: TopologyObject = Field(default=None)
     destination: TopologyObject = Field(default=None)
@@ -400,7 +400,7 @@ class Link(BaseModel):
 
 
 class InterSatelliteLink(Link):
-    type: ClassVar[str] = "InterSatelliteLink"
+    type: str = Field(default="InterSatelliteLink", frozen=True)
 
     inter_satellite_direction: InterSatelliteLinkDirection = Field(
         default=InterSatelliteLinkDirection.UNDEFINED
@@ -434,7 +434,7 @@ class GroundToSpaceLink(Link):
 
 
 class GroundStationLink(GroundToSpaceLink):
-    type: ClassVar[str] = "GroundStationLink"
+    type: str = Field(default="GroundStationLink", frozen=True)
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_source_is_a_gsl_and_destination_a_satellite = isinstance(
@@ -462,7 +462,7 @@ class GroundStationLink(GroundToSpaceLink):
 
 
 class UserTerminalLink(Link):
-    type: ClassVar[str] = "UserTerminalLink"
+    type: str = Field(default="UserTerminalLink", frozen=True)
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_source_is_a_user_and_destination_a_satellite = isinstance(
@@ -489,7 +489,7 @@ class GroundObjectLink(Link):
     This is the link between a ground object and another ground object
     """
 
-    type: ClassVar[str] = "GroundObjectLink"
+    type: str = Field(default="GroundObjectLink", frozen=True)
 
     sub_type: str = Field(default="ground-object-to-ground-object")
 
