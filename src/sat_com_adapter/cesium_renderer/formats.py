@@ -101,17 +101,7 @@ class CesiumFormat:
             satellite.topology_uniq_id
         )
 
-        if properties is None:
-            properties = {}
-
-        properties.update(
-            {
-                "orbital_node": (
-                    "ascending" if satellite.is_ascending() else "descending"
-                ),
-                "type": satellite.type,
-            }
-        )
+        properties = satellite.model_dump()
 
         satellite_js = self.cesium_element_creator.create_sphere(
             sphere_name=satellite.satellite_name,
@@ -145,7 +135,7 @@ class CesiumFormat:
             topology_id=ground_station.topology_uniq_id,
         )
         if properties is None:
-            properties = {}
+            properties = ground_station.model_dump()
 
         properties.update(**ground_station.model_dump())
 
@@ -210,7 +200,7 @@ class CesiumFormat:
             width=ground_object_property.ground_object_link_width,
             description=html_description,
             on_ground=False,
-            properties={},
+            properties=ground_station_link.model_dump(),
         )
 
     def create_user_terminal_link(self, user_terminal_link: UserTerminalLink):
@@ -233,7 +223,7 @@ class CesiumFormat:
             width=ground_object_property.ground_object_link_width,
             description=html_description,
             on_ground=False,
-            properties={},
+            properties=user_terminal_link.model_dump(),
         )
 
     def create_inter_satellite_link_flow(
@@ -269,7 +259,7 @@ class CesiumFormat:
             description=html_description,
             width=self.cesium_property.link_flow_width,
             on_ground=False,
-            properties={},
+            properties=inter_satellite_link.model_dump(),
         )
 
     def create_inter_satellite_link(self, inter_satellite_link: InterSatelliteLink):
@@ -293,7 +283,7 @@ class CesiumFormat:
             width=satellites_property.inter_satellite_link_width,
             description=html_description,
             on_ground=False,
-            properties={},
+            properties=inter_satellite_link.model_dump(),
         )
 
     def __get_connectivity_properties(
@@ -346,7 +336,7 @@ class CesiumFormat:
             width=ground_object_property.ground_object_to_ground_object_link_width,
             description=html_description,
             on_ground=True,
-            properties={},
+            properties=ground_object_link.model_dump(),
         )
 
 
