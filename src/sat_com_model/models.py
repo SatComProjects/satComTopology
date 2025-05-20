@@ -208,7 +208,7 @@ class OrbitalObject(TopologyObject):
     Any object in orbit
     """
 
-    movement_model: MovementModel = None
+    movement_model: MovementModel = Field(default=None, exclude=True)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
