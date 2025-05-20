@@ -139,8 +139,8 @@ class CesiumFormat:
             ground_station.topology_uniq_id
         )
 
-        ground_station_name = "{city} {object_id}. {topology_id}".format(
-            city=ground_station.city,
+        ground_station_name = "{label} {object_id}. {topology_id}".format(
+            label=ground_station.label,
             object_id=ground_station.object_id,
             topology_id=ground_station.topology_uniq_id,
         )

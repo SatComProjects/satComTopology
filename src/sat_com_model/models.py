@@ -302,8 +302,8 @@ class GroundStation(GroundObject):
     def __str__(self):
         return (
             super().__str__()
-            + "Ground station id: {ground_station_id} city: {city} ".format(
-                ground_station_id=self.object_id, city=self.city
+            + "Ground station id: {ground_station_id} label: {label} ".format(
+                ground_station_id=self.object_id, label=self.label
             )
         )
 
@@ -327,8 +327,8 @@ class PointOfPresence(GroundObject):
     def __str__(self):
         return (
             super().__str__()
-            + "Point of presence id: {point_of_presence_id} city: {city} ".format(
-                point_of_presence_id=self.object_id, city=self.city
+            + "Point of presence id: {point_of_presence_id} label: {label} ".format(
+                point_of_presence_id=self.object_id, label=self.label
             )
         )
 
@@ -426,7 +426,11 @@ class InterSatelliteLink(Link):
         super().connect(source, destination)
 
 
-class GroundStationLink(Link):
+class GroundToSpaceLink(Link):
+    elevation_above_horizon_angle: float = Field(default=None)
+
+
+class GroundStationLink(GroundToSpaceLink):
     type: ClassVar[str] = "GroundStationLink"
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
