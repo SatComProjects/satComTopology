@@ -250,7 +250,7 @@ class SimulationManager:
         self, satellite_a: Satellite, satellite_b: Satellite
     ) -> InterSatelliteLink:
         """
-        Create inter satellite link between two satellites
+        Create inter-satellite link between two satellites
         :param satellite_a: Satellite instance A
         :param satellite_b: Satellite instance B
         :return: InterSatelliteLink instance
@@ -262,31 +262,43 @@ class SimulationManager:
         return inter_satellite_link
 
     def create_and_add_ground_station_link_connection(
-        self, satellite: Satellite, ground_station: GroundStation
+        self,
+        satellite: Satellite,
+        ground_station: GroundStation,
+        elevation_above_horizon_angle: float = 0,
     ) -> GroundStationLink:
         """
-        Create ground station link between a satellite and a ground station and append it to the simulation.
+        Create a ground station link between a satellite and a ground station and append it to the simulation.
         :param satellite: Satellite instance
         :param ground_station: GroundStation instance
+        :param elevation_above_horizon_angle:
         :return: GroundStationLink instance
+
         """
         ground_station_link = GroundStationLink()
         ground_station_link.connect(satellite, ground_station)
+        ground_station_link.elevation_above_horizon_angle = (
+            elevation_above_horizon_angle
+        )
 
         self.simulation.ground_station_links.append(ground_station_link)
         return ground_station_link
 
     def create_and_add_user_terminal_link_connection(
-        self, satellite: Satellite, user_terminal: UserTerminal
+        self,
+        satellite: Satellite,
+        user_terminal: UserTerminal,
+        elevation_above_horizon_angle: float = 0,
     ) -> UserTerminalLink:
         """
-        Create user terminal link between a satellite and a user terminal
+        Create a user terminal link between a satellite and a user terminal
         :param satellite: Satellite instance
         :param user_terminal: User terminal instance
         :return: UserTerminalLink instance
         """
         user_terminal_link = UserTerminalLink()
         user_terminal_link.connect(satellite, user_terminal)
+        user_terminal_link.elevation_above_horizon_angle = elevation_above_horizon_angle
 
         self.simulation.user_terminal_links.append(user_terminal_link)
         return user_terminal_link
