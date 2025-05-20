@@ -134,8 +134,6 @@ class CesiumFormat:
             object_id=ground_station.object_id,
             topology_id=ground_station.topology_uniq_id,
         )
-        if properties is None:
-            properties = ground_station.model_dump()
 
         properties.update(**ground_station.model_dump())
 
@@ -168,6 +166,9 @@ class CesiumFormat:
             object_id=user_terminal.object_id,
             topology_id=user_terminal.topology_uniq_id,
         )
+        properties = dict()
+
+        properties.update(**user_terminal.model_dump())
 
         terminal_user_js = self.cesium_element_creator.create_sphere(
             sphere_name=ground_station_name,
@@ -176,6 +177,7 @@ class CesiumFormat:
             color=display_color,
             radius=ground_object_domain_properties.ground_object_size,
             description=HtmlFormatter(user_terminal).format(),
+            properties=properties,
         )
 
         return terminal_user_js
@@ -194,13 +196,16 @@ class CesiumFormat:
 
         html_description = HtmlFormatter(ground_station_link).format()
 
+        properties = dict()
+        properties.update(**ground_station_link.model_dump())
+
         return self.create_link(
             link=ground_station_link,
             color=ground_object_property.ground_object_link_color,
             width=ground_object_property.ground_object_link_width,
             description=html_description,
             on_ground=False,
-            properties=ground_station_link.model_dump(),
+            properties=properties,
         )
 
     def create_user_terminal_link(self, user_terminal_link: UserTerminalLink):
@@ -217,13 +222,16 @@ class CesiumFormat:
 
         html_description = HtmlFormatter(user_terminal_link).format()
 
+        properties = dict()
+        properties.update(**user_terminal_link.model_dump())
+
         return self.create_link(
             link=user_terminal_link,
             color=ground_object_property.ground_object_link_color,
             width=ground_object_property.ground_object_link_width,
             description=html_description,
             on_ground=False,
-            properties=user_terminal_link.model_dump(),
+            properties=properties,
         )
 
     def create_inter_satellite_link_flow(
@@ -253,13 +261,17 @@ class CesiumFormat:
             ),
             max_capacity=inter_satellite_link.link_maximum_capacity,
         )
+
+        properties = dict()
+        properties.update(**inter_satellite_link.model_dump())
+
         return self.create_link(
             link=inter_satellite_link,
             color="COLOR_GREEN_TO_RED_" + str(int(color_level)),
             description=html_description,
             width=self.cesium_property.link_flow_width,
             on_ground=False,
-            properties=inter_satellite_link.model_dump(),
+            properties=properties,
         )
 
     def create_inter_satellite_link(self, inter_satellite_link: InterSatelliteLink):
@@ -277,13 +289,16 @@ class CesiumFormat:
 
         html_description = HtmlFormatter(inter_satellite_link).format()
 
+        properties = dict()
+        properties.update(**inter_satellite_link.model_dump())
+
         return self.create_link(
             link=inter_satellite_link,
             color=display_color,
             width=satellites_property.inter_satellite_link_width,
             description=html_description,
             on_ground=False,
-            properties=inter_satellite_link.model_dump(),
+            properties=properties,
         )
 
     def __get_connectivity_properties(
@@ -330,13 +345,16 @@ class CesiumFormat:
 
         html_description = HtmlFormatter(ground_object_link).format()
 
+        properties = dict()
+        properties.update(**ground_object_link.model_dump())
+
         return self.create_link(
             link=ground_object_link,
             color=ground_object_property.ground_object_to_ground_object_link_color,
             width=ground_object_property.ground_object_to_ground_object_link_width,
             description=html_description,
             on_ground=True,
-            properties=ground_object_link.model_dump(),
+            properties=properties,
         )
 
 

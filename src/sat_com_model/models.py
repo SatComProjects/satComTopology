@@ -425,6 +425,9 @@ class InterSatelliteLink(Link):
 
         super().connect(source, destination)
 
+    class Config:
+        use_enum_values = True
+
 
 class GroundToSpaceLink(Link):
     elevation_above_horizon_angle: float = Field(default=None)
