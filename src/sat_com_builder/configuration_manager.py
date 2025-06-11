@@ -43,6 +43,10 @@ from sat_com_trajectopy.distance_models import (
     GeopyDistanceModel,
     SkLearningDistanceModel,
 )
+from sat_com_trajectopy.ground_connections_strategies import (
+    SimpleConnectionStrategy,
+    LineOfSightStrategy,
+)
 from sat_com_trajectopy.satellites.generate_satellite import (
     generate_satellites_from_walker_constellation,
 )
@@ -257,10 +261,37 @@ class BaseConfigurationManager(ConfigurationManager):
 
         return simulation
 
+    def __load_ground_connection_strategy(self, simulation_manager: SimulationManager):
+        """
+        Load the ground connection strategy.
+        :return:
+        """
+        ground_connection_strategy = (
+            self.simulation_property.ground_to_space_connections_strategy
+        )
+
+        if ground_connection_strategy == "line-of-sight":
+            simulation_manager.ground_to_space_connection_strategy = (
+                LineOfSightStrategy()
+            )
+
+        elif ground_connection_strategy == "simple":
+
+            simulation_manager.ground_to_space_connection_strategy = (
+                SimpleConnectionStrategy()
+            )
+
+        else:
+            raise ValueError(
+                "Invalid ground connection strategy: " + str(ground_connection_strategy)
+            )
+
     def load_simulation(self) -> SimulationManager:
         simulation = self.__create_and_load_simulation()
 
         simulation_manager = SimulationManager(simulation=simulation)
+
+        self.__load_ground_connection_strategy(simulation_manager=simulation_manager)
 
         self.__load_time_manager(simulation_manager=simulation_manager)
 
