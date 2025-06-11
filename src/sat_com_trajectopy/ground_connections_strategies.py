@@ -1,6 +1,7 @@
 from typing import List, Dict
 
 from pydantic import BaseModel, Field
+from telecom_lib.utils import get_elevation_angle
 
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import (
@@ -13,10 +14,6 @@ from sat_com_model.models import (
     GroundStationLink,
     UserTerminalLink,
 )
-
-
-def get_elevation_angle(satellite_coordinates, ground_object_coordinates):
-    return 25
 
 
 def get_visible_ground_object(
@@ -86,23 +83,6 @@ def remove_obsolete_user_terminal_link_and_get_orphan_user_terminal(
     return user_terminals_that_need_new_satellite
 
 
-def connect_ground_stations(simulation_manager: SimulationManager):
-    simulation_manager.simulation.ground_station_links.clear()
-    ground_stations = simulation_manager.get_ground_stations()
-    satellites = simulation_manager.get_satellites()
-
-    visible_ground_objects = get_visible_ground_object(
-        satellites=satellites, ground_objects=ground_stations
-    )
-
-    for satellite, visible_ground_objects in visible_ground_objects.items():
-        for ground_object, elevation_above_horizon in visible_ground_objects:
-            if isinstance(ground_object, GroundStation):
-                simulation_manager.create_and_add_ground_station_link_connection(
-                    satellite, ground_object
-                )
-
-
 def get_best_elevation_angle_satellite_for_each_user_terminal(
     visible_ground_objects: Dict[Satellite, (UserTerminal, float)],
 ):
@@ -139,33 +119,91 @@ def get_best_elevation_angle_satellite_for_each_user_terminal(
     return best_elevation_angle_satellite_for_each_user_terminal
 
 
-def connect_user_terminals(simulation_manager: SimulationManager):
-    user_terminals_that_need_new_satellite = (
-        remove_obsolete_user_terminal_link_and_get_orphan_user_terminal(
-            simulation_manager
-        )
-    )
-    satellites = simulation_manager.get_satellites()
+class GroundToSpaceConnectionStrategy(BaseModel):
+    def connect_ground_stations(self, simulation_manager: SimulationManager):
+        """
+        Connect ground stations to satellites based on a visibility and elevation angle.
+        """
+        raise NotImplementedError("This method should be implemented by subclasses.")
 
-    visible_ground_objects = get_visible_ground_object(
-        satellites=satellites, ground_objects=user_terminals_that_need_new_satellite
-    )
+    def connect_user_terminals(self, simulation_manager: SimulationManager):
+        """
+        Connect user terminals to satellites based on a visibility and elevation angle.
+        """
+        raise NotImplementedError("This method should be implemented by subclasses.")
 
-    best_elevation_angle_satellite_for_each_user_terminal = (
-        get_best_elevation_angle_satellite_for_each_user_terminal(
-            visible_ground_objects
-        )
-    )
 
-    for (
-        ground_object,
-        satellite_and_elevation,
-    ) in best_elevation_angle_satellite_for_each_user_terminal.items():
-        simulation_manager.create_and_add_user_terminal_link_connection(
-            satellite_and_elevation[0], ground_object
+class LineOfSightStrategy(GroundToSpaceConnectionStrategy):
+    def connect_ground_stations(self, simulation_manager: SimulationManager):
+        simulation_manager.simulation.ground_station_links.clear()
+        ground_stations = simulation_manager.get_ground_stations()
+        satellites = simulation_manager.get_satellites()
+
+        visible_ground_objects = get_visible_ground_object(
+            satellites=satellites, ground_objects=ground_stations
         )
 
+        for satellite, visible_ground_objects in visible_ground_objects.items():
+            for ground_object, elevation_above_horizon in visible_ground_objects:
+                if isinstance(ground_object, GroundStation):
+                    simulation_manager.create_and_add_ground_station_link_connection(
+                        satellite, ground_object
+                    )
 
-def connect_topology(simulation_manager: SimulationManager):
-    connect_ground_stations(simulation_manager)
-    connect_user_terminals(simulation_manager)
+    def connect_user_terminals(self, simulation_manager: SimulationManager):
+        user_terminals_that_need_new_satellite = (
+            remove_obsolete_user_terminal_link_and_get_orphan_user_terminal(
+                simulation_manager
+            )
+        )
+        satellites = simulation_manager.get_satellites()
+
+        visible_ground_objects = get_visible_ground_object(
+            satellites=satellites,
+            ground_objects=user_terminals_that_need_new_satellite,
+        )
+
+        best_elevation_angle_satellite_for_each_user_terminal = (
+            get_best_elevation_angle_satellite_for_each_user_terminal(
+                visible_ground_objects
+            )
+        )
+
+        for (
+            ground_object,
+            satellite_and_elevation,
+        ) in best_elevation_angle_satellite_for_each_user_terminal.items():
+            simulation_manager.create_and_add_user_terminal_link_connection(
+                satellite_and_elevation[0], ground_object
+            )
+
+
+class SimpleConnectionStrategy(GroundToSpaceConnectionStrategy):
+    def connect_ground_stations(self, simulation_manager: SimulationManager):
+        """
+        Connect ground stations to satellites based on a simple connection strategy.
+        """
+        simulation_manager.simulation.user_terminal_links.clear()
+        for user_terminal in simulation_manager.get_user_terminals():
+            simulation_domain = simulation_manager.get_ground_object_domain(
+                user_terminal.domain
+            )
+
+            simulation_manager.connect_user_terminal_to_satellites(
+                user_terminal, simulation_domain.maximum_satellite_range_distance
+            )
+
+    def connect_user_terminals(self, simulation_manager: SimulationManager):
+        """
+        Connect user terminals to satellites based on a simple connection strategy.
+        """
+        simulation_manager.simulation.ground_station_links.clear()
+
+        for ground_station in simulation_manager.get_ground_stations():
+            simulation_domain = simulation_manager.get_ground_object_domain(
+                ground_station.domain
+            )
+
+            simulation_manager.connect_ground_station_to_satellites(
+                ground_station, simulation_domain.maximum_satellite_range_distance
+            )
