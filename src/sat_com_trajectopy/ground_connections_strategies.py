@@ -207,3 +207,10 @@ class SimpleConnectionStrategy(GroundToSpaceConnectionStrategy):
             simulation_manager.connect_ground_station_to_satellites(
                 ground_station, simulation_domain.maximum_satellite_range_distance
             )
+
+
+ground_connections_strategies_dict = {
+    "simple": SimpleConnectionStrategy,
+    "line-of-sight": LineOfSightStrategy,
+}
+ground_connections_strategies = ground_connections_strategies_dict.keys()
