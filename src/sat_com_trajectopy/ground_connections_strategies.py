@@ -122,13 +122,13 @@ def get_best_elevation_angle_satellite_for_each_user_terminal(
 class GroundToSpaceConnectionStrategy(BaseModel):
     def connect_ground_stations(self, simulation_manager: SimulationManager):
         """
-        Connect ground stations to satellites based on a visibility and elevation angle.
+        Connect ground stations to satellites based on your defined strategy.
         """
         raise NotImplementedError("This method should be implemented by subclasses.")
 
     def connect_user_terminals(self, simulation_manager: SimulationManager):
         """
-        Connect user terminals to satellites based on a visibility and elevation angle.
+        Connect user terminals to satellites based on your defined strategy.
         """
         raise NotImplementedError("This method should be implemented by subclasses.")
 
