@@ -28,6 +28,12 @@ from sat_com_model.models import (
 from sat_com_model.specifications import (
     SourceDestinationMatchWithLinkSpecification,
 )
+from sat_com_trajectopy.ground_connections_strategies import (
+    connect_ground_stations,
+    connect_user_terminals,
+    GroundToSpaceConnectionStrategy,
+    LineOfSightStrategy,
+)
 
 
 def get_object_by_object_id(
@@ -92,11 +98,14 @@ class SimulationManager:
 
     static_ground_station_link_mode: bool
 
+    ground_to_space_connection_strategy: GroundToSpaceConnectionStrategy
+
     def __init__(self, simulation: Simulation):
         self.simulation = simulation
         self.configuration = dict()
         self.enabled_update_functions = None
         self.static_ground_station_link_mode = False
+        self.ground_to_space_connection_strategy = LineOfSightStrategy()
 
     def set_time_manager(self, time_manager: SimulationTimeManager):
         self.time_manager = time_manager
@@ -918,32 +927,18 @@ class SimulationManager:
         self.connect_every_satellite_with_every_ground_stations_and_disable_un_connected()
 
     def __update_user_terminal_links_default(self):
-        self.simulation.user_terminal_links.clear()
-        for user_terminal in self.get_user_terminals():
-            simulation_domain = self.get_ground_object_domain(user_terminal.domain)
-
-            self.connect_user_terminal_to_satellites(
-                user_terminal, simulation_domain.maximum_satellite_range_distance
-            )
+        """
+        This method will delete all user terminals links and will create new ones according to the current strategy
+        :return:
+        """
+        self.ground_to_space_connection_strategy.connect_user_terminals(self)
 
     def __update_ground_stations_default(self):
         """
-        This method will delete all ground station links and will create new ones
-        Todo: Implement new features:
-            - white list
-            - physical layer rules for handling connections (angle)
-            - Amount of connections, etc
-            - Basically, everything inside GroundObjectDomain
+        This method will delete all ground station links and will create new ones according to the current strategy
         :return:
         """
-        self.simulation.ground_station_links.clear()
-
-        for ground_station in self.get_ground_stations():
-            simulation_domain = self.get_ground_object_domain(ground_station.domain)
-
-            self.connect_ground_station_to_satellites(
-                ground_station, simulation_domain.maximum_satellite_range_distance
-            )
+        self.ground_to_space_connection_strategy.connect_ground_stations(self)
 
     def update_ground_station_links(self):
         """
