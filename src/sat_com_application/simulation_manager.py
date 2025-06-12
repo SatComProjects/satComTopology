@@ -1,7 +1,10 @@
 import uuid
-from typing import Callable, TypeVar
+from typing import Callable
 
 from sat_com_application.time_managers import SimulationTimeManager
+from sat_com_connectivity.ground_object_connectivity.ground_connection_strategy_registry import (
+    ground_to_space_connection_strategies_dict,
+)
 from sat_com_model.exceptions import (
     TopologyObjectNotFoundError,
     LinkNotFoundError,
@@ -27,12 +30,6 @@ from sat_com_model.models import (
 )
 from sat_com_model.specifications import (
     SourceDestinationMatchWithLinkSpecification,
-)
-from sat_com_trajectopy.ground_connections_strategies import (
-    connect_ground_stations,
-    connect_user_terminals,
-    GroundToSpaceConnectionStrategy,
-    LineOfSightStrategy,
 )
 
 
@@ -98,14 +95,19 @@ class SimulationManager:
 
     static_ground_station_link_mode: bool
 
-    ground_to_space_connection_strategy: GroundToSpaceConnectionStrategy
+    ground_to_space_connection_strategies: dict = dict()
 
     def __init__(self, simulation: Simulation):
         self.simulation = simulation
         self.configuration = dict()
         self.enabled_update_functions = None
         self.static_ground_station_link_mode = False
-        self.ground_to_space_connection_strategy = LineOfSightStrategy()
+
+        self.ground_to_space_connection_strategies = {}
+        for name, cls in ground_to_space_connection_strategies_dict.items():
+            kwargs = {"distance_model": self.simulation.distance_model}
+
+            self.ground_to_space_connection_strategies[name] = cls(**kwargs)
 
     def set_time_manager(self, time_manager: SimulationTimeManager):
         self.time_manager = time_manager
@@ -267,6 +269,9 @@ class SimulationManager:
         inter_satellite_link = InterSatelliteLink()
         inter_satellite_link.connect(satellite_a, satellite_b)
 
+        satellite_a.links.append(inter_satellite_link)
+        satellite_b.links.append(inter_satellite_link)
+
         self.simulation.inter_satellite_links.append(inter_satellite_link)
         return inter_satellite_link
 
@@ -290,6 +295,9 @@ class SimulationManager:
             elevation_above_horizon_angle
         )
 
+        satellite.links.append(ground_station_link)
+        ground_station.links.append(ground_station_link)
+
         self.simulation.ground_station_links.append(ground_station_link)
         return ground_station_link
 
@@ -301,6 +309,7 @@ class SimulationManager:
     ) -> UserTerminalLink:
         """
         Create a user terminal link between a satellite and a user terminal
+        :param elevation_above_horizon_angle:
         :param satellite: Satellite instance
         :param user_terminal: User terminal instance
         :return: UserTerminalLink instance
@@ -308,6 +317,9 @@ class SimulationManager:
         user_terminal_link = UserTerminalLink()
         user_terminal_link.connect(satellite, user_terminal)
         user_terminal_link.elevation_above_horizon_angle = elevation_above_horizon_angle
+
+        satellite.links.append(user_terminal_link)
+        user_terminal.links.append(user_terminal_link)
 
         self.simulation.user_terminal_links.append(user_terminal_link)
         return user_terminal_link
@@ -478,6 +490,9 @@ class SimulationManager:
         :param ground_station_link: Ground Station Link to remove
         :return:
         """
+        ground_station_link.source.links.remove(ground_station_link)
+        ground_station_link.destination.links.remove(ground_station_link)
+
         self.simulation.ground_station_links.remove(ground_station_link)
 
     def remove_inter_satellite_link(self, inter_satellite_link: InterSatelliteLink):
@@ -486,6 +501,9 @@ class SimulationManager:
         :param inter_satellite_link: Inter satellite Link to remove
         :return:
         """
+        inter_satellite_link.source.links.remove(inter_satellite_link)
+        inter_satellite_link.destination.links.remove(inter_satellite_link)
+
         self.simulation.inter_satellite_links.remove(inter_satellite_link)
 
     def remove_user_terminal_link(self, user_terminal_link: UserTerminalLink):
@@ -494,6 +512,10 @@ class SimulationManager:
         :param user_terminal_link: User terminal link to remove
         :return:
         """
+
+        user_terminal_link.source.links.remove(user_terminal_link)
+        user_terminal_link.destination.links.remove(user_terminal_link)
+
         self.simulation.user_terminal_links.remove(user_terminal_link)
 
     def remove_all_ground_station_links(
@@ -931,14 +953,46 @@ class SimulationManager:
         This method will delete all user terminals links and will create new ones according to the current strategy
         :return:
         """
-        self.ground_to_space_connection_strategy.connect_user_terminals(self)
+        for terminal in self.get_user_terminals():
+            update_response = self.ground_to_space_connection_strategies.get(
+                terminal.ground_object_domain.ground_to_space_connections_strategy
+            ).compute_ground_object_connection_strategy(terminal, self.get_satellites())
+
+            for link in update_response.obsolete_links:
+                self.remove_link(link)
+
+            for new_connection in update_response.new_ground_object_connections:
+                self.create_and_add_user_terminal_link_connection(
+                    satellite=new_connection.satellite,
+                    user_terminal=terminal,
+                    elevation_above_horizon_angle=new_connection.connection_info.get(
+                        "elevation_above_horizon", -1
+                    ),
+                )
 
     def __update_ground_stations_default(self):
         """
         This method will delete all ground station links and will create new ones according to the current strategy
         :return:
         """
-        self.ground_to_space_connection_strategy.connect_ground_stations(self)
+        for ground_station in self.get_ground_stations():
+            update_response = self.ground_to_space_connection_strategies.get(
+                ground_station.ground_object_domain.ground_to_space_connections_strategy
+            ).compute_ground_object_connection_strategy(
+                ground_station, self.get_satellites()
+            )
+
+            for link in update_response.obsolete_links:
+                self.remove_link(link)
+
+            for new_connection in update_response.new_ground_object_connections:
+                self.create_and_add_ground_station_link_connection(
+                    satellite=new_connection.satellite,
+                    ground_station=ground_station,
+                    elevation_above_horizon_angle=new_connection.connection_info.get(
+                        "elevation_above_horizon", -1
+                    ),
+                )
 
     def update_ground_station_links(self):
         """

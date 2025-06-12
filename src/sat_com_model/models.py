@@ -1,6 +1,7 @@
+import abc
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Tuple, Dict
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, computed_field
@@ -104,6 +105,9 @@ class TopologyObject(SpatialPoint):
     """This is the object type as string, used for debugging and export purposes"""
     type: str = Field(default="TypologyObject", frozen=True)
 
+    """These are the links that this object has with other objects in the topology"""
+    links: List["Link"] = Field(default_factory=list, exclude=True)
+
     @property
     def domain_id(self) -> str:
         return (
@@ -201,6 +205,7 @@ class GroundObjectDomain(BaseModel):
     maximum_satellite_connected_count: Optional[int] = None
     shell_white_lists: List[str] = Field(default_factory=list)
     maximum_connected_satellites: Optional[int] = None
+    ground_to_space_connections_strategy: str = Field(default="")
 
 
 class OrbitalObject(TopologyObject):
@@ -288,6 +293,7 @@ class Satellite(OrbitalObject):
 
 class GroundObject(TopologyObject):
     ground_object_domain: Optional[GroundObjectDomain] = None
+
     label: str = Field(default="unknown")
 
 
@@ -461,7 +467,7 @@ class GroundStationLink(GroundToSpaceLink):
         super().connect(source, destination)
 
 
-class UserTerminalLink(Link):
+class UserTerminalLink(GroundToSpaceLink):
     type: str = Field(default="UserTerminalLink", frozen=True)
 
     def connect(self, source: TopologyObject, destination: TopologyObject):

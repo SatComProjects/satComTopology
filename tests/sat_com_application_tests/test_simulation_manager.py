@@ -135,6 +135,9 @@ class TestSimulationManager:
         assert created_link.source.topology_uniq_id == satellite_1.topology_uniq_id
         assert created_link.destination.topology_uniq_id == satellite_2.topology_uniq_id
 
+        assert created_link in satellite_1.links
+        assert created_link in satellite_2.links
+
     def test_create_ground_station_link(self, simulation_service):
         assert len(simulation_service.simulation.ground_station_links) == 0
         ground_station = create_fake_ground_station_with_object_id(1)
@@ -152,6 +155,9 @@ class TestSimulationManager:
         assert (
             created_link.destination.topology_uniq_id == ground_station.topology_uniq_id
         )
+
+        assert created_link in ground_station.links
+        assert created_link in satellite.links
 
     def test_create_user_terminal_link(self, simulation_service):
         assert len(simulation_service.simulation.user_terminal_links) == 0
@@ -171,6 +177,8 @@ class TestSimulationManager:
         assert (
             created_link.destination.topology_uniq_id == user_terminal.topology_uniq_id
         )
+        assert created_link in user_terminal.links
+        assert created_link in satellite.links
 
     def test_get_all_links(self, simulation_service):
         assert len(simulation_service.get_all_links()) == 0
@@ -198,3 +206,68 @@ class TestSimulationManager:
         )
 
         assert len(simulation_service.get_all_links()) == 3
+
+    def test_remove_ground_station_link(self, simulation_service):
+        ground_station = create_fake_ground_station_with_object_id(1)
+        satellite = create_fake_satellite_with_object_id(1)
+
+        simulation_service.add_ground_station(ground_station)
+        simulation_service.add_satellite(satellite)
+
+        created_link = simulation_service.create_and_add_ground_station_link_connection(
+            satellite, ground_station
+        )
+
+        assert len(simulation_service.simulation.ground_station_links) == 1
+        assert created_link in ground_station.links
+        assert created_link in satellite.links
+
+        simulation_service.remove_ground_station_link(created_link)
+
+        assert len(simulation_service.simulation.ground_station_links) == 0
+        assert created_link not in ground_station.links
+        assert created_link not in satellite.links
+
+    def test_remove_user_terminal_link(self, simulation_service):
+        user_terminal = create_fake_user_terminal_with_object_id(1)
+        satellite = create_fake_satellite_with_object_id(1)
+
+        simulation_service.add_user_terminals(user_terminal)
+        simulation_service.add_satellite(satellite)
+
+        created_link = simulation_service.create_and_add_user_terminal_link_connection(
+            satellite, user_terminal
+        )
+
+        assert len(simulation_service.simulation.user_terminal_links) == 1
+        assert created_link in user_terminal.links
+        assert created_link in satellite.links
+
+        simulation_service.remove_user_terminal_link(created_link)
+
+        assert len(simulation_service.simulation.user_terminal_links) == 0
+        assert created_link not in user_terminal.links
+        assert created_link not in satellite.links
+
+    def test_assert_remove_inter_satellite_link(self, simulation_service):
+        satellite_1 = create_fake_satellite_with_object_id(1)
+        satellite_2 = create_fake_satellite_with_object_id(2)
+
+        simulation_service.add_satellite(satellite_1)
+        simulation_service.add_satellite(satellite_2)
+
+        created_link = (
+            simulation_service.create_and_add_inter_satellite_link_connection(
+                satellite_1, satellite_2
+            )
+        )
+
+        assert len(simulation_service.simulation.inter_satellite_links) == 1
+        assert created_link in satellite_1.links
+        assert created_link in satellite_2.links
+
+        simulation_service.remove_inter_satellite_link(created_link)
+
+        assert len(simulation_service.simulation.inter_satellite_links) == 0
+        assert created_link not in satellite_1.links
+        assert created_link not in satellite_2.links

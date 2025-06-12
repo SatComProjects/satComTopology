@@ -20,6 +20,10 @@ class GroundConnectivityProperty(BaseModel):
     shell_white_lists: List[str] = Field(default_factory=list)
     maximum_connected_satellites: Optional[int] = None
 
+    ground_to_space_connections_strategy: str = Field(
+        default="best-angle-until-disconnection"
+    )
+
 
 class OrbitalConnectivityProperty(BaseModel):
     maximum_inter_satellite_count: int = Field(default=4)
@@ -97,8 +101,6 @@ class SimulationProperty(BaseModel):
 
     movement_model: str = Field(default="pyorbital")
     distance_model: str = Field(default="sklearn")
-
-    ground_to_space_connections_strategy: str = Field(default="line-of-sight")
 
     ground_objects_properties: List[GroundObjectProperty] = Field(default_factory=list)
     walker_shells: List[WalkerShellProperty] = Field(default_factory=list)

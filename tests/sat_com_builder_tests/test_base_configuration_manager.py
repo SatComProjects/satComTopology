@@ -2,17 +2,30 @@ from unittest.mock import patch
 
 from sat_com_builder.configuration_manager import BaseConfigurationManager
 from sat_com_builder.models import SimulationProperty
-from sat_com_model.models import GroundStation, UserTerminal, SpatialPosition
+from sat_com_connectivity.ground_object_connectivity.ground_connection_strategy_registry import (
+    ground_to_space_connection_strategies_dict,
+)
+from sat_com_model.models import (
+    GroundStation,
+    UserTerminal,
+    SpatialPosition,
+    GroundObjectDomain,
+)
+from tests.sat_com_builder_tests.models import FakeGroundToSpaceConnectionStrategy
 from tests.sat_com_builder_tests.multishell_config import multi_shell_config
 
 
 class TestBaseConfigurationManager:
-
-    @patch("sat_com_builder.configuration_manager.generate_ground_stations_from_file")
     @patch("sat_com_builder.configuration_manager.generate_user_terminal_from_file")
+    @patch("sat_com_builder.configuration_manager.generate_ground_stations_from_file")
     def test_base_configuration_manager_create_multi_shell_constellation(
-        self, generate_user_terminal_from_file, generate_ground_stations_from_file
+        self,
+        generate_ground_stations_from_file,
+        generate_user_terminal_from_file,
     ):
+        ground_to_space_connection_strategies_dict.update(
+            {"fake_strategy": FakeGroundToSpaceConnectionStrategy}
+        )
 
         generate_ground_stations_from_file.return_value = [
             GroundStation(
@@ -21,12 +34,22 @@ class TestBaseConfigurationManager:
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
                 ),
+                ground_object_domain=GroundObjectDomain(
+                    identifier="test_gs",
+                    type="ground_station",
+                    ground_to_space_connections_strategy="fake_strategy",
+                ),
             ),
             GroundStation(
                 label="Marseille",
                 object_id=1,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
+                ),
+                ground_object_domain=GroundObjectDomain(
+                    identifier="test_gs",
+                    type="ground_station",
+                    ground_to_space_connections_strategy="fake_strategy",
                 ),
             ),
             GroundStation(
@@ -35,12 +58,22 @@ class TestBaseConfigurationManager:
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
                 ),
+                ground_object_domain=GroundObjectDomain(
+                    identifier="test_gs",
+                    type="ground_station",
+                    ground_to_space_connections_strategy="fake_strategy",
+                ),
             ),
             GroundStation(
                 label="Turin",
                 object_id=3,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
+                ),
+                ground_object_domain=GroundObjectDomain(
+                    identifier="test_gs",
+                    type="ground_station",
+                    ground_to_space_connections_strategy="fake_strategy",
                 ),
             ),
         ]
@@ -51,12 +84,22 @@ class TestBaseConfigurationManager:
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
                 ),
+                ground_object_domain=GroundObjectDomain(
+                    identifier="test_ut",
+                    type="user_terminal",
+                    ground_to_space_connections_strategy="fake_strategy",
+                ),
             ),
             UserTerminal(
                 label="Leon",
                 object_id=1,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
+                ),
+                ground_object_domain=GroundObjectDomain(
+                    identifier="test_ut",
+                    type="user_terminal",
+                    ground_to_space_connections_strategy="fake_strategy",
                 ),
             ),
             UserTerminal(
@@ -65,12 +108,22 @@ class TestBaseConfigurationManager:
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
                 ),
+                ground_object_domain=GroundObjectDomain(
+                    identifier="test_ut",
+                    type="user_terminal",
+                    ground_to_space_connections_strategy="fake_strategy",
+                ),
             ),
             UserTerminal(
                 label="Anne",
                 object_id=2,
                 spatial_position_info=SpatialPosition(
                     longitude=1, latitude=1, altitude=10
+                ),
+                ground_object_domain=GroundObjectDomain(
+                    identifier="test_ut",
+                    type="user_terminal",
+                    ground_to_space_connections_strategy="fake_strategy",
                 ),
             ),
         ]
