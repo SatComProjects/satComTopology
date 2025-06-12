@@ -15,6 +15,7 @@ multi_shell_config = {
                 "maximum_satellite_connected_count": 1000,
                 "shell_white_lists": ["Andromeda Walker"],
                 "maximum_connected_satellites": 50,
+                "ground_to_space_connections_strategy": "fake_strategy",
             },
         },
         {
@@ -29,6 +30,7 @@ multi_shell_config = {
                     "Andromeda Walker",
                 ],
                 "maximum_connected_satellites": 20,
+                "ground_to_space_connections_strategy": "fake_strategy",
             },
         },
     ],
