@@ -1,13 +1,13 @@
 from typing import List
 
 from pydantic import BaseModel, Field
-from telecom_lib.utils import get_elevation_angle
 
 from sat_com_model.models import (
     Satellite,
     GroundObject,
     GroundToSpaceLink,
 )
+from sat_com_trajectopy.angle_utils import get_elevation_angle
 
 
 class VisibleSatellite(BaseModel):
