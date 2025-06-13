@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from sat_com_connectivity.ground_object_connectivity.visibility_angle_utils import (
+from sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils import (
     get_visible_satellites,
     VisibleSatellite,
     get_best_satellites_among_visible_satellites,
@@ -14,7 +14,7 @@ from tests.sat_com_connectivity_tests.utils import (
 
 
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
 def test_get_visible_satellites_filters_correctly(mock_get_elevation_angle):
     sat1 = MagicMock(spec=Satellite)
@@ -52,7 +52,7 @@ def test_get_visible_satellites_filters_correctly(mock_get_elevation_angle):
 
 
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
 def test_get_visible_satellites_all_below_threshold(mock_get_elevation_angle):
     # Create mocks
@@ -85,7 +85,7 @@ def test_get_visible_satellites_all_below_threshold(mock_get_elevation_angle):
 
 
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_visible_satellites"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_visible_satellites"
 )
 def test_get_best_satellites_among_visible_satellites_returns_highest(mock_get_visible):
     ground_object = make_fake_ground_object()
@@ -114,7 +114,7 @@ def test_get_best_satellites_among_visible_satellites_returns_highest(mock_get_v
 
 
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_visible_satellites"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_visible_satellites"
 )
 def test_get_best_satellites_among_visible_satellites_returns_none_if_no_visible(
     mock_get_visible,
@@ -128,7 +128,7 @@ def test_get_best_satellites_among_visible_satellites_returns_none_if_no_visible
 
 
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
 def test_satellite_visible_elevation_above_threshold(mock_get_elevation_angle):
     ground_object = make_fake_ground_object()
@@ -145,7 +145,7 @@ def test_satellite_visible_elevation_above_threshold(mock_get_elevation_angle):
 
 
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
 def test_satellite_not_visible_elevation_below_threshold(mock_get_elevation_angle):
     ground_object = make_fake_ground_object()

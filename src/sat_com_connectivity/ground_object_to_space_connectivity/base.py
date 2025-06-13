@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Dict, List
 
-from sat_com_connectivity.ground_object_connectivity.models import (
+from sat_com_connectivity.ground_object_to_space_connectivity.models import (
     ComputedGroundObjectConnectionsResult,
 )
 from sat_com_model.models import GroundObject, Satellite, GroundToSpaceLink

@@ -1,17 +1,17 @@
 from typing import List
 
-from sat_com_connectivity.ground_object_connectivity.base import (
+from sat_com_connectivity.ground_object_to_space_connectivity.base import (
     GroundToSpaceConnectionStrategy,
 )
-from sat_com_connectivity.ground_object_connectivity.models import (
+from sat_com_connectivity.ground_object_to_space_connectivity.models import (
     ComputedGroundObjectConnectionsResult,
     GroundToSpaceConnection,
 )
-from sat_com_connectivity.ground_object_connectivity.range_distance_utils import (
+from sat_com_connectivity.ground_object_to_space_connectivity.range_distance_utils import (
     check_and_update_distance_if_satellite_is_in_range,
 )
 from sat_com_model.models import Satellite, GroundObject, GroundToSpaceLink
-from sat_com_connectivity.ground_object_connectivity.visibility_angle_utils import (
+from sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils import (
     get_visible_satellites,
     check_and_update_elevation_if_satellite_is_visible,
     get_best_satellites_among_visible_satellites,

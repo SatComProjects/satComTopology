@@ -2,8 +2,8 @@ import uuid
 from typing import Callable
 
 from sat_com_application.time_managers import SimulationTimeManager
-from sat_com_connectivity.ground_object_connectivity.ground_connection_strategy_registry import (
-    ground_to_space_connection_strategies_dict,
+from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
+    GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
 )
 from sat_com_model.exceptions import (
     TopologyObjectNotFoundError,
@@ -104,7 +104,7 @@ class SimulationManager:
         self.static_ground_station_link_mode = False
 
         self.ground_to_space_connection_strategies = {}
-        for name, cls in ground_to_space_connection_strategies_dict.items():
+        for name, cls in GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY.items():
             kwargs = {"distance_model": self.simulation.distance_model}
 
             self.ground_to_space_connection_strategies[name] = cls(**kwargs)

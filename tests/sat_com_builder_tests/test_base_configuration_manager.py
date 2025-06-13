@@ -2,8 +2,8 @@ from unittest.mock import patch
 
 from sat_com_builder.configuration_manager import BaseConfigurationManager
 from sat_com_builder.models import SimulationProperty
-from sat_com_connectivity.ground_object_connectivity.ground_connection_strategy_registry import (
-    ground_to_space_connection_strategies_dict,
+from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
+    GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
 )
 from sat_com_model.models import (
     GroundStation,
@@ -23,7 +23,7 @@ class TestBaseConfigurationManager:
         generate_ground_stations_from_file,
         generate_user_terminal_from_file,
     ):
-        ground_to_space_connection_strategies_dict.update(
+        GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY.update(
             {"fake_strategy": FakeGroundToSpaceConnectionStrategy}
         )
 

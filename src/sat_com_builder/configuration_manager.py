@@ -26,8 +26,8 @@ from sat_com_builder.links.inter_satellite_link_generator import (
 )
 from sat_com_builder.models import SimulationProperty
 from sat_com_builder.utils import parse_date
-from sat_com_connectivity.ground_object_connectivity.ground_connection_strategy_registry import (
-    ground_to_space_connection_strategies_dict,
+from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
+    GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
 )
 from sat_com_constellation.models import (
     WalkerStarConstellation,
@@ -154,7 +154,7 @@ class BaseConfigurationManager(ConfigurationManager):
                 ground_object_domain.ground_to_space_connections_strategy
             )
 
-            ground_to_space_connection_strategies_dict.get(
+            GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY.get(
                 ground_connection_strategy, None
             )
 

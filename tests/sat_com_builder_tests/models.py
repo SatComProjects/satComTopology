@@ -1,9 +1,9 @@
 from typing import List
 
-from sat_com_connectivity.ground_object_connectivity.base import (
+from sat_com_connectivity.ground_object_to_space_connectivity.base import (
     GroundToSpaceConnectionStrategy,
 )
-from sat_com_connectivity.ground_object_connectivity.models import (
+from sat_com_connectivity.ground_object_to_space_connectivity.models import (
     ComputedGroundObjectConnectionsResult,
 )
 from sat_com_model.models import GroundObject, Satellite
