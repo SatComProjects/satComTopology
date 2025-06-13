@@ -17,6 +17,7 @@ same for every object of the same "domain".
 
 The name of the strategy is stored in the main model, see [models](../sat_com_model/models.py) or directly the [line](../sat_com_model/models.py#L208). 
 
+The strategy, is instantiated by the simulation manager when loading the simulation. And they are executed when updating the simulation.
 
 ### GroundToSpaceConnectivityStrategy
 
