@@ -1,3 +1,6 @@
+# SatComTopology V4.2 : Connectivity strategies
+We can change implement new connection strategies for ground-to-space connectivity.
+
 # SatComTopology V4: Multi shell constellations
 ## Major changes
 ### Sat Com Topology Simulation

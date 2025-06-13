@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sat_com_topology"
-version = "4.1.0"
+version = "4.2.0"
 authors = [
   { name="Louis BARBIER", email="louis.barbier@isae-supaero.fr" },
 ]
@@ -46,5 +46,6 @@ packages = [
     "src/sat_com_trajectopy",
     "src/sat_com_application",
     "src/sat_com_traffic",
-    "src/sat_com_constellation"
+    "src/sat_com_constellation",
+    "src/sat_com_connectivity",
 ]
