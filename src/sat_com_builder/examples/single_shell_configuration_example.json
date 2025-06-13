@@ -10,7 +10,8 @@
       "data_file": "/path/to/ground_station_data.json",
       "type": "ground_station",
       "connectivity_properties": {
-        "elevation_above_horizon": 20
+        "elevation_above_horizon": 20,
+        "ground_to_space_connections_strategy": "everything-visible"
       }
     }
   ],

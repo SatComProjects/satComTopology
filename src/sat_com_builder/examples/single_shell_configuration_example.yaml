@@ -8,6 +8,7 @@ ground_objects_properties:
     type: "ground_station"
     connectivity_properties:
       elevation_above_horizon: 20
+      ground_to_space_connections_strategy: "everything-visible"
 walker_shells:
   - type: "delta"
     constellation_property:

@@ -16,7 +16,8 @@
         "shell_white_lists": [
           "Andromeda Walker"
         ],
-        "maximum_connected_satellites": 50
+        "maximum_connected_satellites": 50,
+        "ground_to_space_connections_strategy": "best-angle-until-disconnection"
       }
     },
     {
@@ -30,7 +31,8 @@
           "Andromeda Polar",
           "Andromeda Walker"
         ],
-        "maximum_connected_satellites": 20
+        "maximum_connected_satellites": 20,
+        "ground_to_space_connections_strategy": "everything-visible"
       }
     }
   ],

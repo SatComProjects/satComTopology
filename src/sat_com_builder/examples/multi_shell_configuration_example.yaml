@@ -14,6 +14,7 @@ simulation_property:
         maximum_satellite_connected_count: 2
         shell_white_lists: ["Andromeda Walker"]
         maximum_connected_satellites: 10
+        ground_to_space_connections_strategy: "best-angle-until-disconnection"
 
     - identifier: "Gateway Stations"
       data_file: "data/gateway_stations.csv"
@@ -23,6 +24,7 @@ simulation_property:
         maximum_satellite_range_distance: 1500
         shell_white_lists: ["Andromeda Polar", "Andromeda Walker"]
         maximum_connected_satellites: 5
+        ground_to_space_connections_strategy: "everything-visible"
 
   walker_shells:
     - type: "star"
