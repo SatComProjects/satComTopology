@@ -34,6 +34,7 @@ test:
   script:
     - pip install -r requirements.txt --extra-index-url "${PRIVATE_PYPI_URL}"
     - pip install pytest --extra-index-url "${PRIVATE_PYPI_URL}"
+    - pip install telecom_lib --index-url "${PRIVATE_PYPI_URL}"
     - pytest
 
 pages:
