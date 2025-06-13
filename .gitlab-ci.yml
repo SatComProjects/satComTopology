@@ -27,14 +27,14 @@ cache:
 lint:
   stage: lint
   script:
-    - pip install black==25.1.0 --extra-index-url "${PRIVATE_PYPI_URL}
+    - pip install black==25.1.0 --extra-index-url "${PRIVATE_PYPI_URL}"
     - black --check .
 
 test:
   stage: test
   script:
-    - pip install -r requirements.txt --extra-index-url "${PRIVATE_PYPI_URL}
-    - pip install pytest --extra-index-url "${PRIVATE_PYPI_URL}
+    - pip install -r requirements.txt --extra-index-url "${PRIVATE_PYPI_URL}"
+    - pip install pytest --extra-index-url "${PRIVATE_PYPI_URL}"
     - pytest
 
 pages:
