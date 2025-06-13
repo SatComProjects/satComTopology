@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from sat_com_connectivity.ground_object_connectivity.range_distance_utils import (
+from sat_com_connectivity.ground_object_to_space_connectivity.range_distance_utils import (
     check_and_update_distance_if_satellite_is_in_range,
 )
 from sat_com_model.models import GroundToSpaceLink

@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from sat_com_connectivity.ground_object_connectivity.strategies import (
+from sat_com_connectivity.ground_object_to_space_connectivity.strategies import (
     ConnectToEverythingVisibleStrategy,
 )
 from sat_com_model.models import GroundToSpaceLink
@@ -11,7 +11,7 @@ from tests.sat_com_connectivity_tests.utils import (
 
 
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.strategies.get_visible_satellites"
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.get_visible_satellites"
 )
 def test_connect_to_everything_visible_strategy(mock_get_visible_satellites):
     # Setup strategy and fake objects

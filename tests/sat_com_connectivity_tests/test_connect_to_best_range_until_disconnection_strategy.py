@@ -2,10 +2,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from sat_com_connectivity.ground_object_connectivity.models import (
+from sat_com_connectivity.ground_object_to_space_connectivity.models import (
     GroundToSpaceConnection,
 )
-from sat_com_connectivity.ground_object_connectivity.strategies import (
+from sat_com_connectivity.ground_object_to_space_connectivity.strategies import (
     ConnectToBestRangeUntilDisconnectionStrategy,
 )
 from sat_com_model.models import (

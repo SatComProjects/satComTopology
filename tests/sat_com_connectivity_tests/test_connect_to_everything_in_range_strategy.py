@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from sat_com_connectivity.ground_object_connectivity.strategies import (
+from sat_com_connectivity.ground_object_to_space_connectivity.strategies import (
     ConnectToEverythingInRangeStrategy,
 )
 from sat_com_model.models import GroundToSpaceLink

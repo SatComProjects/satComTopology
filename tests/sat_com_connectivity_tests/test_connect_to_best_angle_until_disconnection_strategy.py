@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sat_com_connectivity.ground_object_connectivity.strategies import (
+from sat_com_connectivity.ground_object_to_space_connectivity.strategies import (
     ConnectToBestRangeUntilDisconnectionStrategy,
     ConnectToBestAngleUntilDisconnectionStrategy,
 )
@@ -24,7 +24,7 @@ def strategy():
 
 
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
 def test_keep_existing_link(mock_get_elevation_angle_visibility_angle):
     strategy = ConnectToBestAngleUntilDisconnectionStrategy()
@@ -46,10 +46,10 @@ def test_keep_existing_link(mock_get_elevation_angle_visibility_angle):
 
 
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_visible_satellites"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_visible_satellites"
 )
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
 def test_obsolete_link_then_pick_best(
     mock_get_elevation_angle, mock_get_visible_satellites
@@ -86,10 +86,10 @@ def test_obsolete_link_then_pick_best(
 
 
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_visible_satellites"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_visible_satellites"
 )
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
 def test_no_visible_satellites(mock_get_elevation_angle, mock_get_visible_satellites):
     strategy = ConnectToBestAngleUntilDisconnectionStrategy()
@@ -111,10 +111,10 @@ def test_no_visible_satellites(mock_get_elevation_angle, mock_get_visible_satell
 
 
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_visible_satellites"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_visible_satellites"
 )
 @patch(
-    "sat_com_connectivity.ground_object_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
 def test_best_satellite_has_highest_elevation(
     mock_get_elevation_angle, mock_get_visible_satellites
