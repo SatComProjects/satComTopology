@@ -8,7 +8,7 @@ stages:
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
-  PRIVATE_PYPI_URL: "${CI_API_V4_URL}/projects/<TELECOM_LIB_PROJECT_ID>/packages/pypi/simple"
+  PRIVATE_PYPI_URL: "${CI_API_V4_URL}/projects/2810/packages/pypi/simple"
 
 default:
   before_script:
