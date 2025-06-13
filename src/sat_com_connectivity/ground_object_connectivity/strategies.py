@@ -8,6 +8,7 @@ from sat_com_connectivity.ground_object_connectivity.base import (
 )
 from sat_com_connectivity.ground_object_connectivity.models import (
     ComputedGroundObjectConnectionsResult,
+    GroundToSpaceConnection,
 )
 from sat_com_model.models import Satellite, GroundObject, GroundToSpaceLink
 from sat_com_connectivity.ground_object_connectivity.visibility_angle import (
@@ -68,10 +69,10 @@ class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
                 best_satellite = visible_satellite.satellite
 
         computed_ground_object_connections_result.new_ground_object_connections.append(
-            (
-                ground_object,
-                best_satellite,
-                {"elevation_above_horizon": best_elevation},
+            GroundToSpaceConnection(
+                ground_object=ground_object,
+                satellite=best_satellite,
+                connection_info={"elevation_above_horizon": best_elevation},
             )
         )
 
@@ -105,10 +106,12 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
 
         for visible_satellite in visible_satellites:
             computed_ground_object_connections_result.to_add_ground_station_connections.append(
-                (
-                    ground_object,
-                    visible_satellite.satellite,
-                    {"elevation_above_horizon": visible_satellite.elevation},
+                GroundToSpaceConnection(
+                    ground_object=ground_object,
+                    satellite=visible_satellite.satellite,
+                    connection_info={
+                        "elevation_above_horizon": visible_satellite.elevation
+                    },
                 )
             )
 
@@ -153,7 +156,11 @@ class ConnectToEverythingInRangeStrategy(GroundToSpaceConnectionStrategy):
 
         for visible_satellite in visible_satellites:
             computed_ground_object_connections_result.new_ground_object_connections.append(
-                (ground_object, visible_satellite.satellite, {})
+                GroundToSpaceConnection(
+                    ground_object=ground_object,
+                    satellite=visible_satellite.satellite,
+                    connection_info={},
+                )
             )
 
         return computed_ground_object_connections_result
@@ -196,7 +203,15 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
 
                 if link_is_still_valid:
                     computed_ground_object_connections_result.new_ground_object_connections.append(
-                        (ground_object, link.target, {})
+                        GroundToSpaceConnection(
+                            ground_object=ground_object,
+                            satellite=(
+                                link.target
+                                if link.target != ground_object
+                                else link.source
+                            ),
+                            connection_info={},
+                        )
                     )
                     return computed_ground_object_connections_result
                 else:
@@ -224,7 +239,11 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
 
         if isinstance(closest_satellite, Satellite):
             computed_ground_object_connections_result.new_ground_object_connections.append(
-                (ground_object, closest_satellite, {})
+                GroundToSpaceConnection(
+                    ground_object=ground_object,
+                    satellite=closest_satellite,
+                    connection_info={},
+                )
             )
             return computed_ground_object_connections_result
         else:
