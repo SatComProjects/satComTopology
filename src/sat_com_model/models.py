@@ -108,6 +108,7 @@ class TopologyObject(SpatialPoint):
     """These are the links that this object has with other objects in the topology"""
     links: List["Link"] = Field(default_factory=list, exclude=True)
 
+    @computed_field
     @property
     def current_number_of_link(self) -> int:
         return len(self.links)
