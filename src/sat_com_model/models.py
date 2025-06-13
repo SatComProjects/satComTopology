@@ -109,6 +109,10 @@ class TopologyObject(SpatialPoint):
     links: List["Link"] = Field(default_factory=list, exclude=True)
 
     @property
+    def current_number_of_link(self) -> int:
+        return len(self.links)
+
+    @property
     def domain_id(self) -> str:
         return (
             "{affiliation_business}-{object_id}".format(
