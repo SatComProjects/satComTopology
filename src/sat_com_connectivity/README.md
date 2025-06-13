@@ -55,3 +55,9 @@ class DummyTestStrategy(GroundToSpaceConnectionStrategy):
         pass  # your implementation here
 ```
 
+### GroundToSpaceConnectionStrategies explained
+- **GroundToSpaceConnectionStrategy**: Base class for all ground to space connection strategies. 
+- **ConnectToBestAngleUntilDisconnectionStrategy**: Connects to the satellite with the best angle until disconnection. Name: **best-angle-until-disconnection**.
+- **ConnectToEverythingVisibleStrategy**: Connects to all visible satellites. Name: **everything-visible**.
+- **ConnectToEverythingInRangeStrategy**: Connects to all satellites in range. Name: **everything-in-range**.
+- **ConnectToBestRangeUntilDisconnectionStrategy**: Connects to the satellite with the best range until disconnection. Name: **best-range-until-disconnection**.
