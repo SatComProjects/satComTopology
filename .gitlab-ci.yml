@@ -1,5 +1,4 @@
-# sat_com_topology/.gitlab-ci.yml
-image: python:3.10 # Ensure this matches your project's desired Python version
+image: python:3.10
 
 stages:
   - lint
@@ -9,19 +8,15 @@ stages:
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
-  PRIVATE_PYPI_URL: "${CI_API_V4_URL}/projects/2810/packages/pypi/simple"
+  PRIVATE_PYPI_URL: "${CI_API_V4_URL}/projects/<TELECOM_LIB_PROJECT_ID>/packages/pypi/simple"
 
-
-before_script:
-  - python -V
-  - pip install --upgrade pip
-
-  - pip config set global.extra-index-url "${PRIVATE_PYPI_URL}"
-
-  - pip config set global.index-url "https://pypi.org/simple"
-
-  - pip install -r requirements.txt # If you use requirements.txt
-
+default:
+  before_script:
+    - python -V
+    - pip install --upgrade pip
+    -
+    - pip config set global.extra-index-url "${PRIVATE_PYPI_URL}"
+    - pip config set global.index-url "https://pypi.org/simple"
 
 cache:
   paths:
@@ -30,15 +25,14 @@ cache:
 lint:
   stage: lint
   script:
-    # `black` will be installed from pypi.org/simple
     - pip install black==25.1.0
     - black --check .
 
 test:
   stage: test
   script:
-    # `pytest` will be installed from pypi.org/simple
-    - pip install pytest
+    - pip install -r requirements.txt
+    - pip install pytest # pytest will be found via the configured indexes
     - pytest
 
 pages:
