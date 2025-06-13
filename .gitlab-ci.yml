@@ -8,8 +8,7 @@ stages:
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
-  PRIVATE_PYPI_URL: "https://__token__:${CI_JOB_TOKEN}@gitlab.isae-supaero.fr/api/v4/projects/2810/packages/pypi/simple"
-
+  PRIVATE_PYPI_URL: "https://${TELECOM_LIB_USERNAME}:${TELECOM_LIB_ACCESS_KEY}@gitlab.isae-supaero.fr/api/v4/projects/2810/packages/pypi/simple"
 
 default:
   before_script:
