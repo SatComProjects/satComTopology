@@ -12,6 +12,12 @@ This package is used to manage the connectivity of the simulation between ground
 It implements strategies, used by a ground object to establish a connection with a space object.
 We base our limits on the ground side.
 
+⚠️ Ground to space connectivity strategies are saved in the GroundObjectDomain of each GroundObject. The strategy will be the 
+same for every object of the same "domain".
+
+The name of the strategy is stored in the main model, see [models](../sat_com_model/models.py) or directly the [line](../sat_com_model/models.py#L208). 
+
+
 ### GroundToSpaceConnectivityStrategy
 
 To implement a new GroundToSpaceConnectivityStrategy, you must implement the `compute_connectivity` method.
