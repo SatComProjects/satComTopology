@@ -3,12 +3,18 @@ image: python:3.12
 stages:
   - lint
   - test
+  - build
   - deploy
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
-#  PRIVATE_PYPI_URL: "https://${TELECOM_LIB_USERNAME}:${TELECOM_LIB_ACCESS_KEY}@gitlab.isae-supaero.fr/api/v4/projects/2810/packages/pypi/simple"
+  PRIVATE_PYPI_URL_READ: "https://${PRIVATE_PYPI_USERNAME}:${PRIVATE_PYPI_ACCESS_KEY}@gitlab.isae-supaero.fr/api/v4/groups/2018/-/packages/pypi/simple"
+
+  TWINE_USERNAME: "${SAT_COM_TOPOLOGY_BUILD_USERNAME}"
+  TWINE_PASSWORD: "${SAT_COM_TOPOLOGY_BUILD_ACCESS_KEY}"
+
+  PYPI_UPLOAD_URL: "https://gitlab.isae-supaero.fr/api/v4/projects/2018/packages/pypi"
 
 default:
   before_script:
@@ -17,7 +23,8 @@ default:
 
     - pip config set global.index-url "https://pypi.org/simple"
 
-#    - pip config set global.extra-index-url "${PRIVATE_PYPI_URL}"
+    - pip install build twine
+
 
 cache:
   paths:
@@ -35,6 +42,35 @@ test:
     - pip install -r requirements.txt # --extra-index-url "${PRIVATE_PYPI_URL}"
     - pip install pytest # --extra-index-url "${PRIVATE_PYPI_URL}"
     - pytest
+
+
+build_package:
+  stage: build
+  script:
+    - python -m build --sdist --wheel . # Builds source distribution (.tar.gz) and wheel (.whl) in the 'dist/' directory
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
+      when: on_success
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: on_success
+
+deploy_package:
+  stage: deploy
+  script:
+    - twine upload --repository-url "${PYPI_UPLOAD_URL}" dist/*
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
+      when: on_success
+  needs:
+    - build_package
+  variables:
+    GIT_STRATEGY: none
 
 pages:
   stage: deploy
