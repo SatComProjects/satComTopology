@@ -171,7 +171,7 @@ class TestNetworkxBuilder:
 
     def test_add_ground_stations(self, network_builder, simulation_manager):
         ground_station = Mock()
-        ground_station.city = "CityA"
+        ground_station.label = "CityA"
         ground_station.topology_uniq_id = "ground-1"
         simulation_manager.get_ground_stations.return_value = [ground_station]
 
@@ -179,14 +179,14 @@ class TestNetworkxBuilder:
 
         assert "ground-1" in network_builder.graph
         node_data = network_builder.graph.nodes["ground-1"]
-        assert node_data["city"] == "CityA"
+        assert node_data["label"] == "CityA"
         assert "position" not in node_data
 
     def test_add_ground_stations_with_position(
         self, network_builder_export_position, simulation_manager
     ):
         ground_station = Mock()
-        ground_station.city = "CityA"
+        ground_station.label = "CityA"
         ground_station.topology_uniq_id = "ground-1"
         simulation_manager.get_ground_stations.return_value = [ground_station]
 
@@ -201,7 +201,7 @@ class TestNetworkxBuilder:
 
         assert "ground-1" in network_builder_export_position.graph
         node_data = network_builder_export_position.graph.nodes["ground-1"]
-        assert node_data["city"] == "CityA"
+        assert node_data["label"] == "CityA"
         assert "position" in node_data
 
     def test_add_ground_station_links(self, network_builder, simulation_manager):

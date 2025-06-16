@@ -1,4 +1,10 @@
+import abc
+from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Optional, List, Tuple, Dict
+from uuid import UUID
+
+from pydantic import BaseModel, Field, ConfigDict, computed_field
 
 from .exceptions import (
     InterSatelliteConnectionError,
@@ -8,6 +14,8 @@ from .exceptions import (
     TopologyIdentifierNotDefinedError,
     OrbitalObjectMovementModelUndefinedError,
     DistanceModelUndefinedError,
+    GroundObjectLinkConnectionError,
+    ConnectionBetweenSameTopologyForbiddenError,
 )
 
 
@@ -17,17 +25,10 @@ class InterSatelliteLinkDirection(Enum):
     UNDEFINED = 3
 
 
-class SpatialPosition:
-    longitude: float
-    latitude: float
-    altitude: float
-
-    def __init__(
-        self, longitude: float = None, latitude: float = None, altitude: float = None
-    ):
-        self.longitude = longitude
-        self.latitude = latitude
-        self.altitude = altitude
+class SpatialPosition(BaseModel):
+    longitude: float = Field(default=None)
+    latitude: float = Field(default=None)
+    altitude: float = Field(default=None)
 
     def to_longitude_latitude(self) -> (float, float):
         return self.longitude, self.latitude
@@ -45,25 +46,20 @@ class SpatialPosition:
         return f"Longitude: {self.longitude}, Latitude: {self.latitude}, Altitude: {self.altitude}"
 
 
-class SpatialPoint:
+class SpatialPoint(BaseModel):
     """
     This is the lower element of the stack. Every element in the topology has a position
     """
 
-    _spatial_position: SpatialPosition
-
-    simulation_context: "Simulation"
+    spatial_position_info: SpatialPosition = Field(default_factory=SpatialPosition)
 
     @property
     def spatial_position(self):
-        return self._spatial_position
+        return self.spatial_position_info
 
     @spatial_position.setter
     def spatial_position(self, value):
-        self._spatial_position = value
-
-    def __init__(self):
-        self._spatial_position = SpatialPosition()
+        self.spatial_position_info = value
 
     def __str__(self):
         return self.spatial_position.__str__()
@@ -98,13 +94,34 @@ class TopologyObject(SpatialPoint):
     """
 
     """Identifier provided by the simulator (uniq for avery topology object)"""
-    topology_uniq_id: int = None
+    topology_uniq_id: int = Field(default=None)
+
+    """"""
+    domain: str = Field(default="public")
 
     """Identifier given by the data provider (ex: satellite identifier, uniq for every satellite)"""
-    object_id: int = None
+    object_id: int = Field(default=None)
 
     """This is the object type as string, used for debugging and export purposes"""
-    type = "TypologyObject"
+    type: str = Field(default="TypologyObject", frozen=True)
+
+    """These are the links that this object has with other objects in the topology"""
+    links: List["Link"] = Field(default_factory=list, exclude=True)
+
+    @computed_field
+    @property
+    def current_number_of_link(self) -> int:
+        return len(self.links)
+
+    @property
+    def domain_id(self) -> str:
+        return (
+            "{affiliation_business}-{object_id}".format(
+                affiliation_business=self.domain, object_id=self.object_id
+            )
+            .lower()
+            .replace(" ", "-")
+        )
 
     def get_type(self) -> str:
         return self.type
@@ -121,6 +138,11 @@ class TopologyObject(SpatialPoint):
         else:
             raise TopologyIdentifierNotDefinedError()
 
+    def __eq__(self, other):
+        if not isinstance(other, TopologyObject):
+            return False
+        return self.topology_uniq_id == other.topology_uniq_id
+
     def update(self):
         """
         Update everything who need to be updated on the topology. Ex: coordinates
@@ -129,12 +151,13 @@ class TopologyObject(SpatialPoint):
         pass
 
 
-class MovementModel:
+class MovementModel(ABC):
     """
     This is the movement model class. This abstract class should be implemented using an orbit trajectory
     library.
     """
 
+    @abstractmethod
     def is_ascending(self) -> bool:
         """
         Return True if the Orbital object is in its ascending phase.
@@ -142,6 +165,7 @@ class MovementModel:
         """
         pass
 
+    @abstractmethod
     def get_longitude_latitude(self) -> SpatialPosition:
         """
         Return the longitude, latitude  and elevation on ground of the orbital object
@@ -149,6 +173,7 @@ class MovementModel:
         """
         pass
 
+    @abstractmethod
     def get_position_earth_general_inertial(self) -> (float, float, float):
         """
         This method returns the position of the orbital object in the referential of EGI.
@@ -158,12 +183,44 @@ class MovementModel:
         pass
 
 
+class WalkerShell(BaseModel):
+    identifier: str
+    type: str
+    amount_of_orbit_plane: int
+    amount_of_satellite_per_orbit_plane: int
+
+    adjacent_inter_satellite_shifting: int = Field(default=0)
+    maximum_inter_satellite_range_distance: Optional[float] = None
+    maximum_ground_station_range: Optional[float] = None
+    maximum_user_terminal_range: Optional[float] = None
+    maximum_connected_ground_object: Optional[int] = None
+    maximum_connected_user_terminal: Optional[int] = None
+    maximum_connected_ground_station: Optional[int] = None
+
+    ground_object_white_list: List[str] = Field(default_factory=list)
+
+
+class GroundObjectDomain(BaseModel):
+
+    identifier: str
+    type: str
+
+    elevation_above_horizon: float = Field(default=20)
+    maximum_satellite_range_distance: float = Field(default=1000)
+    maximum_satellite_connected_count: Optional[int] = None
+    shell_white_lists: List[str] = Field(default_factory=list)
+    maximum_connected_satellites: Optional[int] = None
+    ground_to_space_connections_strategy: str = Field(default="")
+
+
 class OrbitalObject(TopologyObject):
     """
     Any object in orbit
     """
 
-    movement_model: MovementModel = None
+    movement_model: MovementModel = Field(default=None, exclude=True)
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def set_movement_model(self, movement_model: MovementModel):
         """
@@ -194,6 +251,18 @@ class OrbitalObject(TopologyObject):
         """
         return self.get_movement_model().is_ascending()
 
+    @computed_field
+    @property
+    def orbital_phase(self) -> str:
+        """
+        Return the orbital phase of the object. It can be ascending or descending.
+        :return:
+        """
+        if self.is_ascending():
+            return "ascending"
+        else:
+            return "descending"
+
     def get_coordinates(self) -> SpatialPosition:
         """
         Get the object coordinates. The default format is longitude, latitude and elevation.
@@ -204,7 +273,9 @@ class OrbitalObject(TopologyObject):
 
     @property
     def spatial_position(self):
-        return self.get_movement_model().get_longitude_latitude()
+        computed_spatial_position = self.get_movement_model().get_longitude_latitude()
+        self.spatial_position_info = computed_spatial_position
+        return computed_spatial_position
 
     def update(self):
         self.get_coordinates()
@@ -212,7 +283,9 @@ class OrbitalObject(TopologyObject):
 
 class Satellite(OrbitalObject):
     satellite_name: str
-    type = "Satellite"
+    type: str = Field(default="Satellite", frozen=True)
+
+    walker_shell: Optional[WalkerShell] = None
 
     def __str__(self):
         return (
@@ -224,21 +297,15 @@ class Satellite(OrbitalObject):
 
 
 class GroundObject(TopologyObject):
-    in_range_satellites: {Satellite: float}
+    ground_object_domain: Optional[GroundObjectDomain] = None
 
-    def __init__(self):
-        super().__init__()
-        self.in_range_satellites = dict()
+    label: str = Field(default="unknown")
 
 
 class GroundStation(GroundObject):
-    city: str
+    type: str = Field(default="GroundStation", frozen=True)
 
-    type = "GroundStation"
-
-    def __init__(self, city_name: str = "unknown"):
-        super().__init__()
-        self.city = city_name
+    def __post_init__(self):
         self.spatial_position.longitude = 0
         self.spatial_position.latitude = 0
         self.spatial_position.altitude = 0
@@ -246,51 +313,65 @@ class GroundStation(GroundObject):
     def __str__(self):
         return (
             super().__str__()
-            + "Ground station id: {ground_station_id} city: {city} ".format(
-                ground_station_id=self.object_id, city=self.city
+            + "Ground station id: {ground_station_id} label: {label} ".format(
+                ground_station_id=self.object_id, label=self.label
             )
         )
 
 
 class UserTerminal(GroundObject):
-    user_name: str
+    """
+    User terminal is a special type of ground station. It receives and emit data to the constellation
+    """
 
-    type = "UserTerminal"
-
-
-class Flow:
-    id: int
-
-    source: TopologyObject
-    destination: TopologyObject
-
-    previous_hop: TopologyObject
-    next_hop: TopologyObject
-
-    size: int = 1
+    type: str = Field(default="UserTerminal", frozen=True)
 
 
-class Link:
+class PointOfPresence(GroundObject):
+    """
+    Point of presence is a special type of ground station.
+    It is used to connect an infrastructure to the internet backbone.
+    """
+
+    type: str = Field(default="PointOfPresence", frozen=True)
+
+    def __str__(self):
+        return (
+            super().__str__()
+            + "Point of presence id: {point_of_presence_id} label: {label} ".format(
+                point_of_presence_id=self.object_id, label=self.label
+            )
+        )
+
+
+class Flow(BaseModel):
+    id: UUID = Field(default=None)
+
+    source: int = Field(default=None)
+    destination: int = Field(default=None)
+
+    previous_hop: int = Field(default=None)
+    next_hop: int = Field(default=None)
+
+    size: int = Field(default=1)
+
+
+class Link(BaseModel):
     """
     This is the communication Link. The link connects two Topological object.
     Links are considered as bidirectional for this first version.
     """
 
-    type: str
-    source: TopologyObject | None
-    destination: TopologyObject | None
+    type: str = Field(default="Link", frozen=True)
 
-    flows: list[Flow]
+    source: TopologyObject = Field(default=None)
+    destination: TopologyObject = Field(default=None)
 
-    link_maximum_capacity: int = 100
+    flows: list[Flow] = Field(default_factory=list)
 
-    disabled: bool
+    link_maximum_capacity: int = Field(default=1000)
 
-    def __init__(self):
-        self.flows = []
-        self.source = None
-        self.destination = None
-        self.disabled = False
+    disabled: bool = Field(default=False)
 
     def get_used_capacity_between_hops_unidirectional(
         self, previous_hop: TopologyObject, next_hop: TopologyObject
@@ -315,6 +396,12 @@ class Link:
         return total_used_capacity
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
+
+        if source.topology_uniq_id is None or destination.topology_uniq_id is None:
+            raise TopologyIdentifierNotDefinedError(
+                "You cannot connect two objects without topology identifier"
+            )
+
         if source == destination:
             raise ConnectionBetweenSameSatelliteForbiddenError(
                 "You cannot connect with same source and destination"
@@ -324,9 +411,11 @@ class Link:
 
 
 class InterSatelliteLink(Link):
-    type = "InterSatelliteLink"
+    type: str = Field(default="InterSatelliteLink", frozen=True)
 
-    inter_satellite_direction: InterSatelliteLinkDirection
+    inter_satellite_direction: InterSatelliteLinkDirection = Field(
+        default=InterSatelliteLinkDirection.UNDEFINED
+    )
 
     def connect(
         self,
@@ -347,9 +436,16 @@ class InterSatelliteLink(Link):
 
         super().connect(source, destination)
 
+    class ConfigDict:
+        use_enum_values = True
 
-class GroundStationLink(Link):
-    type = "GroundStationLink"
+
+class GroundToSpaceLink(Link):
+    elevation_above_horizon_angle: float = Field(default=None)
+
+
+class GroundStationLink(GroundToSpaceLink):
+    type: str = Field(default="GroundStationLink", frozen=True)
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_source_is_a_gsl_and_destination_a_satellite = isinstance(
@@ -366,13 +462,18 @@ class GroundStationLink(Link):
         )
 
         if cant_connect:
-            raise GroundStationConnectionError()
+            raise GroundStationConnectionError(
+                "Incompatible types: "
+                + source.__class__.__name__
+                + " and "
+                + destination.__class__.__name__
+            )
 
         super().connect(source, destination)
 
 
-class UserTerminalLink(Link):
-    type = "UserTerminalLink"
+class UserTerminalLink(GroundToSpaceLink):
+    type: str = Field(default="UserTerminalLink", frozen=True)
 
     def connect(self, source: TopologyObject, destination: TopologyObject):
         object_source_is_a_user_and_destination_a_satellite = isinstance(
@@ -392,6 +493,36 @@ class UserTerminalLink(Link):
             raise UserTerminalConnectionError()
 
         super().connect(source, destination)
+
+
+class GroundObjectLink(Link):
+    """
+    This is the link between a ground object and another ground object
+    """
+
+    type: str = Field(default="GroundObjectLink", frozen=True)
+
+    sub_type: str = Field(default="ground-object-to-ground-object")
+
+    source: GroundObject = Field(default=None)
+    destination: GroundObject = Field(default=None)
+
+    def connect(self, source: GroundObject, destination: GroundObject):
+        if source == destination:
+            raise ConnectionBetweenSameTopologyForbiddenError(
+                "You cannot connect with same source and destination"
+            )
+
+        if isinstance(source, GroundObject) and isinstance(destination, GroundObject):
+            self.source = source
+            self.destination = destination
+        else:
+            raise GroundObjectLinkConnectionError(
+                "Incompatible types: "
+                + source.__class__.__name__
+                + " and "
+                + destination.__class__.__name__
+            )
 
 
 class DistanceModel:
@@ -422,16 +553,16 @@ class DistanceModel:
         pass
 
 
-def ground_station_link_is_connected_to_ground_station(
-    ground_station_link: GroundStationLink, ground_station_object_id: int
+def ground_station_link_is_connected_to_topology_object(
+    ground_station_link: GroundStationLink, topology_object_id: str
 ) -> bool:
     source = ground_station_link.source
     destination = ground_station_link.destination
 
     if isinstance(source, GroundStation):
-        return source.object_id == ground_station_object_id
+        return source.topology_uniq_id == topology_object_id
     elif isinstance(destination, GroundStation):
-        return destination.object_id == ground_station_object_id
+        return destination.topology_uniq_id == topology_object_id
     else:
         raise ValueError("This ground station link is corrupted")
 
@@ -441,26 +572,41 @@ class Simulation:
 
     simulation_name: str
 
-    satellites: list[Satellite]
-    inter_satellite_links: list[InterSatelliteLink]
+    satellites: List[Satellite]
+    inter_satellite_links: List[InterSatelliteLink]
 
-    ground_stations: list[GroundStation]
-    ground_station_links: list[GroundStationLink]
+    ground_object_links: List[GroundObjectLink]
 
-    user_terminals: list[UserTerminal]
-    user_terminal_links: list[UserTerminalLink]
+    ground_stations: List[GroundStation]
+    ground_station_links: List[GroundStationLink]
+
+    user_terminals: List[UserTerminal]
+    user_terminal_links: List[UserTerminalLink]
+
+    point_of_presences: List[PointOfPresence]
+
+    walker_shells: List[WalkerShell]
+    ground_object_domains: List[GroundObjectDomain]
 
     distance_model: DistanceModel = None
 
     def __init__(self):
         self.simulation_name = "Unknown"
         self.object_uuid_index = 0
-        self.satellites = []
-        self.inter_satellite_links = []
-        self.ground_stations = []
-        self.ground_station_links = []
-        self.user_terminals = []
-        self.user_terminal_links = []
+        self.satellites = list()
+        self.inter_satellite_links = list()
+        self.ground_stations = list()
+        self.ground_station_links = list()
+        self.user_terminals = list()
+        self.user_terminal_links = list()
+        self.walker_shells = list()
+        self.ground_object_domains = list()
+        self.ground_object_links = list()
+        self.point_of_presences = list()
+
+        self.ground_object_domains.append(
+            GroundObjectDomain(identifier="public", type="ground_object")
+        )
 
     def get_distance_model(self) -> DistanceModel:
         if self.distance_model is None:
@@ -481,48 +627,80 @@ class Simulation:
         topology_objects.extend(self.satellites)
         topology_objects.extend(self.ground_stations)
         topology_objects.extend(self.user_terminals)
+        topology_objects.extend(self.point_of_presences)
 
         return topology_objects
 
+    def get_all_ground_objects(self):
+        ground_objects = []
+        ground_objects.extend(self.ground_stations)
+        ground_objects.extend(self.user_terminals)
+        ground_objects.extend(self.point_of_presences)
+        return ground_objects
 
-def create_satellite(satellite_name, satellite_id) -> Satellite:
+
+def create_satellite(
+    satellite_name: str,
+    object_id: int,
+    domain: str = "public",
+) -> Satellite:
     """
-    Create a satellite with parameters
-    todo: check what we have to put inside a satellite object
-    :param satellite_name: Name of the satellite
-    :param satellite_id: Identifier of the satellite
+    This function creates a Satellite object.
+    :param satellite_name: The name of the satellite
+    :param object_id: The business id of the satellite
+    :param domain: The constellation identifier of the satellite.
     :return:
     """
-    created_satellite = Satellite()
+    created_satellite = Satellite(
+        satellite_name=satellite_name, object_id=object_id, domain=domain
+    )
 
-    created_satellite.object_id = satellite_id
+    created_satellite.object_id = object_id
     created_satellite.satellite_name = satellite_name
+    created_satellite.domain = domain
 
     return created_satellite
 
 
-def create_ground_station(ground_station_id: int) -> GroundStation:
+def create_ground_station(object_id: int, domain: str = "public") -> GroundStation:
     """
-    Create a ground station
-    :param ground_station_id: identifier of the ground station
+    Create a ground station.
+    :param domain: Owner of the ground station
+    :param object_id: identifier of the ground station.
     :return:
     """
     created_ground_station = GroundStation()
-    created_ground_station.object_id = ground_station_id
+    created_ground_station.object_id = object_id
+    created_ground_station.domain = domain
 
     return created_ground_station
 
 
-def create_user_terminal(user_id, username) -> UserTerminal:
+def create_user_terminal(object_id: int, domain: str = "public") -> UserTerminal:
     """
-    Create a user terminal
-    :param username: username
-    :param user_id: identifier of the user
+    Create a user terminal.
+    :param domain: Owner domain of the company
+    :param object_id: Object identifier
     :return:
     """
 
     created_user = UserTerminal()
-    created_user.user_name = username
-    created_user.object_id = user_id
+    created_user.object_id = object_id
+    created_user.domain = domain
 
     return created_user
+
+
+def create_point_of_presence(object_id: int, domain: str = "public") -> PointOfPresence:
+    """
+    Create a point of presence.
+    :param domain: Owner domain of the company
+    :param object_id: Object identifier
+    :return:
+    """
+
+    created_point_of_presence = PointOfPresence()
+    created_point_of_presence.object_id = object_id
+    created_point_of_presence.domain = domain
+
+    return created_point_of_presence

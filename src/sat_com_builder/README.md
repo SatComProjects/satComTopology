@@ -16,26 +16,23 @@ It features:
 These examples show how to load a simulation.
 
 ### From YAML
+
 ```python
 from sat_com_builder.configuration_manager import YamlConfigurationManager
 
-yaml_configuration_manager = YamlConfigurationManager("examples/configuration_example.yaml")
+yaml_configuration_manager = YamlConfigurationManager("examples/old_configuration_example.yaml")
 
 simulation_manager = yaml_configuration_manager.load_simulation()
 ```
 
-### From object dictionary
-from sat_com_builder.configuration_manager import YamlConfigurationManager
+### From object dictionary or Simulation Property
+You can find the example of a SimulationProperty [](examples/multi_shell_configuration_example.json)
+Or you can directly initialise a dictionary as long it respects SimulationProperty typing rues.
 ```python
-from sat_com_builder.configuration_manager import ObjectBaseConfigurationManager
+from sat_com_builder.configuration_manager import BaseConfigurationManager
+from sat_com_builder.models import SimulationProperty
 
-object_configuration_manager = ObjectBaseConfigurationManager(
-    {
-        "simulation_name": "Example",
-        "constellation_file": "link_to_constellation",
-        ...
-    }
-)
+object_configuration_manager = BaseConfigurationManager(SimulationProperty())
 
 simulation_manager = object_configuration_manager.load_simulation()
 ```
@@ -50,12 +47,16 @@ simulation_manager = empty_configuration_manager.load_simulation()
 ```
 
 ## Create your own configuration manager
-```python
-from  sat_com_builder.configuration_manager import  ConfigurationManager
 
-class JsonConfigurationManager(ConfigurationManager):
+```python
+from sat_com_builder.configuration_manager import BaseConfigurationManager
+from sat_com_application.simulation_manager import SimulationManager
+
+class JsonConfigurationManager(BaseConfigurationManager):
     def load_simulation(self) -> SimulationManager:
-         """Todo: Implement your code"""
-         return SimulationManager()
+        """Todo: Implement your code"""
+        return SimulationManager(
+            
+        )
 
 ```

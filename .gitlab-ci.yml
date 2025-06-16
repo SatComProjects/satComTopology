@@ -1,17 +1,23 @@
-
-image: python:3.10
+image: python:3.12
 
 stages:
   - lint
   - test
+  - deploy
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
-before_script:
-  - python -V
-  - pip install --upgrade pip
-  - pip install -r requirements.txt
+#  PRIVATE_PYPI_URL: "https://${TELECOM_LIB_USERNAME}:${TELECOM_LIB_ACCESS_KEY}@gitlab.isae-supaero.fr/api/v4/projects/2810/packages/pypi/simple"
+
+default:
+  before_script:
+    - python -V
+    - pip install --upgrade pip
+
+    - pip config set global.index-url "https://pypi.org/simple"
+
+#    - pip config set global.extra-index-url "${PRIVATE_PYPI_URL}"
 
 cache:
   paths:
@@ -20,11 +26,25 @@ cache:
 lint:
   stage: lint
   script:
-    - pip install black
+    - pip install black==25.1.0 --extra-index-url "${PRIVATE_PYPI_URL}"
     - black --check .
 
 test:
   stage: test
   script:
-    - pip install pytest
+    - pip install -r requirements.txt # --extra-index-url "${PRIVATE_PYPI_URL}"
+    - pip install pytest # --extra-index-url "${PRIVATE_PYPI_URL}"
     - pytest
+
+pages:
+  stage: deploy
+  script:
+    - cd sphinx
+    - make html
+    - mv _build/html ../public
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+    - develop

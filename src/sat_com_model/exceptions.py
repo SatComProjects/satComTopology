@@ -6,6 +6,10 @@ class ConnectionBetweenSameSatelliteForbiddenError(TopologyConnectionError):
     pass
 
 
+class ConnectionBetweenSameTopologyForbiddenError(TopologyConnectionError):
+    pass
+
+
 class InterSatelliteConnectionError(TopologyConnectionError):
     pass
 
@@ -15,6 +19,10 @@ class GroundStationConnectionError(TopologyConnectionError):
 
 
 class UserTerminalConnectionError(TopologyConnectionError):
+    pass
+
+
+class GroundObjectLinkConnectionError(TopologyConnectionError):
     pass
 
 
@@ -39,4 +47,16 @@ class DistanceModelUndefinedError(Exception):
 
 
 class LinkNotFoundError(Exception):
+    pass
+
+
+class GroundObjectDomainNotFoundError(Exception):
+    pass
+
+
+class WalkerShellNotFoundError(Exception):
+    pass
+
+
+class InvalidGroundObjectTypeError(Exception):
     pass
