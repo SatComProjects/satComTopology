@@ -436,7 +436,7 @@ class InterSatelliteLink(Link):
 
         super().connect(source, destination)
 
-    class Config:
+    class ConfigDict:
         use_enum_values = True
 
 
