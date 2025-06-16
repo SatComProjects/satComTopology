@@ -38,29 +38,7 @@ default:
         echo "PRIVATE_PYPI_URL_READ is not set. Skipping extra-index-url config."
       fi
 
-    - pip install hatchling twine
-
-    - echo "--- Diagnosing Python environment (advanced) ---"
-    - which python
-    - python -c "import sys; print(sys.executable)"
-    - pip list
-    - python -c "import sys; print(sys.path)"
-
-    # CORRECTED COMMANDS BELOW:
-    # Diagnostic 1: Check if 'hatch' module spec can be found
-    - |
-      python -c "import importlib.util; spec = importlib.util.find_spec('hatch'); print(f'Found hatch spec: {spec}')"
-
-    # Diagnostic 2: Attempt to import 'hatch' and catch any import errors
-    - | # Use the pipe '|' to indicate a multi-line string for the shell command
-      python -c "
-      try:
-          import hatch
-          print('Hatch module imported successfully!')
-      except Exception as e:
-          print(f'Failed to import hatch module: {e}')
-      "
-    - echo "--- End Diagnosis (advanced) ---"
+    - pip install hatch hatchling twine
 
 
 lint:
