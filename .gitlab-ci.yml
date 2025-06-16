@@ -59,6 +59,7 @@ build_package:
   stage: build
   script:
     - hatch build
+    - python -m hatch build
     - python -m twine check dist/*
   artifacts:
     paths:
