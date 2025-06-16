@@ -40,6 +40,7 @@ pythonpath = [
 sources = ["src"]
 
 [tool.hatch.build.targets.wheel]
+packages = ["sat_com_topology"]
 include = [
   "src/sat_com_traffic/earth_internet_user_generator/data/world_data.json"
 ]
