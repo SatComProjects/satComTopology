@@ -39,6 +39,7 @@ test:
 pages:
   stage: deploy
   script:
+    - pip install sphinx
     - cd sphinx
     - make html
     - mv _build/html ../public
