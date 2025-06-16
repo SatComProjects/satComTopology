@@ -40,6 +40,15 @@ default:
 
     - pip install hatchling twine
 
+    # --- THESE ARE THE CRITICAL DIAGNOSTIC LINES ---
+    - echo "--- Diagnosing Python environment ---"
+    - which python                         # Show path to python executable
+    - python -c "import sys; print(sys.executable)" # Show python executable path from within python
+    - pip list                             # List all installed Python packages
+    - python -c "import sys; print(sys.path)" # Show Python's module search path
+    - echo "--- End Diagnosis ---"
+  # --- END CRITICAL DIAGNOSTIC LINES ---
+
 
 lint:
   stage: lint
