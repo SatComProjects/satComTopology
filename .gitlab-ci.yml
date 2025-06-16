@@ -4,17 +4,25 @@ stages:
   - lint
   - test
   - build
+  - publish
   - deploy
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
-  PRIVATE_PYPI_URL_READ: "https://${PRIVATE_PYPI_USERNAME}:${PRIVATE_PYPI_ACCESS_KEY}@gitlab.isae-supaero.fr/api/v4/groups/2018/-/packages/pypi/simple"
+  PYPI_UPLOAD_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi"
 
-  TWINE_USERNAME: "${SAT_COM_TOPOLOGY_BUILD_USERNAME}"
-  TWINE_PASSWORD: "${SAT_COM_TOPOLOGY_BUILD_ACCESS_KEY}"
+  TWINE_USERNAME: gitlab-ci-token
+  TWINE_PASSWORD: "${CI_JOB_TOKEN}"
 
-  PYPI_UPLOAD_URL: "https://gitlab.isae-supaero.fr/api/v4/projects/2018/packages/pypi"
+
+cache:
+  paths:
+    - .cache/pip
+  key:
+    files:
+      - pyproject.toml
+
 
 default:
   before_script:
@@ -23,12 +31,15 @@ default:
 
     - pip config set global.index-url "https://pypi.org/simple"
 
-    - pip install build twine
+    - |
+      if [ -n "${PRIVATE_PYPI_URL_READ}" ]; then
+        pip config set global.extra-index-url "${PRIVATE_PYPI_URL_READ}"
+      else
+        echo "PRIVATE_PYPI_URL_READ is not set. Skipping extra-index-url config."
+      fi
 
+    - pip install hatchling twine
 
-cache:
-  paths:
-    - .cache/pip
 
 lint:
   stage: lint
@@ -47,30 +58,32 @@ test:
 build_package:
   stage: build
   script:
-    - python -m build --sdist --wheel . # Builds source distribution (.tar.gz) and wheel (.whl) in the 'dist/' directory
+    - hatch build
+    - python -m twine check dist/*
   artifacts:
     paths:
       - dist/
     expire_in: 1 week
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
+    - if: '$CI_COMMIT_TAG'
       when: on_success
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: on_success
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: on_success
 
-deploy_package:
-  stage: deploy
+publish_package:
+  stage: publish
   script:
-    - twine upload --repository-url "${PYPI_UPLOAD_URL}" dist/*
+    - TWINE_USERNAME=${TWINE_USERNAME} TWINE_PASSWORD=${TWINE_PASSWORD} python -m twine upload --repository-url ${PYPI_UPLOAD_URL} dist/*
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
+    - if: '$CI_COMMIT_TAG'
       when: on_success
   needs:
     - build_package
   variables:
     GIT_STRATEGY: none
+
 
 pages:
   stage: deploy
