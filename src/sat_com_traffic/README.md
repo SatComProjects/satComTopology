@@ -22,7 +22,7 @@ to the European policymaking process. The scientific output expressed does not i
 European Commission. Neither the European Commission nor any person acting on behalf of the Commission is
 responsible for the use that might be made of this publication.
 
-[Bibliography](#bibliography)
+[Bibliography](#Bibliography)
 
 [Visit the publication's website here](https://op.europa.eu/en/publication-detail/-/publication/aec4581b-29c5-11e9-8d04-01aa75ed71a1/language-en)
 

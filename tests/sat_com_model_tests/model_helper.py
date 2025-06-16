@@ -8,7 +8,7 @@ from sat_com_model.models import (
 
 
 def create_fake_satellite_with_object_id(satellite_id: int) -> Satellite:
-    satellite = Satellite()
+    satellite = Satellite(satellite_name="Test Satellite " + str(satellite_id))
     satellite.object_id = satellite_id
     return satellite
 
@@ -46,7 +46,12 @@ class FakeMovementModel(MovementModel):
         return self.ascending
 
     def get_longitude_latitude(self) -> SpatialPosition:
-        return SpatialPosition(self.longitude, self.latitude, self.altitude)
+        return SpatialPosition(
+            longitude=self.longitude, latitude=self.latitude, altitude=self.altitude
+        )
+
+    def get_latitude_longitude_altitude(self) -> (float, float, float):
+        return self.latitude, self.longitude, self.altitude
 
     def get_position_earth_general_inertial(self) -> (float, float, float):
         return 100.0, 100.0, 100.0

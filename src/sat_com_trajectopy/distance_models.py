@@ -49,9 +49,9 @@ class GeopyDistanceModel(DistanceModel):
     def k_closest(
         self,
         reference_point: SpatialPoint,
-        target_points: [SpatialPoint],
+        target_points: list[SpatialPoint],
         k: int = 1,
-    ) -> [SpatialPoint]:
+    ) -> list[SpatialPoint]:
         spatial_point_with_distance_in_km = []
         for target_point in target_points:
             distance_between_satellite_and_ground_station = self.get_distance_km(
@@ -79,7 +79,7 @@ class GeopyDistanceModel(DistanceModel):
         reference_point: SpatialPoint,
         target_points: list[SpatialPoint],
         range_in_km: int = 1000,
-    ) -> [SpatialPoint]:
+    ) -> list[SpatialPoint]:
         spatial_points_in_range = []
         for target_point in target_points:
             distance_between_satellite_and_ground_station = self.get_distance_km(
@@ -184,7 +184,7 @@ def execute_balltree_query_with_haversine_distance(
 
 
 def map_ball_tree_result_with_ball_tree_entries(
-    indices: [], topology_object_positions: [], topology_objects: [TopologyObject]
+    indices: [], topology_object_positions: [], topology_objects: list[TopologyObject]
 ):
     indices_with_its_entries_object = []
 

@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 from sat_com_application.simulation_manager import SimulationManager
+from sat_com_builder.models import OrbitalConnectivityProperty, WalkerShellProperty
 
 # Modifications :
 # - Created transform_text_to_isl
@@ -28,7 +29,9 @@ from sat_com_application.simulation_manager import SimulationManager
 
 # Source: https://github.com/snkas/hypatia
 
-from sat_com_builder.two_line_elements.two_line_element_file import TwoLineElementFile
+from sat_com_constellation.models import (
+    WalkerConstellationProperty,
+)
 from sat_com_model.exceptions import (
     TopologyObjectNotFoundError,
     TopologyConnectionError,
@@ -36,8 +39,60 @@ from sat_com_model.exceptions import (
 from sat_com_model.models import InterSatelliteLinkDirection
 
 
-def generate_inter_satellite_links_grid_from_two_line_element_file(
-    number_orbits, number_satellites_per_orbit, isl_shift, idx_offset=0
+def generate_walker_star_constellation_grid(
+    number_orbits: int, number_satellites_per_orbit: int, isl_shift: int, idx_offset=0
+):
+    """
+    This code generate a grid that represent inter-satellite links. This is for a walker star Mega-constellation.
+
+    :param number_orbits:                Number of orbits
+    :param number_satellites_per_orbit:        Number of satellites per orbit
+    :param isl_shift:               ISL shift between orbits (e.g., if satellite id in orbit is X,
+                                    does it also connect to the satellite at X in the adjacent orbit)
+    :param idx_offset:              Index offset (e.g., if you have multiple shells)
+    :return : list of inter-satellite links under the following format (int, int, InterSatelliteLinkDirection)
+    """
+    if number_orbits < 3 or number_satellites_per_orbit < 3:
+        raise ValueError("Number of x and y must each be at least 3")
+
+    list_inter_satellite_links = []
+    for i in range(number_orbits):
+        for j in range(number_satellites_per_orbit):
+            sat = i * number_satellites_per_orbit + j
+
+            # Link to the next in the orbit
+            sat_same_orbit = i * number_satellites_per_orbit + (
+                (j + 1) % number_satellites_per_orbit
+            )
+
+            has_an_inter_plane = i + 1 < number_orbits
+            if has_an_inter_plane:
+                sat_adjacent_orbit = (i + 1) * number_satellites_per_orbit + (
+                    (j + isl_shift) % number_satellites_per_orbit
+                )
+                # Adjacent orbit
+                list_inter_satellite_links.append(
+                    (
+                        idx_offset + min(sat, sat_adjacent_orbit),
+                        idx_offset + max(sat, sat_adjacent_orbit),
+                        InterSatelliteLinkDirection.ADJACENT,
+                    )
+                )
+
+            # Same orbit
+            list_inter_satellite_links.append(
+                (
+                    idx_offset + min(sat, sat_same_orbit),
+                    idx_offset + max(sat, sat_same_orbit),
+                    InterSatelliteLinkDirection.ORBITAL,
+                )
+            )
+
+    return list_inter_satellite_links
+
+
+def generate_walker_delta_constellation_grid(
+    number_orbits: int, number_satellites_per_orbit: int, isl_shift: int, idx_offset=0
 ) -> []:
     """
     This code generate a grid that represent inter-satellite links. This code come from Hypatia software.
@@ -90,10 +145,13 @@ def generate_inter_satellite_links_grid_from_two_line_element_file(
 
 
 def transform_grid_to_inter_satellite_links(
-    simulation_service: SimulationManager, list_isl: list
+    simulation_service: SimulationManager,
+    list_isl: list,
+    walker_shell_property: WalkerShellProperty,
 ):
     """
     This function will create inter satellite links based on the ISL list previously generated.
+    :param walker_shell_property: Property of the shell
     :param simulation_service: SimulationManager object
     :param list_isl: list of vector like object (int, int, InterSatelliteLinkDirection)
     :return:
@@ -102,12 +160,16 @@ def transform_grid_to_inter_satellite_links(
         satellite_a = None
         satellite_b = None
         try:
-            satellite_a = simulation_service.get_satellite_by_object_id(a)
+            satellite_a = simulation_service.get_satellite_by_object_id(
+                a, walker_shell_property.constellation_property.identifier
+            )
         except TopologyObjectNotFoundError:
             print("Satellite {sat_id} not found".format(sat_id=a))
 
         try:
-            satellite_b = simulation_service.get_satellite_by_object_id(b)
+            satellite_b = simulation_service.get_satellite_by_object_id(
+                b, walker_shell_property.constellation_property.identifier
+            )
 
         except TopologyObjectNotFoundError:
             print("Satellite {sat_id} not found".format(sat_id=b))
@@ -128,28 +190,47 @@ def transform_grid_to_inter_satellite_links(
                 )
 
 
-def create_inter_satellite_link_from_two_line_element(
-    simulation_service: SimulationManager,
-    two_line_element: TwoLineElementFile,
-    adjacent_inter_satellite_shifting,
+def create_inter_satellite_links_for_walker_delta_constellation(
+    walker_delta_constellation: WalkerConstellationProperty,
+    connectivity_property: OrbitalConnectivityProperty,
 ):
-    """
-    Creates inter_satellite_link from two list element. First extract ISL configuration from TLE, then it will transform
-    ISL configuration into inter satellite link object.
-    :param adjacent_inter_satellite_shifting: Implemented ISL shift option for the inter satellite generation.
-    ISL shift mean that the adjacent connected node will not be equivalent satellite of the current orbit
-    but the one behind.
-    :param simulation_service: SimulationManager instance
-    :param two_line_element: TwoLineElementFile instance
-    :return:
-    """
-    inter_satellite_link_grid = (
-        generate_inter_satellite_links_grid_from_two_line_element_file(
-            two_line_element.count_of_orbit,
-            two_line_element.satellite_count_per_orbit,
-            adjacent_inter_satellite_shifting,
-        )
+    return generate_walker_delta_constellation_grid(
+        number_orbits=walker_delta_constellation.amount_of_orbit_plane,
+        number_satellites_per_orbit=walker_delta_constellation.amount_of_satellite_per_orbit_plane,
+        isl_shift=connectivity_property.adjacent_inter_satellite_shifting,
     )
+
+
+def create_inter_satellite_links_for_walker_star_constellation(
+    walker_delta_constellation: WalkerConstellationProperty,
+    connectivity_property: OrbitalConnectivityProperty,
+):
+    return generate_walker_star_constellation_grid(
+        number_orbits=walker_delta_constellation.amount_of_orbit_plane,
+        number_satellites_per_orbit=walker_delta_constellation.amount_of_satellite_per_orbit_plane,
+        isl_shift=connectivity_property.adjacent_inter_satellite_shifting,
+    )
+
+
+def create_inter_satellite_links_for_walker_constellation(
+    simulation_manager: SimulationManager,
+    walker_shell_properties: WalkerShellProperty,
+):
+
+    if walker_shell_properties.type == "star":
+        generated_grid = create_inter_satellite_links_for_walker_star_constellation(
+            walker_shell_properties.constellation_property,
+            walker_shell_properties.orbital_connectivity_property,
+        )
+
+    elif walker_shell_properties.type == "delta":
+        generated_grid = create_inter_satellite_links_for_walker_delta_constellation(
+            walker_shell_properties.constellation_property,
+            walker_shell_properties.orbital_connectivity_property,
+        )
+    else:
+        raise ValueError("Unknown type of walker constellation")
+
     transform_grid_to_inter_satellite_links(
-        simulation_service, inter_satellite_link_grid
+        simulation_manager, generated_grid, walker_shell_properties
     )

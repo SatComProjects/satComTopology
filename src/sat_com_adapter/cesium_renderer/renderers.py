@@ -9,17 +9,17 @@ from sat_com_adapter.cesium_renderer.formats import (
     CesiumJavaScriptFormat,
     CesiumCZMLFormat,
 )
-from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import (
-    LinkHtmlFormatter,
-)
+from sat_com_adapter.cesium_renderer.html_formatter.html_formatters import HtmlFormatter
+from sat_com_adapter.cesium_renderer.models import CesiumProperty
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import (
     Link,
     InterSatelliteLink,
     GroundStationLink,
     UserTerminalLink,
+    Satellite,
+    GroundObjectLink,
 )
-from sat_com_trajectopy.grid_mesh_calculator import calculate_satellite_mesh_coordinates
 
 
 class CesiumRenderer:
@@ -27,14 +27,23 @@ class CesiumRenderer:
 
     simulation_manager: SimulationManager
 
+    cesium_renderer_property: CesiumProperty
+
     cesium_token: str
 
     cesium_format: CesiumFormat
 
     def __init__(
-        self, simulation_manager: SimulationManager, cesium_token: str = str()
+        self,
+        simulation_manager: SimulationManager,
+        cesium_renderer_property: CesiumProperty = None,
     ):
-        self.cesium_token = cesium_token
+        if cesium_renderer_property is None:
+            cesium_renderer_property = CesiumProperty()
+
+        self.cesium_token = cesium_renderer_property.cesium_token
+
+        self.cesium_renderer_property = cesium_renderer_property
         self.simulation_manager = simulation_manager
         self.elements_to_display = []
 
@@ -49,7 +58,7 @@ class CesiumRenderer:
 
         return self
 
-    def add_specified_satellites(self, satellites: []) -> "CesiumRenderer":
+    def add_specified_satellites(self, satellites: list[Satellite]) -> "CesiumRenderer":
         """
         Add satellites given in parameters to the Cesium Render.
         :param satellites: List of satellites to display
@@ -65,29 +74,6 @@ class CesiumRenderer:
         :return: current instance of CesiumRenderer
         """
         satellites_to_display = self.simulation_manager.get_satellites()
-        return self.add_specified_satellites(satellites_to_display)
-
-    def add_satellites_with_grid_positions(self) -> "CesiumRenderer":
-        """
-        Add satellites to the Render with grid position information.
-        :return: current instance of CesiumRender
-        """
-        satellites_to_display = self.simulation_manager.get_satellites()
-        for satellite in satellites_to_display:
-            coordinates_on_grid = calculate_satellite_mesh_coordinates(
-                satellite.object_id,
-                self.simulation_manager.configuration.get("number_of_orbit_plane", 0),
-                self.simulation_manager.configuration.get(
-                    "number_of_satellite_per_orbit_plane", 0
-                ),
-                self.simulation_manager.configuration.get(
-                    "adjacent_inter_satellite_shifting", 0
-                ),
-            )
-            satellite.satellite_name += (
-                f" ({coordinates_on_grid[0]},{coordinates_on_grid[1]})"
-            )
-
         return self.add_specified_satellites(satellites_to_display)
 
     def add_only_ascending_satellites(self) -> "CesiumRenderer":
@@ -191,7 +177,7 @@ class CesiumRenderer:
         return self
 
     def add_route_from_link(
-        self, link: Link, underlined: bool = False, color: str = None
+        self, link: Link, underlined: bool = False, color: str = "RED"
     ) -> "CesiumRenderer":
         """
         Underline a link based on the link given in parameter
@@ -205,9 +191,11 @@ class CesiumRenderer:
             return self.append_next(
                 self.cesium_format.create_link(
                     link=link,
-                    color="RED",
-                    description=LinkHtmlFormatter(link).format_to_html(),
+                    color=color,
+                    width=3.0,
+                    description=HtmlFormatter(link).format(),
                     properties={},
+                    on_ground=False,
                 )
             )
 
@@ -219,6 +207,9 @@ class CesiumRenderer:
 
         if isinstance(link, UserTerminalLink):
             self.append_next(self.cesium_format.create_user_terminal_link(link))
+
+        if isinstance(link, GroundObjectLink):
+            self.append_next(self.cesium_format.create_static_ground_objects_link(link))
 
         return self
 
@@ -276,7 +267,17 @@ class CesiumRenderer:
 
 
 class CesiumHtmlRenderer(CesiumRenderer):
-    cesium_format = CesiumJavaScriptFormat()
+
+    def __init__(
+        self,
+        simulation_manager: SimulationManager,
+        cesium_renderer_property: CesiumProperty = None,
+    ):
+        if cesium_renderer_property is None:
+            cesium_renderer_property = CesiumProperty()
+
+        super().__init__(simulation_manager, cesium_renderer_property)
+        self.cesium_format = CesiumJavaScriptFormat(cesium_renderer_property)
 
     def render(self) -> str:
         html_code = get_full_html(
@@ -286,7 +287,17 @@ class CesiumHtmlRenderer(CesiumRenderer):
 
 
 class CesiumCZMLRenderer(CesiumRenderer):
-    cesium_format = CesiumCZMLFormat()
 
     def render(self) -> list[Any]:
         return self.elements_to_display
+
+    def __init__(
+        self,
+        simulation_manager: SimulationManager,
+        cesium_renderer_property: CesiumProperty = None,
+    ):
+        if cesium_renderer_property is None:
+            cesium_renderer_property = CesiumProperty()
+
+        super().__init__(simulation_manager, cesium_renderer_property)
+        self.cesium_format = CesiumCZMLFormat(cesium_renderer_property)
