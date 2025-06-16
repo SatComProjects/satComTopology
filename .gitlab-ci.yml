@@ -40,14 +40,27 @@ default:
 
     - pip install hatchling twine
 
-    # --- THESE ARE THE CRITICAL DIAGNOSTIC LINES ---
-    - echo "--- Diagnosing Python environment ---"
-    - which python                         # Show path to python executable
-    - python -c "import sys; print(sys.executable)" # Show python executable path from within python
-    - pip list                             # List all installed Python packages
-    - python -c "import sys; print(sys.path)" # Show Python's module search path
-    - echo "--- End Diagnosis ---"
-  # --- END CRITICAL DIAGNOSTIC LINES ---
+    - echo "--- Diagnosing Python environment (advanced) ---"
+    - which python
+    - python -c "import sys; print(sys.executable)"
+    - pip list
+    - python -c "import sys; print(sys.path)"
+
+    # CORRECTED COMMANDS BELOW:
+    # Diagnostic 1: Check if 'hatch' module spec can be found
+    - |
+      python -c "import importlib.util; spec = importlib.util.find_spec('hatch'); print(f'Found hatch spec: {spec}')"
+
+    # Diagnostic 2: Attempt to import 'hatch' and catch any import errors
+    - | # Use the pipe '|' to indicate a multi-line string for the shell command
+      python -c "
+      try:
+          import hatch
+          print('Hatch module imported successfully!')
+      except Exception as e:
+          print(f'Failed to import hatch module: {e}')
+      "
+    - echo "--- End Diagnosis (advanced) ---"
 
 
 lint:
