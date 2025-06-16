@@ -35,17 +35,11 @@ Issues = "https://github.com/elbarbi/satComTopology/issues"
 pythonpath = [
   ".", "src"
 ]
+
+[tool.hatch.build]
+sources = ["src"]
+
 [tool.hatch.build.targets.wheel]
 include = [
-    "sat_com_topology/sat_com_traffic/earth_internet_user_generator/data/world_data.json"
-]
-packages = [
-    "src/sat_com_model",
-    "src/sat_com_builder",
-    "src/sat_com_adapter",
-    "src/sat_com_trajectopy",
-    "src/sat_com_application",
-    "src/sat_com_traffic",
-    "src/sat_com_constellation",
-    "src/sat_com_connectivity",
+  "src/sat_com_traffic/earth_internet_user_generator/data/world_data.json"
 ]
