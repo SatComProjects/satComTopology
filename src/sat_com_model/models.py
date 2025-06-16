@@ -106,7 +106,7 @@ class TopologyObject(SpatialPoint):
     type: str = Field(default="TypologyObject", frozen=True)
 
     """These are the links that this object has with other objects in the topology"""
-    links: List["Link"] = Field(default_factory=list, exclude=True)
+    links: List["Link"] = Field(default_factory=list, exclude=True, repr=False)
 
     @computed_field
     @property
