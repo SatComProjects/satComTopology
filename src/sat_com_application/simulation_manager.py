@@ -905,7 +905,23 @@ class SimulationManager:
 
         return topology_object
 
-    def remove_cascade_topology_object(
+    def remove_cascade_topology_object(self, topology_object: TopologyObject):
+        for link in topology_object.links:
+            self.remove_link(link)
+
+        topology_object.links.clear()
+        if isinstance(topology_object, Satellite):
+            self.simulation.satellites.remove(topology_object)
+        elif isinstance(topology_object, GroundStation):
+            self.simulation.ground_stations.remove(topology_object)
+        elif isinstance(topology_object, UserTerminal):
+            self.simulation.user_terminals.remove(topology_object)
+        elif isinstance(topology_object, PointOfPresence):
+            self.simulation.point_of_presences.remove(topology_object)
+        else:
+            raise ValueError("Topology object type unknown: " + topology_object.type)
+
+    def remove_cascade_topology_object_by_id(
         self, topology_object_id: int
     ) -> list[TopologyObject]:
         """
@@ -929,6 +945,38 @@ class SimulationManager:
         self.__remove_topology_object(topology_object)
 
         return removed_objects
+
+    def remove_all_terminal_users(self):
+        """
+        Remove all user terminals from the simulation.
+        :return:
+        """
+        for user_terminal in self.get_user_terminals():
+            self.remove_cascade_topology_object(user_terminal)
+
+    def remove_all_ground_stations(self):
+        """
+        Remove all ground stations from the simulation.
+        :return:
+        """
+        for ground_station in self.get_ground_stations():
+            self.remove_cascade_topology_object(ground_station)
+
+    def remove_all_satellites(self):
+        """
+        Remove all satellites from the simulation.
+        :return:
+        """
+        for satellite in self.get_satellites():
+            self.remove_cascade_topology_object(satellite)
+
+    def remove_all_point_of_presences(self):
+        """
+        Remove all points of presences from the simulation.
+        :return:
+        """
+        for point_of_presence in self.simulation.point_of_presences:
+            self.remove_cascade_topology_object(point_of_presence)
 
     def __update_user_terminal_links_in_static_mode(self):
         """
