@@ -1,7 +1,8 @@
-import abc
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, computed_field
@@ -106,7 +107,7 @@ class TopologyObject(SpatialPoint):
     type: str = Field(default="TypologyObject", frozen=True)
 
     """These are the links that this object has with other objects in the topology"""
-    links: List["Link"] = Field(default_factory=list, exclude=True, repr=False)
+    links: List[Link] = Field(default_factory=list, exclude=True, repr=False)
 
     @computed_field
     @property
