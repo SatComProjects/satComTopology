@@ -100,7 +100,7 @@ class SimulationManager:
     def __init__(self, simulation: Simulation):
         self.simulation = simulation
         self.configuration = dict()
-        self.enabled_update_functions = None
+        self.enabled_update_functions = []
         self.static_ground_station_link_mode = False
 
         self.ground_to_space_connection_strategies = {}
@@ -113,10 +113,10 @@ class SimulationManager:
         self.time_manager = time_manager
         self.time_manager.register_action(self.__update)
 
-    enabled_update_functions: set[Callable] | None
+    enabled_update_functions: list[Callable]
 
     @property
-    def update_protocol(self) -> set:
+    def update_protocol(self) -> list[Callable]:
         if self.enabled_update_functions is None:
             return self.get_default_update_protocol()
         else:
@@ -1091,22 +1091,28 @@ class SimulationManager:
             self.__update_user_terminal_links_default()
 
     def add_to_update_protocol(self, callable_update: Callable):
-        self.enabled_update_functions.add(callable_update)
+        self.enabled_update_functions.append(callable_update)
 
     def remove_from_update_protocol(self, callable_remove: Callable):
         self.enabled_update_functions.remove(callable_remove)
 
-    def set_callable_protocol(self, update_callables: set[Callable]):
+    def set_callable_protocol(self, update_callables: list[Callable]):
         self.enabled_update_functions = update_callables
 
-    def get_default_update_protocol(self) -> set:
+    def get_default_update_protocol(self) -> list[Callable]:
         """
         The default update protocol will update:
         - Satellites
         - GroundStations links
         :return:
         """
-        return {self.update_satellites, self.update_ground_station_links}
+        return [
+            self.update_satellites,
+            self.update_ground_stations,
+            self.update_user_terminal,
+            self.update_ground_station_links,
+            self.update_user_terminal_links,
+        ]
 
     def add_walker_shell(self, walker_shell: WalkerShell):
         self.simulation.walker_shells.append(walker_shell)
