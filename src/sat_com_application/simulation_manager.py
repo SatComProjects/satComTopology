@@ -100,7 +100,7 @@ class SimulationManager:
     def __init__(self, simulation: Simulation):
         self.simulation = simulation
         self.configuration = dict()
-        self.enabled_update_functions = []
+        self.enabled_update_functions = None
         self.static_ground_station_link_mode = False
 
         self.ground_to_space_connection_strategies = {}
@@ -113,7 +113,7 @@ class SimulationManager:
         self.time_manager = time_manager
         self.time_manager.register_action(self.__update)
 
-    enabled_update_functions: list[Callable]
+    enabled_update_functions: list[Callable] | None
 
     @property
     def update_protocol(self) -> list[Callable]:
