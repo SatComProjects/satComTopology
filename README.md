@@ -53,13 +53,59 @@ pip install git+https://github.com/elbarbi/satComTopology.git@main#egg=sat_com_t
 
 ## Example 🖊️
 ### Load a configuration
-An example of a YAML configuration is located [here](src/sat_com_builder/examples/multi_shell_configuration_example.yaml).
+An example of a JSON configuration is located [here](src/sat_com_builder/examples/multi_shell_configuration_example.json).
 ```python
-from sat_com_builder.configuration_manager import YamlConfigurationManager
+from sat_com_builder.models import SimulationProperty
+from sat_com_builder.configuration_manager import BaseConfigurationManager
 
-yaml_configuration_manager = YamlConfigurationManager("/CONFIGURATION_PATH/configuration_example.yaml")
+plain_config_walker = {
+  "simulation_name": "Single Shell Simulation",
+  "start_date": "2024-11-18 00:00:00.000000",
+  "end_date": "2024-11-25 00:00:00.000000",
+  "movement_model": "pyorbital",
+  "distance_model": "sklearn",
+  "ground_objects_properties": [
+    {
+      "identifier": "OneWeb Ground Station",
+      "data_file": "../configurations/ground_stations.txt",
+      "type": "ground_station",
+      "connectivity_properties": {
+        "elevation_above_horizon": 20
+      }
+    }
+  ],
+  "walker_shells": [
+    {
+      "type": "delta",
+      "constellation_property": {
+        "identifier": "Walker",
+        "amount_of_orbit_plane": 40,
+        "amount_of_satellite_per_orbit_plane": 40,
+        "inclination": 70.0,
+        "phase_difference_between_satellites": True,
+        "mean_revolution_per_day": 15.5
+      },
+      "orbital_connectivity_property": {
+        "adjacent_inter_satellite_shifting": 0,
+        "maximum_inter_satellite_count": 4,
+        "maximum_inter_satellite_range_distance": 1000,
+        "maximum_ground_station_range": 5000,
+        "maximum_user_terminal_range": 1000,
+        "maximum_connected_ground_object": 10000,
+        "maximum_connected_user_terminal": 1000,
+        "maximum_connected_ground_station": 10
+      },
+      "ground_object_white_list": []
+    }
+  ]
+}
 
-simulation_manager = yaml_configuration_manager.load_simulation()
+
+simulation_properties = SimulationProperty(**plain_config_walker)
+
+
+simulation_manager = BaseConfigurationManager(simulation_property=simulation_properties)
+simulation_manager = simulation_manager.load_simulation()
 ```
 ### Manage a Simulation
 The following code is an example of how to manually create a link between a satellite and a ground station.
