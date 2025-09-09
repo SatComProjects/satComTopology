@@ -527,12 +527,18 @@ class GroundObjectLink(Link):
 
 
 class DistanceModel:
-    def get_distance_meters(
+
+    def get_3d_distance_meters(
+        self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
+    ):
+        pass
+
+    def get_ground_distance_meters(
         self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
     ) -> float:
         pass
 
-    def get_distance_km(
+    def get_ground_distance_km(
         self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
     ) -> float:
         pass
@@ -545,7 +551,7 @@ class DistanceModel:
     ) -> list[SpatialPoint]:
         pass
 
-    def spatial_position_in_range(
+    def spatial_position_on_ground_in_range(
         self,
         reference_point: SpatialPoint,
         target_points: list[SpatialPoint],

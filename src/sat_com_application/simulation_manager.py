@@ -437,7 +437,7 @@ class SimulationManager:
         :param object_2: Topology object  B
         :return: float: Distance between two topology objects
         """
-        return self.simulation.get_distance_model().get_distance_km(
+        return self.simulation.get_distance_model().get_ground_distance_km(
             object_1.get_coordinates(), object_2.get_coordinates()
         )
 
@@ -692,12 +692,10 @@ class SimulationManager:
 
         for user_terminal in self.get_user_terminals():
             simulation_domain = self.get_ground_object_domain(user_terminal.domain)
-            satellites_in_range = (
-                self.simulation.get_distance_model().spatial_position_in_range(
-                    user_terminal,
-                    self.get_satellites(),
-                    int(simulation_domain.maximum_satellite_range_distance),
-                )
+            satellites_in_range = self.simulation.get_distance_model().spatial_position_on_ground_in_range(
+                user_terminal,
+                self.get_satellites(),
+                int(simulation_domain.maximum_satellite_range_distance),
             )
             for satellite in self.get_satellites():
                 created_user_terminal_link = (
@@ -722,12 +720,10 @@ class SimulationManager:
 
         for ground_station in self.get_ground_stations():
             simulation_domain = self.get_ground_object_domain(ground_station.domain)
-            satellites_in_range = (
-                self.simulation.get_distance_model().spatial_position_in_range(
-                    ground_station,
-                    self.get_satellites(),
-                    int(simulation_domain.maximum_satellite_range_distance),
-                )
+            satellites_in_range = self.simulation.get_distance_model().spatial_position_on_ground_in_range(
+                ground_station,
+                self.get_satellites(),
+                int(simulation_domain.maximum_satellite_range_distance),
             )
             for satellite in self.get_satellites():
                 created_ground_station_link = (
@@ -772,7 +768,7 @@ class SimulationManager:
 
     def enable_ground_station_links(self, ground_station, ground_station_range: float):
         satellites_in_range = (
-            self.simulation.get_distance_model().spatial_position_in_range(
+            self.simulation.get_distance_model().spatial_position_on_ground_in_range(
                 ground_station, self.get_satellites(), int(ground_station_range)
             )
         )
@@ -813,7 +809,7 @@ class SimulationManager:
             return
 
         satellites_in_range = (
-            self.simulation.get_distance_model().spatial_position_in_range(
+            self.simulation.get_distance_model().spatial_position_on_ground_in_range(
                 user_terminal,
                 self.get_satellites(),
                 int(maximum_satellite_range_distance),
@@ -846,7 +842,7 @@ class SimulationManager:
             return
 
         satellites_in_range = (
-            self.simulation.get_distance_model().spatial_position_in_range(
+            self.simulation.get_distance_model().spatial_position_on_ground_in_range(
                 ground_station, self.get_satellites(), int(ground_station_range_in_km)
             )
         )

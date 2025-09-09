@@ -12,7 +12,7 @@ def check_and_update_distance_if_satellite_is_in_range(
         ground_object = link.source
         satellite = link.destination
 
-    distance_between_two_object = distance_model.get_distance_km(
+    distance_between_two_object = distance_model.get_ground_distance_km(
         ground_object.spatial_position, satellite.spatial_position
     )
 
