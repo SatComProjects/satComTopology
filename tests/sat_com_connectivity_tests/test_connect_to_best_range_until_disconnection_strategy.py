@@ -34,7 +34,7 @@ def test_valid_existing_link(strategy):
     link = GroundToSpaceLink(source=ground_object, destination=satellite)
     ground_object.links.append(link)
 
-    mock_distance_model.get_distance_km.return_value = 800
+    mock_distance_model.get_ground_distance_km.return_value = 800
 
     result = strategy.compute_ground_object_connection_strategy(
         ground_object, [satellite]
@@ -66,10 +66,10 @@ def test_obsolete_link_then_connect_to_closest_satellite(strategy):
     ground_object.links = [link]
 
     # Distance too large → link becomes obsolete
-    mock_distance_model.get_distance_km.return_value = 1500
+    mock_distance_model.get_ground_distance_km.return_value = 1500
 
     # Both candidate satellites are in range
-    mock_distance_model.spatial_position_in_range.return_value = [
+    mock_distance_model.spatial_position_on_ground_in_range.return_value = [
         candidate_sat_1,
         candidate_sat_2,
     ]
@@ -96,7 +96,7 @@ def test_no_links_and_no_visible_satellites(strategy):
 
     satellite = make_fake_satellite()
 
-    mock_distance_model.spatial_position_in_range.return_value = []
+    mock_distance_model.spatial_position_on_ground_in_range.return_value = []
 
     result = strategy.compute_ground_object_connection_strategy(
         ground_object, [satellite]
@@ -113,7 +113,7 @@ def test_k_closest_returns_non_satellite(strategy):
     satellite = make_fake_satellite()
     ground_object.links = []
 
-    mock_distance_model.spatial_position_in_range.return_value = [satellite]
+    mock_distance_model.spatial_position_on_ground_in_range.return_value = [satellite]
     mock_distance_model.k_closest.return_value = [MagicMock()]  # Not a Satellite
 
     with pytest.raises(TypeError, match="Expected Satellite"):

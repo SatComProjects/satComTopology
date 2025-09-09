@@ -34,7 +34,7 @@ def test_connect_to_everything_in_range_strategy():
     ground_object.links = [existing_link]
 
     # Simulate only 2 satellites are in range
-    mock_distance_model.spatial_position_in_range.return_value = [
+    mock_distance_model.spatial_position_on_ground_in_range.return_value = [
         type("VisibleSatellite", (), {"satellite": sat_in_range_1}),
         type("VisibleSatellite", (), {"satellite": sat_in_range_2}),
     ]

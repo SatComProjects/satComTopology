@@ -12,7 +12,7 @@ class TestNetworkxBuilder:
             "2024-10-16 12:34:56.789"
         )
         mock_manager.configuration = {"some_config_key": "some_value"}
-        mock_manager.simulation.get_distance_model.return_value.get_distance_meters.return_value = (
+        mock_manager.simulation.get_distance_model.return_value.get_ground_distance_meters.return_value = (
             1000
         )
         return mock_manager

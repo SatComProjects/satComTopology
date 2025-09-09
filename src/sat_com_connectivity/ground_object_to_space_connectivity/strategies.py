@@ -135,7 +135,7 @@ class ConnectToEverythingInRangeStrategy(GroundToSpaceConnectionStrategy):
             ]
         )
 
-        visible_satellites = self.distance_model.spatial_position_in_range(
+        visible_satellites = self.distance_model.spatial_position_on_ground_in_range(
             reference_point=ground_object,
             target_points=satellites,
             range_in_km=int(
@@ -207,7 +207,7 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
         if amount_of_ground_space_link > 0:
             return computed_ground_object_connections_result
 
-        visible_satellites = self.distance_model.spatial_position_in_range(
+        visible_satellites = self.distance_model.spatial_position_on_ground_in_range(
             reference_point=ground_object,
             target_points=satellites,
         )

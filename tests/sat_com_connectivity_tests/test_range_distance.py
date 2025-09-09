@@ -16,14 +16,16 @@ def test_satellite_in_range():
     link = GroundToSpaceLink(source=ground_object, destination=satellite)
 
     mock_distance_model = MagicMock()
-    mock_distance_model.get_distance_km.return_value = 800  # Within 1000 km range
+    mock_distance_model.get_ground_distance_km.return_value = (
+        800  # Within 1000 km range
+    )
 
     result = check_and_update_distance_if_satellite_is_in_range(
         link, mock_distance_model
     )
 
     assert result is True
-    mock_distance_model.get_distance_km.assert_called_once_with(
+    mock_distance_model.get_ground_distance_km.assert_called_once_with(
         ground_object.spatial_position, satellite.spatial_position
     )
 
@@ -34,13 +36,15 @@ def test_satellite_out_of_range():
     link = GroundToSpaceLink(source=ground_object, destination=satellite)
 
     mock_distance_model = MagicMock()
-    mock_distance_model.get_distance_km.return_value = 1500  # Outside 1000 km range
+    mock_distance_model.get_ground_distance_km.return_value = (
+        1500  # Outside 1000 km range
+    )
 
     result = check_and_update_distance_if_satellite_is_in_range(
         link, mock_distance_model
     )
 
     assert result is False
-    mock_distance_model.get_distance_km.assert_called_once_with(
+    mock_distance_model.get_ground_distance_km.assert_called_once_with(
         ground_object.spatial_position, satellite.spatial_position
     )

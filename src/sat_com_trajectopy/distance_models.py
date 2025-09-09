@@ -1,3 +1,4 @@
+import math
 from math import radians
 
 import numpy as np
@@ -18,7 +19,41 @@ class GeopyDistanceModel(DistanceModel):
     This is a Distance Model, a model used to calculate the distances. It uses the geopy library.
     """
 
-    def get_distance_meters(
+    def get_3d_distance_meters(
+        self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
+    ) -> float:
+        """
+        Returns 3D distance in meters between two spatial points,
+        taking altitude into account.
+        """
+        ground_dist = distance(
+            (spatial_position_1.latitude, spatial_position_1.longitude),
+            (spatial_position_2.latitude, spatial_position_2.longitude),
+        ).meters
+
+        alt_diff = (spatial_position_1.altitude or 0) - (
+            spatial_position_2.altitude or 0
+        )
+
+        return math.sqrt(ground_dist**2 + alt_diff**2)
+
+    def get_3d_distance_km(
+        self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
+    ) -> float:
+        """
+        Returns 3D distance in kilometers between two spatial points,
+        taking altitude into account.
+        """
+        ground_dist_km = distance(
+            (spatial_position_1.latitude, spatial_position_1.longitude),
+            (spatial_position_2.latitude, spatial_position_2.longitude),
+        ).kilometers
+        alt_diff_km = (
+            (spatial_position_1.altitude or 0) - (spatial_position_2.altitude or 0)
+        ) / 1000.0
+        return math.sqrt(ground_dist_km**2 + alt_diff_km**2)
+
+    def get_ground_distance_meters(
         self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
     ) -> float:
         """
@@ -32,7 +67,7 @@ class GeopyDistanceModel(DistanceModel):
             (spatial_position_2.latitude, spatial_position_2.longitude),
         ).meters
 
-    def get_distance_km(
+    def get_ground_distance_km(
         self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
     ) -> float:
         """
@@ -54,7 +89,7 @@ class GeopyDistanceModel(DistanceModel):
     ) -> list[SpatialPoint]:
         spatial_point_with_distance_in_km = []
         for target_point in target_points:
-            distance_between_satellite_and_ground_station = self.get_distance_km(
+            distance_between_satellite_and_ground_station = self.get_ground_distance_km(
                 reference_point.get_coordinates(), target_point.get_coordinates()
             )
             spatial_point_with_distance_in_km.append(
@@ -74,7 +109,7 @@ class GeopyDistanceModel(DistanceModel):
             for k_closest_point_with_distance_in_km in k_closest_points_with_distance_in_km
         ]
 
-    def spatial_position_in_range(
+    def spatial_position_on_ground_in_range(
         self,
         reference_point: SpatialPoint,
         target_points: list[SpatialPoint],
@@ -82,7 +117,7 @@ class GeopyDistanceModel(DistanceModel):
     ) -> list[SpatialPoint]:
         spatial_points_in_range = []
         for target_point in target_points:
-            distance_between_satellite_and_ground_station = self.get_distance_km(
+            distance_between_satellite_and_ground_station = self.get_ground_distance_km(
                 reference_point.get_coordinates(), target_point.get_coordinates()
             )
             if distance_between_satellite_and_ground_station <= range_in_km:
@@ -169,10 +204,10 @@ def _get_spatial_points_from_indices(
 
 
 def execute_balltree_query_with_haversine_distance(
-    input_to_query_positions: [],
-    group_of_positions_to_search_in: [],
+    input_to_query_positions: list,
+    group_of_positions_to_search_in: list,
     distance_max_km: int,
-) -> []:
+) -> list:
     positions_rad = np.radians(input_to_query_positions)
 
     distance_max = distance_max_km / 6371
@@ -184,7 +219,9 @@ def execute_balltree_query_with_haversine_distance(
 
 
 def map_ball_tree_result_with_ball_tree_entries(
-    indices: [], topology_object_positions: [], topology_objects: list[TopologyObject]
+    indices: list,
+    topology_object_positions: list,
+    topology_objects: list[TopologyObject],
 ):
     indices_with_its_entries_object = []
 
@@ -268,7 +305,35 @@ def calculate_topology_objects_in_range_of_topology_objects(
 class SkLearningDistanceModel(DistanceModel):
     EARTH_RADIUS_KM = 6371.009
 
-    def get_distance_meters(
+    def get_3d_distance_meters(
+        self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
+    ) -> float:
+        """
+        Returns 3D distance in meters between two spatial points,
+        taking altitude into account.
+        """
+        ground_dist_m = self.get_ground_distance_meters(
+            spatial_position_1, spatial_position_2
+        )
+
+        alt_diff_m = (spatial_position_1.altitude or 0) - (
+            spatial_position_2.altitude or 0
+        )
+
+        return math.sqrt(ground_dist_m**2 + alt_diff_m**2)
+
+    def get_3d_distance_km(
+        self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
+    ) -> float:
+        ground_dist_km = self.get_ground_distance_km(
+            spatial_position_1, spatial_position_2
+        )
+        alt_diff_km = (
+            (spatial_position_1.altitude or 0) - (spatial_position_2.altitude or 0)
+        ) / 1000.0
+        return math.sqrt(ground_dist_km**2 + alt_diff_km**2)
+
+    def get_ground_distance_meters(
         self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
     ) -> float:
         """
@@ -282,7 +347,7 @@ class SkLearningDistanceModel(DistanceModel):
         )[0, 1]
         return distance_scale_1 * self.EARTH_RADIUS_KM * 1000
 
-    def get_distance_km(
+    def get_ground_distance_km(
         self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
     ) -> float:
         """
@@ -302,7 +367,7 @@ class SkLearningDistanceModel(DistanceModel):
         reference_point: SpatialPoint,
         target_points: list[SpatialPoint],
         k: int = 1,
-    ) -> [SpatialPosition]:
+    ) -> list[SpatialPosition]:
         target_latitudes_longitudes = convert_spatial_positions_to_latitudes_longitudes(
             [target_point.spatial_position for target_point in target_points]
         )
@@ -344,7 +409,7 @@ class SkLearningDistanceModel(DistanceModel):
 
         return spatial_point_result
 
-    def spatial_position_in_range(
+    def spatial_position_on_ground_in_range(
         self,
         reference_point: SpatialPoint,
         target_points: list[SpatialPoint],
