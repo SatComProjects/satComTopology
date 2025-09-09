@@ -82,7 +82,7 @@ graph_as_dict_structure = {
               1: 150, # previous hop is 1 (link "source"), next hop is 2
               2: 200  # previous hop is 2 (link "destination"), next hop is 1
             },
-            "distance": 5000, # In meters
+            "distance": 500000, # In meters
         },
         {
             "type": "InterSatelliteLink",
@@ -93,7 +93,7 @@ graph_as_dict_structure = {
               1: 15, # previous hop is 1 (link "source"), next hop is 2
               24: 142  # previous hop is 24 (link "destination"), next hop is 1
             },
-            "distance": 5000, # In meters          
+            "distance": 500000, # In meters          
         }
     ]
 }
