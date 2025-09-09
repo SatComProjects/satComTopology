@@ -114,7 +114,7 @@ class NetworkxBuilder:
         data.update(type=link.type)
 
         if self.enable_export_link_length:
-            distance = self.simulation_manager.simulation.get_distance_model().get_ground_distance_meters(
+            distance = self.simulation_manager.simulation.get_distance_model().get_3d_distance_meters(
                 source.spatial_position, destination.spatial_position
             )
             data.update(distance=distance)
