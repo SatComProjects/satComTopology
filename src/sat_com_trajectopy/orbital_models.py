@@ -68,7 +68,7 @@ class PyOrbitalModel(MovementModel):
         )
 
         new_position = SpatialPosition(
-            longitude=longitude, latitude=latitude, altitude=altitude
+            longitude=longitude, latitude=latitude, altitude=altitude * 1000
         )
         self.last_spatial_position = new_position
         self.last_time_position_calculated = self.clock.get_current_time()
