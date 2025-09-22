@@ -65,7 +65,9 @@ class NetworkxBuilder:
                 }
             )
         data.update(
-            type=topology_object.get_type(), object_id=topology_object.object_id
+            type=topology_object.get_type(),
+            object_id=topology_object.object_id,
+            topology_uniq_id=topology_object.topology_uniq_id,
         )
 
         if self.enable_export_grid_coordinates and isinstance(
