@@ -79,7 +79,7 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
                 "cartographicDegrees": [
                     position.longitude,
                     position.latitude,
-                    position.altitude * 1000,
+                    position.altitude,
                 ]
             },
             "description": description,
@@ -136,10 +136,10 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
                     "cartographicDegrees": [
                         position_a.longitude,
                         position_a.latitude,
-                        position_a.altitude * 1000,
+                        position_a.altitude,
                         position_b.longitude,
                         position_b.latitude,
-                        position_b.altitude * 1000,
+                        position_b.altitude,
                     ]
                 },
                 "width": width,
@@ -244,7 +244,7 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
             + "    viewer.entities.add({\n"
             + f'      name: "Topology object: {sphere_name}",\n'
             + f'      id: "{cesium_uniq_identifier}",\n'
-            + f"      position: Cesium.Cartesian3.fromDegrees({position.longitude},{position.latitude}, {position.altitude * 1000}),\n"
+            + f"      position: Cesium.Cartesian3.fromDegrees({position.longitude},{position.latitude}, {position.altitude}),\n"
             + f'      description: "{description}",\n'
             + f"      properties: {properties if properties is not None else str(dict())},\n"
             + "      ellipsoid: {\n"
@@ -297,10 +297,10 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
             + "         positions: Cesium.Cartesian3.fromDegreesArrayHeights([\n"
             + f"              {position_a.longitude},\n"
             + f"              {position_a.latitude},\n"
-            + f"              {position_a.altitude * 1000},\n"
+            + f"              {position_a.altitude},\n"
             + f"              {position_b.longitude},\n"
             + f"              {position_b.latitude},\n"
-            + f"              {position_b.altitude * 1000},\n"
+            + f"              {position_b.altitude},\n"
             + "            ]),\n"
             + "          width: 1,\n"
             + f"          arcType: Cesium.ArcType.{arc_type},\n"
