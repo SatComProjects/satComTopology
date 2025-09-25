@@ -64,6 +64,13 @@ class BaseConfigurationManager(ConfigurationManager):
     def __init__(self, simulation_property: SimulationProperty):
         self.simulation_property = simulation_property
 
+    def __save_property_inside_simulation_manager(
+        self, simulation_manager: SimulationManager
+    ):
+        simulation_manager.configuration.update(
+            properties=self.simulation_property.model_dump(mode="json")
+        )
+
     def __load_inter_satellite_configuration(
         self, simulation_manager: SimulationManager
     ):
@@ -274,6 +281,8 @@ class BaseConfigurationManager(ConfigurationManager):
         simulation = self.__create_and_load_simulation()
 
         simulation_manager = SimulationManager(simulation=simulation)
+
+        self.__save_property_inside_simulation_manager(simulation_manager)
 
         self.__load_time_manager(simulation_manager=simulation_manager)
 
