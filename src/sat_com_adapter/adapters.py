@@ -65,7 +65,11 @@ class NetworkXAdapter(Adapter):
 
         with open(output_directory, "w") as file:
             file.write(
-                json.dumps(json_graph.node_link_data(self.networkx_builder.build()))
+                json.dumps(
+                    json_graph.node_link_data(
+                        self.networkx_builder.build(), edges="edges"
+                    )
+                )
             )
             file.close()
 
