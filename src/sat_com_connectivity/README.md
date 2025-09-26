@@ -68,3 +68,4 @@ class DummyTestStrategy(GroundToSpaceConnectionStrategy):
 - **ConnectToEverythingVisibleStrategy**: Connects to all visible satellites. Name: **everything-visible**.
 - **ConnectToEverythingInRangeStrategy**: Connects to all satellites in range. Name: **everything-in-range**.
 - **ConnectToBestRangeUntilDisconnectionStrategy**: Connects to the satellite with the best range until disconnection. Name: **best-range-until-disconnection**.
+- **ConnectToTheBestAngleStrategy**: Connects to the satellite with the best angle (Handover each time a best angle satellite is found). Name: **best-angle**. 

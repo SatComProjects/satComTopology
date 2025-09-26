@@ -234,3 +234,45 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
             raise TypeError(
                 f"Expected Satellite, got {type(closest_satellite).__name__}"
             )
+
+
+class ConnectToTheBestAngleStrategy(GroundToSpaceConnectionStrategy):
+    strategy_name = "best-angle"
+
+    def compute_ground_object_connection_strategy(
+        self,
+        ground_object: GroundObject,
+        satellites: List[Satellite],
+    ) -> ComputedGroundObjectConnectionsResult:
+
+        computed_ground_object_connections_result = (
+            ComputedGroundObjectConnectionsResult()
+        )
+
+        # Remove all existing links, we will compute them all anyway
+        computed_ground_object_connections_result.obsolete_links.extend(
+            [
+                link
+                for link in ground_object.links
+                if isinstance(link, GroundToSpaceLink)
+            ]
+        )
+
+        best_visible_satellite = get_best_satellites_among_visible_satellites(
+            ground_object, satellites
+        )
+
+        if best_visible_satellite is None:
+            return computed_ground_object_connections_result
+
+        computed_ground_object_connections_result.new_ground_object_connections.append(
+            GroundToSpaceConnection(
+                ground_object=ground_object,
+                satellite=best_visible_satellite.satellite,
+                connection_info={
+                    "elevation_above_horizon": best_visible_satellite.elevation_above_horizon
+                },
+            )
+        )
+
+        return computed_ground_object_connections_result
