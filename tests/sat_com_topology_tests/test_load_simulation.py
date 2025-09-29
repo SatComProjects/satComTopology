@@ -9,6 +9,7 @@ def test_load_single_shell_simulation():
     base_dir = Path(__file__).parent
     print(base_dir)
     data_file_path = "./testing_ground_stations.txt"
+    data_file_path = Path(base_dir) / data_file_path
 
     plain_config_walker = {
         "simulation_name": "Single Shell Simulation",
