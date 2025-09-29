@@ -39,9 +39,9 @@ def test_valid_existing_link(strategy):
     result = strategy.compute_ground_object_connection_strategy(
         ground_object, [satellite]
     )
-
-    assert len(result.new_ground_object_connections) == 1
-    assert isinstance(result.new_ground_object_connections[0], GroundToSpaceConnection)
+    # No new ground link and no obsolete links
+    assert len(result.new_ground_object_connections) == 0
+    assert len(result.obsolete_links) == 0
 
 
 def test_obsolete_link_then_connect_to_closest_satellite(strategy):
