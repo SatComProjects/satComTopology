@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, patch
 
+import numpy as np
+
 from sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils import (
     get_visible_satellites,
     VisibleSatellite,
@@ -14,9 +16,9 @@ from tests.sat_com_connectivity_tests.utils import (
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.compute_elevations"
 )
-def test_get_visible_satellites_filters_correctly(mock_get_elevation_angle):
+def test_get_visible_satellites_filters_correctly(mock_compute_elevations):
     sat1 = MagicMock(spec=Satellite)
     sat2 = MagicMock(spec=Satellite)
     ground = MagicMock()
@@ -41,7 +43,7 @@ def test_get_visible_satellites_filters_correctly(mock_get_elevation_angle):
         0,
     )
 
-    mock_get_elevation_angle.side_effect = [15, 5]  # sat1 passes, sat2 doesn't
+    mock_compute_elevations.return_value = np.array([15, 5])
 
     result = get_visible_satellites([sat1, sat2], ground)
 
@@ -153,9 +155,9 @@ def test_satellite_not_visible_elevation_below_threshold(mock_get_elevation_angl
 
     link = GroundToSpaceLink(source=ground_object, destination=satellite)
 
-    mock_get_elevation_angle.return_value = 15  # Below threshold (25 by default)
+    mock_get_elevation_angle.return_value = 15
 
     result = check_and_update_elevation_if_satellite_is_visible(link)
 
     assert result is False
-    assert link.elevation_above_horizon_angle is None  # Should not be set
+    assert link.elevation_above_horizon_angle is None
