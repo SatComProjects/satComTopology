@@ -34,6 +34,9 @@ class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
         # Check existing links (loop through existing links if there are multiple links)
 
         amount_of_ground_space_link = 0
+
+        valid_links = []
+
         for link in ground_object.links:
             if isinstance(link, GroundToSpaceLink):
                 amount_of_ground_space_link += 1
@@ -41,12 +44,22 @@ class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
                 if check_and_update_elevation_if_satellite_is_visible(
                     link=link,
                 ):
-                    return computed_ground_object_connections_result
+                    valid_links.append(link)
                 else:
                     computed_ground_object_connections_result.obsolete_links.append(
                         link
                     )
                     amount_of_ground_space_link -= 1
+
+        good_satellite_is_still_visible = amount_of_ground_space_link == 1
+
+        if good_satellite_is_still_visible:
+            return computed_ground_object_connections_result
+
+        strategy_has_been_changed = amount_of_ground_space_link > 1
+
+        if strategy_has_been_changed:
+            computed_ground_object_connections_result.obsolete_links.extend(valid_links)
 
         best_visible_satellite = get_best_satellites_among_visible_satellites(
             ground_object, satellites
@@ -177,6 +190,9 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
 
         # Check existing links (loop through existing links if there are multiple links)
         amount_of_ground_space_link = 0
+
+        valid_links = []
+
         for link in ground_object.links:
             if isinstance(link, GroundToSpaceLink):
                 amount_of_ground_space_link += 1
@@ -185,18 +201,7 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
                     link=link,
                     distance_model=self.distance_model,
                 ):
-                    computed_ground_object_connections_result.new_ground_object_connections.append(
-                        GroundToSpaceConnection(
-                            ground_object=ground_object,
-                            satellite=(
-                                link.destination
-                                if isinstance(link.destination, Satellite)
-                                else link.source
-                            ),
-                            connection_info={},
-                        )
-                    )
-                    return computed_ground_object_connections_result
+                    valid_links.append(link)
 
                 else:
                     computed_ground_object_connections_result.obsolete_links.append(
@@ -204,8 +209,15 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
                     )
                     amount_of_ground_space_link -= 1
 
-        if amount_of_ground_space_link > 0:
+        good_satellite_is_still_visible = amount_of_ground_space_link == 1
+
+        if good_satellite_is_still_visible:
             return computed_ground_object_connections_result
+
+        too_many_ground_space_links = amount_of_ground_space_link > 1
+
+        if too_many_ground_space_links > 1:
+            computed_ground_object_connections_result.obsolete_links.extend(valid_links)
 
         visible_satellites = self.distance_model.spatial_position_on_ground_in_range(
             reference_point=ground_object,
