@@ -1,5 +1,6 @@
 from typing import List
 
+import numpy as np
 from pydantic import BaseModel, Field
 
 from sat_com_model.models import (
@@ -7,7 +8,13 @@ from sat_com_model.models import (
     GroundObject,
     GroundToSpaceLink,
 )
-from sat_com_trajectopy.angle_utils import get_elevation_angle
+from sat_com_trajectopy.angle_utils import (
+    get_elevation_angle,
+    latitude_longitude_altitude_to_x_y_z,
+    ground_to_up_vector,
+    satellites_to_ecef,
+    compute_elevations,
+)
 
 
 class VisibleSatellite(BaseModel):
@@ -16,20 +23,26 @@ class VisibleSatellite(BaseModel):
 
 
 def get_visible_satellites(
-    satellites: List[Satellite], ground_object: GroundObject
-) -> List[VisibleSatellite]:
+    satellites: list[Satellite], ground_object: GroundObject
+) -> list[VisibleSatellite]:
+    """
+    Vectorized computation of visible satellites for a single ground object.
+    """
+    gnd_coords = ground_object.get_coordinates().to_latitude_longitude_altitude()
+    gnd_ecef = np.array(latitude_longitude_altitude_to_x_y_z(*gnd_coords))
+    up = ground_to_up_vector(gnd_coords)
 
-    visible_satellites = []
-    for satellite in satellites:
-        elev = get_elevation_angle(
-            sat_coordinates=satellite.get_coordinates().to_latitude_longitude_altitude(),
-            gnd_coordinates=ground_object.get_coordinates().to_latitude_longitude_altitude(),
-        )
-        if elev >= ground_object.ground_object_domain.elevation_above_horizon:
-            visible_satellites.append(
-                VisibleSatellite(satellite=satellite, elevation_above_horizon=elev)
-            )
-    return visible_satellites
+    sat_ecef = satellites_to_ecef(satellites)
+    elevations = compute_elevations(sat_ecef, gnd_ecef, up)
+
+    threshold = ground_object.ground_object_domain.elevation_above_horizon
+    mask = elevations >= threshold
+
+    return [
+        VisibleSatellite(satellite=sat, elevation_above_horizon=elev)
+        for sat, elev, keep in zip(satellites, elevations, mask)
+        if keep
+    ]
 
 
 def check_and_update_elevation_if_satellite_is_visible(link: GroundToSpaceLink) -> bool:
@@ -59,7 +72,7 @@ def check_and_update_elevation_if_satellite_is_visible(link: GroundToSpaceLink) 
 
 def get_best_satellites_among_visible_satellites(
     ground_object: GroundObject,
-    satellites: List[Satellite],
+    satellites: list[Satellite],
 ) -> VisibleSatellite | None:
     """
     Returns the satellite with the highest elevation angle from the list of visible satellites.
