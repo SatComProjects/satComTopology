@@ -26,6 +26,8 @@ def generate_two_line_elements(
     satellite_counter = 0
     two_line_elements = []
 
+    minimum_elevation_angle = 10
+
     for orbit in range(0, number_of_orbits):
         # Orbit-dependent
         raan_degree = orbit * orbit_spreading_degree / number_of_orbits
@@ -38,9 +40,52 @@ def generate_two_line_elements(
 
         # For each satellite in the orbit
         for n_sat in range(0, number_of_satellites_per_plane):
-            mean_anomaly_degree = orbit_wise_shift + (
-                n_sat * 360 / number_of_satellites_per_plane
-            )
+            if (
+                inclination_degree > 80
+                and inclination_degree < 100
+                and (
+                    number_of_satellites_per_plane > 1.3 * number_of_orbits
+                    and number_of_satellites_per_plane < 2.2 * number_of_orbits
+                )
+            ):  # For polar orbits
+
+                mean_motion_rad_per_second = (
+                    mean_motion_revolution_per_day * 2 * math.pi / 86400
+                )
+                semi_major_axis = (
+                    398600.4418 * (1 / mean_motion_rad_per_second) ** 2
+                ) ** (1 / 3)
+                altitude = (
+                    semi_major_axis - 6378.137
+                )  # We need the altitude to obtain half cone angle
+
+                orbit_wise_shift = 180.0 / number_of_satellites_per_plane
+                mean_anomaly_degree = n_sat * 360.0 / number_of_satellites_per_plane
+
+                if orbit % 2 == 0:
+                    mean_anomaly_degree += orbit_wise_shift
+
+                mean_anomaly_degree %= 360.0
+
+                half_cone_angle = math.degrees(
+                    math.acos(
+                        6378.137
+                        / (6378.137 + altitude)
+                        * math.cos(math.radians(minimum_elevation_angle))
+                    )
+                )
+
+                delta = (180.0 - (number_of_orbits - 1) * half_cone_angle) / (
+                    number_of_orbits + 1
+                )
+                phi = half_cone_angle + delta
+
+                raan_degree = orbit * phi
+
+            else:  # For non-polar orbits
+                mean_anomaly_degree = orbit_wise_shift + (
+                    n_sat * 360 / number_of_satellites_per_plane
+                )
 
             # Epoch is set to the year 2000
             # This conveniently in TLE format gives 00001.00000000
