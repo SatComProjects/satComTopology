@@ -4,8 +4,16 @@
 This package is the python library that generates constellations sets of two elements
 
 ## How To Use ?
-DO you need to design a constellation ? A Walker Constellation ?
+Do you need to design a constellation ? A Walker Constellation ?
 Walker Constellation: satellite constellation composed of one or multiple orbits with multiple satellites.
+
+### Satellite Distribution Model
+The library relies on the `generate_two_line_elements` helper to place satellites inside each orbital plane. The implementation follows the Walker geometry described by D.C. Beste in *“Design of Satellite
+Constellations for Optimal Continuous Coverage”*.
+
+- **Polar tailoring**: for high-inclination constellations (≈80°–100°) the algorithm refines the RAAN spacing using Beste’s equal-coverage construction: it computes the half cone angle from the minimum elevation constraint, derives the inter-plane separation `phi`, and distributes planes accordingly to soften coverage overlap near the poles.
+
+These rules ensure the generated Two-Line Elements reflect Walker constellations that respect the phase relationships and coverage geometry documented by Beste.
 
 ### Two Constellations Exists
 - Walker Star Constellation: constellation where orbit planes are distributed around 180°
@@ -54,4 +62,3 @@ for two_line_set in walker_star_constellation.generated_two_line_elements:
     print("Line 1:", two_line_set.line1)
     print("Line 2", two_line_set.line2)
 ```
-
