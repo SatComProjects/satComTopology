@@ -189,6 +189,8 @@ class WalkerShell(BaseModel):
     type: str
     amount_of_orbit_plane: int
     amount_of_satellite_per_orbit_plane: int
+    inclination: float = Field(default=98.7)
+    mean_revolution_per_day: float = Field(default=14.25)
 
     adjacent_inter_satellite_shifting: int = Field(default=0)
     maximum_inter_satellite_range_distance: Optional[float] = None

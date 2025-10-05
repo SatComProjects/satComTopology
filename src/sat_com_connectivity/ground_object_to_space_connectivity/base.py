@@ -9,6 +9,9 @@ from sat_com_model.models import GroundObject, Satellite, GroundToSpaceLink
 
 class GroundToSpaceConnectionStrategy(ABC):
 
+    strategy_name: str = "base_strategy"
+    description: str = "Base strategy - should be overridden"
+
     def __init__(self, **kwargs):
         pass
 
