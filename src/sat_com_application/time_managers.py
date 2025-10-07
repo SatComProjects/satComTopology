@@ -64,7 +64,14 @@ class SimulationTimeManager(TimeManager):
 
     def execute_actions(self):
         for action in self.on_tick_actions:
+            tim_start = time.time()
             action()
+            time_end = time.time()
+            elapsed_time = time_end - tim_start
+            if self.verbose:
+                print(
+                    f"Action {action.__name__} executed in {elapsed_time:.2f} seconds"
+                )
 
     def tick(self, seconds: float = 1):
         self.current_time = self.current_time + datetime.timedelta(seconds=seconds)
