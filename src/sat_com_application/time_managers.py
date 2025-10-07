@@ -76,12 +76,12 @@ class SimulationTimeManager(TimeManager):
         time_after = time.time()
         elapsed_time = time_after - time_now
 
-        if verbose:
+        if self.verbose:
             print(f"Tick executed in {elapsed_time:.2f} seconds")
 
     def tick_until_the_end(self, ticking_time_in_seconds: float = 1):
         while self.current_time < self.end_date:
-            if verbose:
+            if self.verbose:
                 print(
                     f"Current simulation time: {self.current_time.strftime('%Y-%m-%d %H:%M:%S')}"
                 )
