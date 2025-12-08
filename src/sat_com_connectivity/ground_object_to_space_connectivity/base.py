@@ -1,5 +1,4 @@
 from abc import ABC
-from typing import List
 
 from sat_com_connectivity.ground_object_to_space_connectivity.models import (
     ComputedGroundObjectConnectionsResult,
@@ -18,7 +17,7 @@ class GroundToSpaceConnectionStrategy(ABC):
     def compute_ground_object_connection_strategy(
         self,
         ground_object: "GroundObject",
-        satellites: List["Satellite"],
+        satellites: list["Satellite"],
     ) -> ComputedGroundObjectConnectionsResult:
         raise NotImplementedError(
             "compute_ground_object_connection_strategy must be implemented in the subclass"

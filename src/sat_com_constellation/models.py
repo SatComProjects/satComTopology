@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 from pydantic import BaseModel
 from sat_com_constellation.utils import generate_two_line_elements, TwoLineElement
 
@@ -25,7 +25,7 @@ class WalkerConstellationProperty(ConstellationProperty):
 
 class WalkerConstellationData(BaseModel):
     constellation_property: WalkerConstellationProperty
-    constellation_two_line_elements: List[TwoLineElement]
+    constellation_two_line_elements: list[TwoLineElement]
 
 
 class WalkerConstellation(Constellation):
@@ -33,7 +33,7 @@ class WalkerConstellation(Constellation):
     amount_of_satellite_per_orbit_plane: int
     inclination: float
 
-    generated_two_line_elements: Optional[List[TwoLineElement]] = None
+    generated_two_line_elements: Optional[list[TwoLineElement]] = None
 
     ORBIT_SPREADING_DEGREE = 360
 

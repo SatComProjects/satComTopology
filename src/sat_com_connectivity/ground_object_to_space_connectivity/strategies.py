@@ -1,5 +1,3 @@
-from typing import List
-
 from sat_com_connectivity.ground_object_to_space_connectivity.base import (
     GroundToSpaceConnectionStrategy,
 )
@@ -14,12 +12,12 @@ from sat_com_connectivity.ground_object_to_space_connectivity.utils import (
     get_best_visible_satellite_with_biggest_shell,
     get_best_visible_satellite_with_lowest_shell,
 )
-from sat_com_model.models import Satellite, GroundObject, GroundToSpaceLink, WalkerShell
 from sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils import (
     get_visible_satellites,
     check_and_update_elevation_if_satellite_is_visible,
     get_best_satellites_among_visible_satellites,
 )
+from sat_com_model.models import Satellite, GroundObject, GroundToSpaceLink
 
 
 class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrategy):
@@ -30,7 +28,7 @@ class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
     def compute_ground_object_connection_strategy(
         self,
         ground_object: GroundObject,
-        satellites: List[Satellite],
+        satellites: list[Satellite],
     ) -> ComputedGroundObjectConnectionsResult:
 
         computed_ground_object_connections_result = (
@@ -96,7 +94,7 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
     def compute_ground_object_connection_strategy(
         self,
         ground_object: GroundObject,
-        satellites: List[Satellite],
+        satellites: list[Satellite],
     ):
         computed_ground_object_connections_result = (
             ComputedGroundObjectConnectionsResult()
@@ -143,7 +141,7 @@ class ConnectToEverythingInRangeStrategy(GroundToSpaceConnectionStrategy):
     def compute_ground_object_connection_strategy(
         self,
         ground_object: GroundObject,
-        satellites: List[Satellite],
+        satellites: list[Satellite],
     ) -> ComputedGroundObjectConnectionsResult:
         computed_ground_object_connections_result = (
             ComputedGroundObjectConnectionsResult()
@@ -192,7 +190,7 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
     def compute_ground_object_connection_strategy(
         self,
         ground_object: GroundObject,
-        satellites: List[Satellite],
+        satellites: list[Satellite],
     ) -> ComputedGroundObjectConnectionsResult:
         """
         :param ground_object:
@@ -277,7 +275,7 @@ class ConnectToTheBestAngleStrategy(GroundToSpaceConnectionStrategy):
     def compute_ground_object_connection_strategy(
         self,
         ground_object: GroundObject,
-        satellites: List[Satellite],
+        satellites: list[Satellite],
     ) -> ComputedGroundObjectConnectionsResult:
 
         computed_ground_object_connections_result = (

@@ -1,5 +1,3 @@
-from typing import List
-
 from sat_com_connectivity.ground_object_to_space_connectivity.base import (
     GroundToSpaceConnectionStrategy,
 )
@@ -13,7 +11,7 @@ class FakeGroundToSpaceConnectionStrategy(GroundToSpaceConnectionStrategy):
     def compute_ground_object_connection_strategy(
         self,
         ground_object: GroundObject,
-        satellites: List[Satellite],
+        satellites: list[Satellite],
     ) -> ComputedGroundObjectConnectionsResult:
         """
         Fake implementation of the compute_ground_object_connection_strategy method.
