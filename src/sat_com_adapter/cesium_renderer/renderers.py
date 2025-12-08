@@ -1,5 +1,3 @@
-from typing import Any
-
 from sat_com_adapter.cesium_renderer.factories import (
     get_full_html,
     create_background_color,

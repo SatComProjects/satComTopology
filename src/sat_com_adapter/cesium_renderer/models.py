@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -65,7 +65,7 @@ class GroundObjectDomainCustomProperty(BaseModel):
 
 
 class CesiumProperty(BaseModel):
-    shell_to_display: List[str] = Field(default=list())
+    shell_to_display: list[str] = Field(default=list())
 
     display_ground_objects: bool = Field(default=True)
     display_ground_links: bool = Field(default=True)
@@ -83,15 +83,15 @@ class CesiumProperty(BaseModel):
         default_factory=CesiumRendererShellProperty
     )
 
-    shell_custom_properties: List[ShellCustomProperty] = Field(default=list())
+    shell_custom_properties: list[ShellCustomProperty] = Field(default=list())
 
-    ground_object_domain_custom_properties: List[GroundObjectDomainCustomProperty] = (
+    ground_object_domain_custom_properties: list[GroundObjectDomainCustomProperty] = (
         Field(default=list())
     )
     cesium_static_ground_property_connectivity: (
         CesiumRendererStaticGroundObjectConnectivityProperty
     ) = Field(default_factory=CesiumRendererStaticGroundObjectConnectivityProperty)
 
-    cesium_static_custom_ground_connectivity_properties: List[
+    cesium_static_custom_ground_connectivity_properties: list[
         CesiumRendererCustomStaticGroundObjectConnectivity
     ] = Field(default=list())

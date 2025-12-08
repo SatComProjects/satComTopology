@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
-from typing import List, Optional, Tuple
+from typing import Optional
 
 from sat_com_constellation.models import WalkerConstellationProperty
 
@@ -17,7 +17,7 @@ class GroundConnectivityProperty(BaseModel):
     elevation_above_horizon: float = Field(default=20)
     maximum_satellite_range_distance: float = Field(default=1000)
     maximum_satellite_connected_count: Optional[int] = None
-    shell_white_lists: List[str] = Field(default_factory=list)
+    shell_white_lists: list[str] = Field(default_factory=list)
     maximum_connected_satellites: Optional[int] = None
 
     ground_to_space_connections_strategy: str = Field(
@@ -68,7 +68,7 @@ class WalkerShellProperty(BaseModel):
     type: str
     constellation_property: WalkerConstellationProperty
     orbital_connectivity_property: OrbitalConnectivityProperty
-    ground_object_white_list: List[str] = Field(default_factory=list)
+    ground_object_white_list: list[str] = Field(default_factory=list)
 
 
 class GroundConnectivity(BaseModel):
@@ -78,7 +78,7 @@ class GroundConnectivity(BaseModel):
 
     type: str = Field(default="ground-to-ground")
 
-    links: List[Tuple[Tuple[str, int], Tuple[str, int]]] = Field(default_factory=list)
+    links: list[tuple[tuple[str, int], tuple[str, int]]] = Field(default_factory=list)
 
 
 class SimulationProperty(BaseModel):
@@ -102,12 +102,12 @@ class SimulationProperty(BaseModel):
     movement_model: str = Field(default="pyorbital")
     distance_model: str = Field(default="sklearn")
 
-    ground_objects_properties: List[GroundObjectProperty] = Field(default_factory=list)
-    walker_shells: List[WalkerShellProperty] = Field(default_factory=list)
+    ground_objects_properties: list[GroundObjectProperty] = Field(default_factory=list)
+    walker_shells: list[WalkerShellProperty] = Field(default_factory=list)
 
     disable_ground_station_link_preload: bool = Field(default=False)
     static_ground_station_link_mode: bool = Field(default=False)
 
-    ground_connectivity_properties: List[GroundConnectivity] = Field(
+    ground_connectivity_properties: list[GroundConnectivity] = Field(
         default_factory=list
     )

@@ -1,12 +1,9 @@
-from typing import Tuple
-
-
 def calculate_satellite_mesh_coordinates(
     object_id: int,
     number_orbit_plane: int,
     number_satellite_per_orbit_plane: int,
     inter_satellite_shift_phase: int,
-) -> Tuple[int, int]:
+) -> tuple[int, int]:
     """
     Return the coordinates on the constellation grid depending on the identifier of the satellite.
     Satellites identifier should start from 0 to total satellites numbers - 1.

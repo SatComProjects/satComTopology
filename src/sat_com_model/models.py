@@ -3,7 +3,7 @@ from __future__ import annotations
 import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, List
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, computed_field
@@ -112,7 +112,7 @@ class TopologyObject(SpatialPoint):
     type: str = Field(default="TypologyObject", frozen=True)
 
     """These are the links that this object has with other objects in the topology"""
-    links: List[Link] = Field(default_factory=list, exclude=True, repr=False)
+    links: list[Link] = Field(default_factory=list, exclude=True, repr=False)
 
     @computed_field
     @property
@@ -215,7 +215,7 @@ class WalkerShell(BaseModel):
     maximum_connected_user_terminal: Optional[int] = None
     maximum_connected_ground_station: Optional[int] = None
 
-    ground_object_white_list: List[str] = Field(default_factory=list)
+    ground_object_white_list: list[str] = Field(default_factory=list)
 
 
 class GroundObjectDomain(BaseModel):
@@ -226,7 +226,7 @@ class GroundObjectDomain(BaseModel):
     elevation_above_horizon: float = Field(default=20)
     maximum_satellite_range_distance: float = Field(default=1000)
     maximum_satellite_connected_count: Optional[int] = None
-    shell_white_lists: List[str] = Field(default_factory=list)
+    shell_white_lists: list[str] = Field(default_factory=list)
     maximum_connected_satellites: Optional[int] = None
     ground_to_space_connections_strategy: str = Field(default="")
 
@@ -598,21 +598,21 @@ class Simulation:
 
     simulation_name: str
 
-    satellites: List[Satellite]
-    inter_satellite_links: List[InterSatelliteLink]
+    satellites: list[Satellite]
+    inter_satellite_links: list[InterSatelliteLink]
 
-    ground_object_links: List[GroundObjectLink]
+    ground_object_links: list[GroundObjectLink]
 
-    ground_stations: List[GroundStation]
-    ground_station_links: List[GroundStationLink]
+    ground_stations: list[GroundStation]
+    ground_station_links: list[GroundStationLink]
 
-    user_terminals: List[UserTerminal]
-    user_terminal_links: List[UserTerminalLink]
+    user_terminals: list[UserTerminal]
+    user_terminal_links: list[UserTerminalLink]
 
-    point_of_presences: List[PointOfPresence]
+    point_of_presences: list[PointOfPresence]
 
-    walker_shells: List[WalkerShell]
-    ground_object_domains: List[GroundObjectDomain]
+    walker_shells: list[WalkerShell]
+    ground_object_domains: list[GroundObjectDomain]
 
     distance_model: DistanceModel = None
 
