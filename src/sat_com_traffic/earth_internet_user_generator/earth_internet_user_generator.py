@@ -26,7 +26,7 @@ daily_multiplier = {
 
 
 def map_ball_tree_result_with_urban_area(
-    indices: [], center_points_of_urban_areas: [], urbans_area: []
+    indices: list, center_points_of_urban_areas: list, urbans_area: list
 ):
     urban_area_positions_set = {
         (urban_area["GCPNT_LAT"], urban_area["GCPNT_LON"]): urban_area
@@ -52,8 +52,10 @@ def map_ball_tree_result_with_urban_area(
 
 
 def execute_balltree_query(
-    center_points_of_urban_areas: [], input_to_query_positions: [], distance_max_km: int
-) -> []:
+    center_points_of_urban_areas: list,
+    input_to_query_positions: list,
+    distance_max_km: int,
+) -> list:
     positions_rad = np.radians(input_to_query_positions)
 
     distance_max = distance_max_km / 6371
@@ -65,7 +67,7 @@ def execute_balltree_query(
 
 
 def get_urban_areas_around_positions(
-    positions: [(float, float)],
+    positions: list[tuple[float, float]],
     distance_max_km: int,
     minimum_urban_area_population: int = 100000,
 ):
@@ -94,7 +96,7 @@ def get_urban_areas_around_positions(
 
 def get_potential_user_min_and_max_for_urban_area(
     development_value: int, population: float, local_hour: datetime.time
-) -> (float, float):
+) -> tuple[float, float]:
     percentage_of_mex_population_of_user = (
         development_modifier[development_value] * population
     )
@@ -110,7 +112,7 @@ def get_potential_user_min_and_max_for_urban_area(
 
 
 def get_average_potential_user_for_group_of_area(
-    urban_areas: [], local_hour: datetime.time
+    urban_areas: list, local_hour: datetime.time
 ):
     if len(urban_areas) == 0:
         return 0, 0

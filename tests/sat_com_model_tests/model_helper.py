@@ -45,7 +45,7 @@ class FakeMovementModel(MovementModel):
     def is_ascending(self) -> bool:
         return self.ascending
 
-    def get_longitude_latitude(self) -> SpatialPosition:
+    def get_longitude_latitude_altitude(self) -> SpatialPosition:
         return SpatialPosition(
             longitude=self.longitude, latitude=self.latitude, altitude=self.altitude
         )

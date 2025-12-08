@@ -56,7 +56,7 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
     def calculate_amount_of_potential_user_per_satellite(
         self, satellite_range_in_km: int = 100
-    ) -> [(Satellite, int)]:
+    ) -> None:
         """
         Calculate amount of potential users given a range of km for each satellites in the simulation manager.
         This function should be used before executing other functions.
@@ -112,7 +112,7 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
     def get_k_random_satellite_based_on_users_probability(
         self, k: int
-    ) -> [(Satellite, int)]:
+    ) -> list[tuple[Satellite, int]]:
         """
         Get k random satellite based by probability distribution of population.
         :param k: number of satellites to choose randomly
@@ -134,7 +134,7 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
     def get_set_of_random_k_pairs_of_satellite(
         self, k: int
-    ) -> [(Satellite, Satellite)]:
+    ) -> list[tuple[Satellite, Satellite]]:
         """
         Generate k random pairs of satellites using population as weight.
         :param k: number of satellites paris
@@ -154,7 +154,7 @@ class GeographicalBasedTrafficModel(TrafficModel):
 
     def get_set_of_random_k_pairs_of_satellite_distinct(
         self, k: int
-    ) -> [(Satellite, Satellite)]:
+    ) -> list[tuple[Satellite, Satellite]]:
         """
         Generate k random pairs of satellites using population as weight.
         Ensures no satellite is paired with itself.

@@ -23,7 +23,7 @@ from sat_com_model.models import (
 
 
 class CesiumRenderer:
-    elements_to_display: []
+    elements_to_display: list
 
     simulation_manager: SimulationManager
 
@@ -45,9 +45,9 @@ class CesiumRenderer:
 
         self.cesium_renderer_property = cesium_renderer_property
         self.simulation_manager = simulation_manager
-        self.elements_to_display = []
+        self.elements_to_display = list()
 
-    def append_next(self, next_element: any) -> "CesiumRenderer":
+    def append_next(self, next_element: Any) -> "CesiumRenderer":
         """
         Append new code to the Cesium Html file.
         :param next_element: Code to append to the Cesium, should be escaped

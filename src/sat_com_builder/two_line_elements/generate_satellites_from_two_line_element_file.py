@@ -1,7 +1,7 @@
 from sat_com_model.models import create_satellite
 
 
-def generate_satellites_from_two_line_element(two_line_elements: []):
+def generate_satellites_from_two_line_element(two_line_elements: list):
     id_index = 0
     satellites = []
     for tle in two_line_elements:
