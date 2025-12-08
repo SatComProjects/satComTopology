@@ -1,7 +1,5 @@
 import math
 
-import numpy as np
-
 
 def latitude_longitude_altitude_to_x_y_z(lat, lon, elev):
     """

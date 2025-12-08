@@ -158,7 +158,7 @@ def get_sklearn_haversine_distances(
 
 def convert_spatial_position_to_latitude_longitude(
     spatial_position: SpatialPosition,
-) -> (float, float):
+) -> tuple[float, float]:
     """
     Returns a list of latitude and longitude
     :param spatial_position:
@@ -169,7 +169,7 @@ def convert_spatial_position_to_latitude_longitude(
 
 def convert_spatial_positions_to_latitudes_longitudes(
     spatial_positions: list[SpatialPosition],
-) -> list[(float, float)]:
+) -> list[tuple[float, float]]:
     """
     Returns a list of latitude and longitude
     :param spatial_positions:

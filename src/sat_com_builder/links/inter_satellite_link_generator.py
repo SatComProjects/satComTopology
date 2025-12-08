@@ -93,7 +93,7 @@ def generate_walker_star_constellation_grid(
 
 def generate_walker_delta_constellation_grid(
     number_orbits: int, number_satellites_per_orbit: int, isl_shift: int, idx_offset=0
-) -> []:
+) -> list:
     """
     This code generate a grid that represent inter-satellite links. This code come from Hypatia software.
 

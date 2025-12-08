@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Optional, List
@@ -31,16 +32,20 @@ class SpatialPosition(BaseModel):
     latitude: float = Field(default=None)
     altitude: float = Field(default=None)
 
-    def to_longitude_latitude(self) -> (float, float):
+    def to_longitude_latitude(self) -> tuple[float | None, float | None]:
         return self.longitude, self.latitude
 
-    def to_latitude_longitude(self) -> (float, float):
+    def to_latitude_longitude(self) -> tuple[float | None, float | None]:
         return self.latitude, self.longitude
 
-    def to_longitude_latitude_altitude(self) -> (float, float, float):
+    def to_longitude_latitude_altitude(
+        self,
+    ) -> tuple[float | None, float | None, float | None]:
         return self.longitude, self.latitude, self.altitude
 
-    def to_latitude_longitude_altitude(self) -> (float, float, float):
+    def to_latitude_longitude_altitude(
+        self,
+    ) -> tuple[float | None, float | None, float | None]:
         return self.latitude, self.longitude, self.altitude
 
     def __str__(self):
@@ -167,7 +172,17 @@ class MovementModel(ABC):
         pass
 
     @abstractmethod
-    def get_longitude_latitude(self) -> SpatialPosition:
+    def get_longitude_latitude(self):
+        warnings.warn(
+            "get_longitude_latitude() is deprecated and will be removed in a future version. "
+            "Use get_longitude_latitude_altitude() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.get_longitude_latitude_altitude()
+
+    @abstractmethod
+    def get_longitude_latitude_altitude(self) -> SpatialPosition:
         """
         Return the longitude, latitude  and elevation on ground of the orbital object
         :return:
@@ -175,7 +190,7 @@ class MovementModel(ABC):
         pass
 
     @abstractmethod
-    def get_position_earth_general_inertial(self) -> (float, float, float):
+    def get_position_earth_general_inertial(self) -> tuple[float, float, float]:
         """
         This method returns the position of the orbital object in the referential of EGI.
         It can be used in the is_ascending method.
@@ -276,7 +291,9 @@ class OrbitalObject(TopologyObject):
 
     @property
     def spatial_position(self):
-        computed_spatial_position = self.get_movement_model().get_longitude_latitude()
+        computed_spatial_position = (
+            self.get_movement_model().get_longitude_latitude_altitude()
+        )
         self.spatial_position_info = computed_spatial_position
         return computed_spatial_position
 

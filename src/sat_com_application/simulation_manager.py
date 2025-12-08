@@ -35,7 +35,7 @@ from sat_com_model.specifications import (
 
 def get_object_by_object_id(
     object_id: int, topology_objects: list, domain: str = "public"
-) -> Satellite | GroundStation | UserTerminal | PointOfPresence:
+) -> Satellite | GroundStation | UserTerminal | PointOfPresence | None:
     """
     Return the topology object matching its object_id
     :param domain: Domain where the object belong. If missing public domain will be provided

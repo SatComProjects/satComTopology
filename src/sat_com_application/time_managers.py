@@ -1,6 +1,5 @@
 import datetime
 import time
-from tabnanny import verbose
 from typing import Callable
 
 
@@ -19,7 +18,7 @@ class SimulationTimeManager(TimeManager):
     current_time: datetime.datetime
     start_time: datetime.datetime
     end_time: datetime.datetime
-    on_tick_action: [Callable]
+    on_tick_action: list[Callable]
 
     def __init__(
         self,

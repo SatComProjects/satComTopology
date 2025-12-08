@@ -16,6 +16,7 @@ Todo:
 ### Example
 This is an example for a lonely usage, but consider that it should be passed to a OrbitalObject
 in sat_com_topology_model
+
 ```python
 from sat_com_trajectopy.orbital_models import PyOrbitalModel
 from sat_com_application.time_managers import TimeManager
@@ -26,7 +27,7 @@ time_manager = TimeManager()
 
 orbital_model = PyOrbitalModel(your_two_line_element_dict, time_manager)
 
-my_position = orbital_model.get_longitude_latitude()
+my_position = orbital_model.get_longitude_latitude_altitude()
 ```
 With sat_com_model:
 get_coordinates() method will call the MovementModel.
