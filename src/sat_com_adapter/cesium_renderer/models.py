@@ -95,3 +95,5 @@ class CesiumProperty(BaseModel):
     cesium_static_custom_ground_connectivity_properties: list[
         CesiumRendererCustomStaticGroundObjectConnectivity
     ] = Field(default=list())
+
+    background_color: str | None = Field(default=None)
