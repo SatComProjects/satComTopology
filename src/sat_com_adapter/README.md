@@ -209,22 +209,33 @@ from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import Simulation
 from sat_com_adapter.cesium_renderer.renderers import CesiumRenderer
 from sat_com_adapter.adapters import CesiumAdapter
+from sat_com_adapter.cesium_renderer.models import CesiumProperty
 
 my_example_simulation = Simulation()
 
-simulation_manager = SimulationManager(my_example_simulation)
+simulation_manager = SimulationManager(simulation=my_example_simulation)
 
-cesium_adapter = CesiumAdapter(simulation_manager)
+cesium_adapter = CesiumAdapter(
+  simulation_manager=simulation_manager
+)
 
-custom_renderer = CesiumRenderer(simulation_manager, "MY_SUPER_SECRET_CESIUM_TOKEN_OR_NOTHING")
+cesium_property = CesiumProperty()
+
+cesium_property.cesium_token = "MY_SUPER_SECRET_CESIUM_TOKEN_OR_NOTHING"
+
+custom_renderer = CesiumRenderer(
+  simulation_manager=simulation_manager, 
+  cesium_renderer_property=cesium_property
+)
 
 custom_renderer.add_satellites()
 
 custom_renderer.add_ground_stations()
 
-cesium_adapter.set_custom_renderer(custom_renderer)
+cesium_adapter.set_custom_renderer(cesium_renderer=custom_renderer)
 
-cesium_adapter.adapt("my_out_put_folder")
+cesium_adapter.adapt("my_file_name.html")
+
 ```
 
 ![Satellite topology generated with CesiumJS](cesium_renderer/example/topology-render-example.png "Example of Satellite Topology")
