@@ -68,7 +68,9 @@ class BaseConfigurationManager(ConfigurationManager):
         self, simulation_manager: SimulationManager
     ):
         simulation_manager.configuration.update(
-            properties=self.simulation_property.model_dump(mode="json")
+            properties=self.simulation_property.model_dump(
+                mode="json", exclude_none=True
+            )
         )
 
     def __load_inter_satellite_configuration(

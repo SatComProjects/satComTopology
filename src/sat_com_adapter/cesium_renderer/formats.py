@@ -103,7 +103,7 @@ class CesiumFormat:
         if properties is None:
             properties = dict()
 
-        properties.update(**satellite.model_dump(mode="json"))
+        properties.update(**satellite.model_dump(mode="json", exclude_none=True))
 
         satellite_js = self.cesium_element_creator.create_sphere(
             sphere_name=satellite.satellite_name,
@@ -140,7 +140,7 @@ class CesiumFormat:
         if properties is None:
             properties = dict()
 
-        properties.update(**ground_station.model_dump(mode="json"))
+        properties.update(**ground_station.model_dump(mode="json", exclude_none=True))
 
         ground_station_js = self.cesium_element_creator.create_sphere(
             sphere_name=ground_station_name,
@@ -206,7 +206,9 @@ class CesiumFormat:
         html_description = HtmlFormatter(ground_station_link).format()
 
         properties = dict()
-        properties.update(**ground_station_link.model_dump(mode="json"))
+        properties.update(
+            **ground_station_link.model_dump(mode="json", exclude_none=True)
+        )
 
         return self.create_link(
             link=ground_station_link,
@@ -236,7 +238,9 @@ class CesiumFormat:
         if properties is None:
             properties = dict()
 
-        properties.update(**user_terminal_link.model_dump(mode="json"))
+        properties.update(
+            **user_terminal_link.model_dump(mode="json", exclude_none=True)
+        )
 
         return self.create_link(
             link=user_terminal_link,
@@ -281,7 +285,9 @@ class CesiumFormat:
         if properties is None:
             properties = dict()
 
-        properties.update(**inter_satellite_link.model_dump(mode="json"))
+        properties.update(
+            **inter_satellite_link.model_dump(mode="json", exclude_none=True)
+        )
 
         return self.create_link(
             link=inter_satellite_link,
@@ -311,7 +317,9 @@ class CesiumFormat:
 
         if properties is None:
             properties = dict()
-        properties.update(**inter_satellite_link.model_dump(mode="json"))
+        properties.update(
+            **inter_satellite_link.model_dump(mode="json", exclude_none=True)
+        )
 
         return self.create_link(
             link=inter_satellite_link,
@@ -371,7 +379,9 @@ class CesiumFormat:
         if properties is None:
             properties = dict()
 
-        properties.update(**ground_object_link.model_dump(mode="json"))
+        properties.update(
+            **ground_object_link.model_dump(mode="json", exclude_none=True)
+        )
 
         return self.create_link(
             link=ground_object_link,
