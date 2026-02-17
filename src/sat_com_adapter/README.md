@@ -204,6 +204,9 @@ cesium_adapter.adapt("my_out_put_folder")
 ```
 ### With custom render
 
+Customize your renderer with the CesiumRenderer API, then set it in the adapter before calling adapt() method.
+You can access to CesiumRenderer docs here: [CesiumRenderer API](cesium_renderer/README.md).
+
 ```python
 from sat_com_application.simulation_manager import SimulationManager
 from sat_com_model.models import Simulation
