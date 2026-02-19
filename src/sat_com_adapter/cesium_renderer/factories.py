@@ -1,3 +1,5 @@
+import json
+
 from sat_com_adapter.cesium_renderer.utils import color_to_rgba
 from sat_com_model.models import SpatialPosition
 
@@ -94,7 +96,7 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
         }
 
         if properties:
-            czml_dict["properties"] = properties
+            czml_dict["properties"] = json.dumps(properties)
 
         return czml_dict
 
@@ -149,7 +151,7 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
         }
 
         if properties:
-            czml_dict["properties"] = properties
+            czml_dict["properties"] = json.dumps(properties)
 
         return czml_dict
 
@@ -211,7 +213,7 @@ def create_polygon_on_earth_surface_czml(
     }
 
     if properties:
-        czml_dict["properties"] = properties
+        czml_dict["properties"] = json.dumps(properties)
 
     return czml_dict
 
@@ -246,7 +248,7 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
             + f'      id: "{cesium_uniq_identifier}",\n'
             + f"      position: Cesium.Cartesian3.fromDegrees({position.longitude},{position.latitude}, {position.altitude}),\n"
             + f'      description: "{description}",\n'
-            + f"      properties: {properties if properties is not None else str(dict())},\n"
+            + f"      properties: {json.dumps(properties) if properties is not None else str(dict())},\n"
             + "      ellipsoid: {\n"
             + f"        radii: new Cesium.Cartesian3({radius}, {radius},{radius}),\n"
             + f"        material: Cesium.Color.{color}.withAlpha(0.75),\n"
@@ -292,7 +294,7 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
             + f'        name: "Link from {a_name} to {b_name}",\n'
             + f'        id: "{cesium_uniq_identifier}",\n'
             + f'        description: "{description}",\n'
-            + f"        properties: {properties if properties is not None else str(dict())},\n"
+            + f"        properties: {json.dumps(properties)  if properties is not None else str(dict())},\n"
             + "         polyline: {\n"
             + "         positions: Cesium.Cartesian3.fromDegreesArrayHeights([\n"
             + f"              {position_a.longitude},\n"
