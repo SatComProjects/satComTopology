@@ -55,3 +55,8 @@ class FakeMovementModel(MovementModel):
 
     def get_position_earth_general_inertial(self) -> (float, float, float):
         return 100.0, 100.0, 100.0
+
+    def get_longitude_latitude(self):
+        return SpatialPosition(
+            longitude=self.longitude, latitude=self.latitude, altitude=self.altitude
+        )
