@@ -10,3 +10,5 @@ sgp4==2.24
 timezonefinder==6.5.9
 pytest==8.3.5
 pre-commit==4.2.0
+beautifulsoup4
+esprima
