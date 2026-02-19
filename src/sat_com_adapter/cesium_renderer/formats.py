@@ -1,3 +1,5 @@
+import json
+
 from sat_com_adapter.cesium_renderer.factories import (
     CesiumElementFactory,
     CesiumJavaScriptElementFactory,
@@ -216,7 +218,7 @@ class CesiumFormat:
             width=ground_object_property.ground_object_link_width,
             description=html_description,
             on_ground=False,
-            properties=properties,
+            properties=json.dumps(properties),
         )
 
     def create_user_terminal_link(
@@ -248,7 +250,7 @@ class CesiumFormat:
             width=ground_object_property.ground_object_link_width,
             description=html_description,
             on_ground=False,
-            properties=properties,
+            properties=json.dumps(properties),
         )
 
     def create_inter_satellite_link_flow(
