@@ -281,7 +281,11 @@ class CesiumHtmlRenderer(CesiumRenderer):
 
     def render(self) -> str:
         html_code = get_full_html(
-            self.cesium_token, "\n".join(self.elements_to_display)
+            self.cesium_token,
+            "\n".join(self.elements_to_display),
+            clock_time=self.simulation_manager.time_manager.current_time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
         )
         return html_code
 

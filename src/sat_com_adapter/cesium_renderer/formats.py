@@ -90,7 +90,7 @@ class CesiumFormat:
 
     def create_satellite(self, satellite: Satellite, properties: dict = None):
         satellites_cesium_property = self.shells_customs_properties.get(
-            satellite.walker_shell.identifier,
+            satellite.shell.identifier,
             self.cesium_property.cesium_renderer_shell_property,
         )
 
@@ -171,7 +171,7 @@ class CesiumFormat:
         )
 
         ground_station_name = "{username} {object_id}. {topology_id}".format(
-            username=user_terminal.user_name,
+            username=user_terminal.label,
             object_id=user_terminal.object_id,
             topology_id=user_terminal.topology_uniq_id,
         )
@@ -179,7 +179,7 @@ class CesiumFormat:
         if properties is None:
             properties = dict()
 
-        properties.update(**user_terminal.model(mode="json"))
+        properties.update(**user_terminal.model_dump(mode="json"))
 
         terminal_user_js = self.cesium_element_creator.create_sphere(
             sphere_name=ground_station_name,
@@ -218,7 +218,7 @@ class CesiumFormat:
             width=ground_object_property.ground_object_link_width,
             description=html_description,
             on_ground=False,
-            properties=json.dumps(properties),
+            properties=properties,
         )
 
     def create_user_terminal_link(
@@ -250,7 +250,7 @@ class CesiumFormat:
             width=ground_object_property.ground_object_link_width,
             description=html_description,
             on_ground=False,
-            properties=json.dumps(properties),
+            properties=properties,
         )
 
     def create_inter_satellite_link_flow(
@@ -304,7 +304,7 @@ class CesiumFormat:
         self, inter_satellite_link: InterSatelliteLink, properties: dict = None
     ):
         satellites_property = self.shells_customs_properties.get(
-            inter_satellite_link.source.walker_shell.identifier,
+            inter_satellite_link.source.shell.identifier,
             self.cesium_property.cesium_renderer_shell_property,
         )
 

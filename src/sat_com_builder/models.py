@@ -2,7 +2,10 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from sat_com_constellation.models import WalkerConstellationProperty
+from sat_com_constellation.models import (
+    WalkerConstellationProperty,
+    DawnDuskSunSynchronousOrbitConstellationProperty,
+)
 
 
 class GroundObjectData(BaseModel):
@@ -58,6 +61,19 @@ class GroundObjectProperty(BaseModel):
     connectivity_properties: GroundConnectivityProperty
 
 
+class DawnDuskSunSynchronousOrbitShellProperty(BaseModel):
+    """
+    Class that groups properties of a shell with sun synchronous orbit constellation.
+    A shell can take in parameter a list of ground object sets that will be allowed
+    to communicate. If empty, the shell will not have any ground restriction.
+    """
+
+    constellation_property: DawnDuskSunSynchronousOrbitConstellationProperty
+    orbital_connectivity_property: OrbitalConnectivityProperty
+    ground_object_white_list: list[str] = Field(default_factory=list)
+    constellation_white_list: list[str] = Field(default_factory=list)
+
+
 class WalkerShellProperty(BaseModel):
     """
     Class that groups properties of a shell.
@@ -104,6 +120,10 @@ class SimulationProperty(BaseModel):
 
     ground_objects_properties: list[GroundObjectProperty] = Field(default_factory=list)
     walker_shells: list[WalkerShellProperty] = Field(default_factory=list)
+
+    dawn_dusk_sso_shells: list[DawnDuskSunSynchronousOrbitShellProperty] = Field(
+        default_factory=list
+    )
 
     disable_ground_station_link_preload: bool = Field(default=False)
     static_ground_station_link_mode: bool = Field(default=False)
