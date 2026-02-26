@@ -156,10 +156,62 @@ class CesiumCZMLElementFactory(CesiumElementFactory):
         return czml_dict
 
 
-def get_full_html(cesium_token: str, elements: str):
-    return '<html lang="en">\n <head>\n <meta charset="utf-8">\n <script src="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Cesium.js">\n</script>\n <link href="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Widgets/widgets.css" rel="stylesheet">\n <title>\nCesium Viewer</title>\n </head>\n <body>\n <div id="cesiumContainer" style="width: 100%; height:100%">\n</div>\n <script>\n Cesium.Ion.defaultAccessToken = "{cesium_token}";\n const viewer = new Cesium.Viewer("cesiumContainer", {{ skyBox: false, skyAtmosphere: false, baseLayerPicker: true, geocoder: false, homeButton: false, infoBox: true, sceneModePicker: false, navigationHelpButton: false, shouldAnimate: true, contextOptions: {{ webgl: {{ alpha: true }} }} }});\n  var infoBox = new Cesium.InfoBox(\'cesiumContainer\');\n  var scene = viewer.scene;\n {get_elements} </script>\n </body>\n'.format(
-        cesium_token=cesium_token, get_elements=elements
-    )
+def get_full_html(cesium_token: str, elements: str, clock_time: str):
+    """
+    clock_time: ISO string, e.g. "2026-01-01T12:00:00Z"
+    """
+    return f"""
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Cesium.js"></script>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+<title>Cesium Viewer</title>
+</head>
+
+<body>
+<div id="cesiumContainer" style="width: 100%; height:100%"></div>
+
+<script>
+Cesium.Ion.defaultAccessToken = "{cesium_token}";
+
+const viewer = new Cesium.Viewer("cesiumContainer", {{
+    skyBox: false,
+    skyAtmosphere: false,
+    baseLayerPicker: true,
+    geocoder: false,
+    homeButton: false,
+    infoBox: true,
+    sceneModePicker: false,
+    navigationHelpButton: false,
+    shouldAnimate: true,
+    contextOptions: {{
+        webgl: {{ alpha: true }}
+    }}
+}});
+
+// --- Clock Setup ---
+const startTime = Cesium.JulianDate.fromIso8601("{clock_time}");
+const stopTime = Cesium.JulianDate.addHours(startTime, 24, new Cesium.JulianDate());
+
+viewer.clock.startTime = startTime.clone();
+viewer.clock.stopTime = stopTime.clone();
+viewer.clock.currentTime = startTime.clone();
+viewer.clock.clockRange = Cesium.ClockRange.LOOP_STOP;
+viewer.clock.multiplier = 0;  // simulation speed
+viewer.clock.shouldAnimate = false;
+
+// Optional: Zoom timeline to interval
+viewer.timeline.zoomTo(startTime, stopTime);
+viewer.scene.globe.enableLighting = true;
+var scene = viewer.scene;
+
+{elements}
+
+</script>
+</body>
+</html>
+"""
 
 
 def create_background_color(color: str = "WHITESMOKE") -> str:

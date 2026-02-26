@@ -2,6 +2,7 @@ from sat_com_model.models import (
     Satellite,
     GroundObject,
     GroundObjectDomain,
+    Shell,
     WalkerShell,
 )
 from tests.sat_com_model_tests.model_helper import FakeMovementModel
@@ -23,7 +24,7 @@ def make_fake_satellite_small_close_polar_shell():
         topology_uniq_id=1,
         object_id=1,
         satellite_name="FakeSatPolar",
-        walker_shell=WalkerShell(
+        shell=WalkerShell(
             adjacent_inter_satellite_shifting=0,
             inclination=88,
             amount_of_satellite_per_orbit_plane=20,
@@ -41,7 +42,7 @@ def make_fake_satellite_with_low_shell():
         topology_uniq_id=1,
         object_id=1,
         satellite_name="FakeSatLow",
-        walker_shell=WalkerShell(
+        shell=WalkerShell(
             adjacent_inter_satellite_shifting=0,
             inclination=30,
             amount_of_satellite_per_orbit_plane=10,
@@ -60,7 +61,7 @@ def make_fake_satellite_with_high_shell():
         topology_uniq_id=1,
         object_id=1,
         satellite_name="FakeSatHigh",
-        walker_shell=WalkerShell(
+        shell=WalkerShell(
             adjacent_inter_satellite_shifting=0,
             inclination=30,
             amount_of_satellite_per_orbit_plane=10,
@@ -79,7 +80,7 @@ def make_fake_satellite_big_low_inclination_shell():
         topology_uniq_id=1,
         object_id=1,
         satellite_name="FakeSatInclined",
-        walker_shell=WalkerShell(
+        shell=WalkerShell(
             adjacent_inter_satellite_shifting=0,
             inclination=53,
             amount_of_satellite_per_orbit_plane=22,

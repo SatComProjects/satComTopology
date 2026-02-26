@@ -1,6 +1,8 @@
 import uuid
 from typing import Callable
 
+from typing_extensions import deprecated
+
 from sat_com_application.time_managers import SimulationTimeManager
 from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
     GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
@@ -22,11 +24,13 @@ from sat_com_model.models import (
     GroundStationLink,
     UserTerminalLink,
     Flow,
-    WalkerShell,
+    Shell,
     GroundObjectDomain,
     GroundObject,
     GroundObjectLink,
     PointOfPresence,
+    WalkerShell,
+    DawnDuskSSOShell,
 )
 from sat_com_model.specifications import (
     SourceDestinationMatchWithLinkSpecification,
@@ -796,6 +800,7 @@ class SimulationManager:
 
         return list(satellites_connected)
 
+    @deprecated("Use ground_connectives_strategies instead")
     def connect_user_terminal_to_satellites(
         self, user_terminal: UserTerminal, maximum_satellite_range_distance: float
     ):
@@ -825,6 +830,7 @@ class SimulationManager:
                     "An object of type " + type(satellite).__name__ + " wasn't expected"
                 )
 
+    @deprecated("Use ground_connectives_strategies instead")
     def connect_ground_station_to_satellites(
         self,
         ground_station: GroundStation,
@@ -974,6 +980,28 @@ class SimulationManager:
         for point_of_presence in self.simulation.point_of_presences:
             self.remove_cascade_topology_object(point_of_presence)
 
+    def get_walker_shell_satellites(self):
+        """
+        Get all satellites in walker shell
+        :return: List of satellites in walker shell
+        """
+        return [
+            satellite
+            for satellite in self.get_satellites()
+            if isinstance(satellite.shell, WalkerShell)
+        ]
+
+    def sso_shell_satellites(self):
+        """
+        Get all satellites in sso shell
+        :return: List of satellites in sso shell
+        """
+        return [
+            satellite
+            for satellite in self.get_satellites()
+            if isinstance(satellite.shell, DawnDuskSSOShell)
+        ]
+
     def __update_user_terminal_links_in_static_mode(self):
         """
         This method will disable all ground station link that aren't connected
@@ -997,10 +1025,12 @@ class SimulationManager:
         This method will delete all user terminals links and will create new ones according to the current strategy
         :return:
         """
+        walker_satellites = self.get_walker_shell_satellites()
+
         for terminal in self.get_user_terminals():
             update_response = self.ground_to_space_connection_strategies.get(
                 terminal.ground_object_domain.ground_to_space_connections_strategy
-            ).compute_ground_object_connection_strategy(terminal, self.get_satellites())
+            ).compute_ground_object_connection_strategy(terminal, walker_satellites)
 
             for link in update_response.obsolete_links:
                 self.remove_link(link)
@@ -1019,11 +1049,13 @@ class SimulationManager:
         This method will delete all ground station links and will create new ones according to the current strategy
         :return:
         """
+        walker_satellites = self.get_walker_shell_satellites()
+
         for ground_station in self.get_ground_stations():
             update_response = self.ground_to_space_connection_strategies.get(
                 ground_station.ground_object_domain.ground_to_space_connections_strategy
             ).compute_ground_object_connection_strategy(
-                ground_station, self.get_satellites()
+                ground_station, walker_satellites
             )
 
             for link in update_response.obsolete_links:
@@ -1110,13 +1142,10 @@ class SimulationManager:
             self.update_user_terminal_links,
         ]
 
-    def add_walker_shell(self, walker_shell: WalkerShell):
-        self.simulation.walker_shells.append(walker_shell)
-
     def add_ground_object_domain(self, ground_object_domain: GroundObjectDomain):
         self.simulation.ground_object_domains.append(ground_object_domain)
 
-    def get_walker_shell(self, identifier: str) -> WalkerShell:
+    def get_walker_shell(self, identifier: str) -> Shell:
         walker_shells_found = [
             walker_shell
             for walker_shell in self.simulation.walker_shells
@@ -1146,3 +1175,9 @@ class SimulationManager:
 
     def get_point_of_presences(self):
         return self.simulation.point_of_presences
+
+    def add_walker_shell(self, walker_shell: WalkerShell):
+        self.simulation.walker_shells.append(walker_shell)
+
+    def add_sso_shell(self, sso_shell: DawnDuskSSOShell):
+        self.simulation.down_dusk_sso_shells.append(sso_shell)

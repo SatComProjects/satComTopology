@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import datetime
 import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional
+from typing import Optional, Generic, TypeVar, Type
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, computed_field
@@ -199,9 +200,13 @@ class MovementModel(ABC):
         pass
 
 
-class WalkerShell(BaseModel):
+class Shell(BaseModel):
     identifier: str
     type: str
+
+
+class WalkerShell(Shell):
+    type: str = Field(default="WalkerShell", frozen=True)
     amount_of_orbit_plane: int
     amount_of_satellite_per_orbit_plane: int
     inclination: float = Field(default=98.7)
@@ -216,6 +221,13 @@ class WalkerShell(BaseModel):
     maximum_connected_ground_station: Optional[int] = None
 
     ground_object_white_list: list[str] = Field(default_factory=list)
+
+
+class DawnDuskSSOShell(Shell):
+    epoch: datetime.datetime
+    altitude_in_km: float
+
+    type: str = Field(default="SSOShell", frozen=True)
 
 
 class GroundObjectDomain(BaseModel):
@@ -301,19 +313,15 @@ class OrbitalObject(TopologyObject):
         self.get_coordinates()
 
 
-class Satellite(OrbitalObject):
-    satellite_name: str
-    type: str = Field(default="Satellite", frozen=True)
+T_Shell = TypeVar("T_Shell", bound=Shell)
 
-    walker_shell: Optional[WalkerShell] = None
+
+class Satellite(Generic[T_Shell], OrbitalObject):
+    satellite_name: str
+    shell: Optional[T_Shell] = None
 
     def __str__(self):
-        return (
-            super().__str__()
-            + "Satellite name: {satellite_name} satellite_id: {satellite_id} ".format(
-                satellite_name=self.satellite_name, satellite_id=self.object_id
-            )
-        )
+        return f"Satellite name: {self.satellite_name} satellite_id: {self.object_id} shell type: {self.shell.type}"
 
 
 class GroundObject(TopologyObject):
@@ -599,6 +607,7 @@ class Simulation:
     simulation_name: str
 
     satellites: list[Satellite]
+
     inter_satellite_links: list[InterSatelliteLink]
 
     ground_object_links: list[GroundObjectLink]
@@ -612,6 +621,9 @@ class Simulation:
     point_of_presences: list[PointOfPresence]
 
     walker_shells: list[WalkerShell]
+
+    down_dusk_sso_shells: list[DawnDuskSSOShell]
+
     ground_object_domains: list[GroundObjectDomain]
 
     distance_model: DistanceModel = None
@@ -626,6 +638,7 @@ class Simulation:
         self.user_terminals = list()
         self.user_terminal_links = list()
         self.walker_shells = list()
+        self.down_dusk_sso_shells = list()
         self.ground_object_domains = list()
         self.ground_object_links = list()
         self.point_of_presences = list()
@@ -668,17 +681,19 @@ class Simulation:
 def create_satellite(
     satellite_name: str,
     object_id: int,
+    shell: T_Shell,
     domain: str = "public",
-) -> Satellite:
+) -> Satellite[T_Shell]:
     """
     This function creates a Satellite object.
+    :param shell:
     :param satellite_name: The name of the satellite
     :param object_id: The business id of the satellite
     :param domain: The constellation identifier of the satellite.
     :return:
     """
     created_satellite = Satellite(
-        satellite_name=satellite_name, object_id=object_id, domain=domain
+        satellite_name=satellite_name, object_id=object_id, domain=domain, shell=shell
     )
 
     created_satellite.object_id = object_id
