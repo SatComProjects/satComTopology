@@ -2,9 +2,11 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
 from sat_com_constellation.utils import (
-    generate_two_line_elements,
     TwoLineElement,
     generate_sso_dawn_dusk,
+)
+from sat_com_constellation.walker_constellation.walker_propagation import (
+    generate_two_line_elements,
 )
 
 
