@@ -4,7 +4,7 @@ import datetime
 import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, Generic, TypeVar, Type
+from typing import Optional, Generic, TypeVar, Type, Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, computed_field
@@ -203,6 +203,7 @@ class MovementModel(ABC):
 class Shell(BaseModel):
     identifier: str
     type: str
+    optical_link_configuration: Optional[AbstractOpticalLinkConfiguration] = None
 
 
 class WalkerShell(Shell):
@@ -313,12 +314,63 @@ class OrbitalObject(TopologyObject):
         self.get_coordinates()
 
 
+class AbstractOpticalLinkConfiguration(Enum):
+    pass
+
+
+class IntraPlaneOpticalLinkConfiguration(AbstractOpticalLinkConfiguration):
+    FORWARD = 1
+    BACKWARD = 2
+
+
+class Standard4OpticalLinkTopology(AbstractOpticalLinkConfiguration):
+    INTRA_PLANE_FORWARD = 1
+    INTRA_PLANE_BACKWARD = 2
+    INTER_PLANE_RIGHT = 3
+    INTER_PLANE_LEFT = 4
+
+
+class OpticalLinkConfiguration(BaseModel):
+    maximum_angular_velocity_degree_per_second: float = Field(default=1)
+    maximum_range_distance_km: float = Field(default=7800)
+    minimum_contact_duration_seconds: float = Field(default=30)
+
+    max_azimuth_degrees: float = Field(default=175)  # ±175° azimuth
+    min_elevation_degrees: float = Field(default=-25)  # +5°/-25° elev
+    max_elevation_degrees: float = Field(default=5)
+
+    los_central_angle_max_degrees: float = Field(default=80)
+
+    enable_dynamic_reassignment: bool = Field(default=True)
+
+
+class OpticalLinkTerminal(BaseModel):
+    link: InterSatelliteLink = Field(default=None)
+    terminal_orientation: AbstractOpticalLinkConfiguration = Field(default=None)
+
+
 T_Shell = TypeVar("T_Shell", bound=Shell)
 
 
 class Satellite(Generic[T_Shell], OrbitalObject):
     satellite_name: str
     shell: Optional[T_Shell] = None
+
+    optical_link_terminals: list[OpticalLinkTerminal] = Field(default_factory=list)
+
+    def __init__(self, /, **data: Any):
+        super().__init__(**data)
+
+        if self.shell is not None:
+            optical_link_configuration = self.shell.optical_link_configuration
+            if optical_link_configuration is not None:
+                for optical_link_configuration_value in optical_link_configuration:
+                    self.optical_link_terminals.append(
+                        OpticalLinkTerminal(
+                            link=None,
+                            terminal_orientation=optical_link_configuration_value,
+                        )
+                    )
 
     def __str__(self):
         return f"Satellite name: {self.satellite_name} satellite_id: {self.object_id} shell type: {self.shell.type}"
