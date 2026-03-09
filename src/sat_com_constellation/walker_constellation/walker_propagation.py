@@ -113,6 +113,7 @@ def generate_two_line_elements(
                 math.radians(raan_degree),  # nodeo:    right ascension of
                 #           ascending node (radians)
             )
+            sat_sgp4.revnum = 0
 
             # Side notes:
             # [1] WGS72 is also used in the NS-3 model
