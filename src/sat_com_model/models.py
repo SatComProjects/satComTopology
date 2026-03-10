@@ -199,6 +199,15 @@ class MovementModel(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_velocity_earth_general_inertial(self) -> tuple[float, float, float]:
+        """
+        This method returns the velocity of the orbital object in the referential of EGI.
+        It can be used in the is_ascending method.
+        :return:
+        """
+        pass
+
 
 class Shell(BaseModel):
     identifier: str
@@ -346,7 +355,10 @@ class OpticalLinkConfiguration(BaseModel):
 
 class OpticalLinkTerminal(BaseModel):
     link: InterSatelliteLink = Field(default=None)
-    terminal_orientation: AbstractOpticalLinkConfiguration = Field(default=None)
+
+    terminal_configuration: OpticalLinkConfiguration = Field(
+        default_factory=OpticalLinkConfiguration
+    )
 
 
 T_Shell = TypeVar("T_Shell", bound=Shell)

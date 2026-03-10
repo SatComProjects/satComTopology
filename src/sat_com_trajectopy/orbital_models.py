@@ -1,5 +1,6 @@
 import datetime
 
+import numpy as np
 from pyorbital.orbital import Orbital
 
 from sat_com_application.time_managers import TimeManager
@@ -16,6 +17,8 @@ class PyOrbitalModel(MovementModel):
     clock: TimeManager
 
     last_spatial_position: SpatialPosition = None
+
+    last_velocity: tuple[float, float, float] = None
 
     last_time_position_calculated: datetime.datetime = None
 
@@ -85,3 +88,24 @@ class PyOrbitalModel(MovementModel):
         :return:
         """
         return self.orbital_object.get_position(self.clock.get_current_time())
+
+    def get_velocity_earth_general_inertial(self) -> tuple[float, float, float]:
+        """
+        Calculate the velocity in the earth general inertial frame. It is useful to know if object is
+        ascending or descending for example.
+        :return:
+        """
+        # check if velocity is already calculated for the current time
+        time_did_not_change = (
+            self.clock.get_current_time() == self.last_time_position_calculated
+        )
+        already_calculated_a_velocity_before = self.last_velocity is not None
+
+        if time_did_not_change and already_calculated_a_velocity_before:
+            return self.last_velocity
+        else:
+            position, velocity = self.orbital_object.get_position(
+                self.clock.get_current_time()
+            )
+            self.last_velocity = velocity
+            return velocity
