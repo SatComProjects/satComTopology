@@ -1,3 +1,5 @@
+import datetime
+
 from sat_com_model.models import (
     Satellite,
     GroundStation,
@@ -30,6 +32,12 @@ def create_fake_user_terminal_with_object_id(
 
 
 class FakeMovementModel(MovementModel):
+
+    def get_velocity_earth_general_inertial(
+        self, delta: float = 0.0
+    ) -> tuple[float, float, float]:
+        pass
+
     def __init__(
         self,
         longitude: float = 100,
@@ -45,7 +53,7 @@ class FakeMovementModel(MovementModel):
     def is_ascending(self) -> bool:
         return self.ascending
 
-    def get_longitude_latitude_altitude(self) -> SpatialPosition:
+    def get_longitude_latitude_altitude(self, delta_t: float = 0.0) -> SpatialPosition:
         return SpatialPosition(
             longitude=self.longitude, latitude=self.latitude, altitude=self.altitude
         )
@@ -53,10 +61,15 @@ class FakeMovementModel(MovementModel):
     def get_latitude_longitude_altitude(self) -> (float, float, float):
         return self.latitude, self.longitude, self.altitude
 
-    def get_position_earth_general_inertial(self) -> (float, float, float):
+    def get_position_earth_general_inertial(
+        self, delta_t: float = 0.0
+    ) -> (float, float, float):
         return 100.0, 100.0, 100.0
 
     def get_longitude_latitude(self):
         return SpatialPosition(
             longitude=self.longitude, latitude=self.latitude, altitude=self.altitude
         )
+
+    def get_datetime(self) -> datetime.datetime:
+        pass

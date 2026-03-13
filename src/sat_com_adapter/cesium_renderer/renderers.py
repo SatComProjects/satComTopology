@@ -176,6 +176,20 @@ class CesiumRenderer:
 
         return self
 
+    def add_link(self, link: Link, color: str = "RED") -> "CesiumRenderer":
+        self.append_next(
+            self.cesium_format.create_link(
+                link=link,
+                color=color,
+                width=3.0,
+                description=HtmlFormatter(link).format(),
+                properties={},
+                on_ground=False,
+                random_id=True,
+            )
+        )
+        return self
+
     def add_route_from_link(
         self, link: Link, underlined: bool = False, color: str = "RED"
     ) -> "CesiumRenderer":
