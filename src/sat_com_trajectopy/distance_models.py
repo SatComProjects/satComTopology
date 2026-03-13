@@ -6,7 +6,7 @@ from geopy.distance import distance
 from sklearn.metrics.pairwise import haversine_distances
 from sklearn.neighbors import BallTree
 
-from sat_com_model.constants import EARTH_MEAN_RADIUS_KM
+from sat_com_model.constants import EARTH_MEAN_RADIUS_KM, EARTH_RADIUS_KM
 from sat_com_model.models import (
     DistanceModel,
     SpatialPosition,
@@ -345,7 +345,7 @@ class SkLearningDistanceModel(DistanceModel):
         distance_scale_1 = get_sklearn_haversine_distances(
             spatial_position_1, spatial_position_2
         )[0, 1]
-        return distance_scale_1 * self.EARTH_RADIUS_KM * 1000
+        return distance_scale_1 * EARTH_RADIUS_KM * 1000
 
     def get_ground_distance_km(
         self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition

@@ -477,6 +477,8 @@ class Link(BaseModel):
 
     disabled: bool = Field(default=False)
 
+    distance_km: Optional[float] = Field(default=None)
+
     def get_used_capacity_between_hops_unidirectional(
         self, previous_hop: TopologyObject, next_hop: TopologyObject
     ) -> float:
@@ -561,12 +563,12 @@ class GroundToSpaceLink(Link):
 
     estimated_link_duration: float = Field(default=None)
 
-    def get_ground_object(self) -> TopologyObject:
+    def get_ground_object(self) -> GroundObject:
         return (
             self.source if isinstance(self.source, GroundObject) else self.destination
         )
 
-    def get_space_object(self) -> TopologyObject:
+    def get_space_object(self) -> OrbitalObject:
         return (
             self.source if isinstance(self.source, OrbitalObject) else self.destination
         )
@@ -629,6 +631,14 @@ class UserTerminalLink(GroundToSpaceLink):
             raise UserTerminalConnectionError()
 
         super().connect(source, destination)
+
+    def get_satellite(self):
+        return self.source if isinstance(self.source, Satellite) else self.destination
+
+    def get_user_terminal(self):
+        return (
+            self.source if isinstance(self.source, UserTerminal) else self.destination
+        )
 
 
 class GroundObjectLink(Link):

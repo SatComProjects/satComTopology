@@ -12,7 +12,8 @@ HOW TO USE
 """
 
 import math
-from datetime import datetime, timezone
+from datetime import timezone
+
 from astropy.time import Time
 from sgp4.api import Satrec, WGS72
 
