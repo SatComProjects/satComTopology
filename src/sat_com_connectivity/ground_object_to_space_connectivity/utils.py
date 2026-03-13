@@ -1,6 +1,9 @@
+import numpy as np
+
 from sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils import (
     VisibleSatellite,
 )
+from sat_com_model.models import GroundObject
 
 
 def get_best_visible_satellite_with_biggest_shell(
@@ -72,3 +75,58 @@ def get_best_visible_satellite_with_lowest_shell(
         ),
         default=None,
     )
+
+
+def satellites_are_approaching(
+    satellites: list[VisibleSatellite], ground_object: GroundObject
+) -> bool:
+    """
+    Check if the satellite is approaching the ground object.
+    """
+    output = []
+    for satellite in satellites:
+        coordinates_satellite = (
+            satellite.satellite.get_coordinates().to_latitude_longitude_altitude()
+        )
+        future_coordinates_satellite = (
+            satellite.satellite.get_movement_model()
+            .get_longitude_latitude_altitude(delta_t=10)
+            .to_longitude_latitude_altitude()
+        )
+
+        angular_velocity_direction = [
+            future_coordinates_satellite[1] - coordinates_satellite[0],
+            future_coordinates_satellite[0] - coordinates_satellite[1],
+        ]
+        angular_velocity_direction = np.array(
+            angular_velocity_direction
+        ) / np.linalg.norm(angular_velocity_direction)
+
+        coordinates_ground_object = (
+            ground_object.get_coordinates().to_latitude_longitude_altitude()
+        )
+
+        difference_vector = [
+            coordinate_ground_object - coordinate_satellite
+            for coordinate_satellite, coordinate_ground_object in zip(
+                coordinates_satellite[:2], coordinates_ground_object[:2]
+            )
+        ]
+
+        difference_vector = np.array(difference_vector) / np.linalg.norm(
+            difference_vector
+        )
+
+        dot_product = np.dot(angular_velocity_direction, difference_vector)
+
+        if dot_product > 0:
+            # The satellite is approaching the ground object
+            output.append((satellite, dot_product))
+    # Sort the output by angle in descending order
+
+    output.sort(
+        key=lambda x: x[1], reverse=True
+    )  # Sort by angle (the higher the dot product, the closer the satellite is approaching the ground object)
+    output = [satellite for satellite, _ in output]
+
+    return output

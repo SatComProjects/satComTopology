@@ -1,5 +1,12 @@
+from datetime import datetime
+
+import numpy as np
+
 from sat_com_connectivity.ground_object_to_space_connectivity.base import (
     GroundToSpaceConnectionStrategy,
+)
+from sat_com_connectivity.ground_object_to_space_connectivity.connection_duration_utils import (
+    estimate_time_until_disconnection,
 )
 from sat_com_connectivity.ground_object_to_space_connectivity.models import (
     ComputedGroundObjectConnectionsResult,
@@ -79,7 +86,13 @@ class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
                 ground_object=ground_object,
                 satellite=best_visible_satellite.satellite,
                 connection_info={
-                    "elevation_above_horizon": best_visible_satellite.elevation_above_horizon
+                    "elevation_above_horizon": best_visible_satellite.elevation_above_horizon,
+                    "estimated_link_duration": estimate_time_until_disconnection(
+                        ground_object=ground_object,
+                        satellite=best_visible_satellite.satellite,
+                        minimum_elevation=ground_object.ground_object_domain.elevation_above_horizon,
+                        tol=0.100,
+                    ),
                 },
             )
         )
@@ -119,7 +132,13 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                     ground_object=ground_object,
                     satellite=visible_satellite.satellite,
                     connection_info={
-                        "elevation_above_horizon": visible_satellite.elevation_above_horizon
+                        "elevation_above_horizon": visible_satellite.elevation_above_horizon,
+                        "estimated_link_duration": estimate_time_until_disconnection(
+                            ground_object=ground_object,
+                            satellite=visible_satellite.satellite,
+                            minimum_elevation=ground_object.ground_object_domain.elevation_above_horizon,
+                            tol=0.100,
+                        ),
                     },
                 )
             )
@@ -460,5 +479,122 @@ class ConnectToBestAngleUntilDisconnectionPreferLowerShellStrategy(
                 },
             )
         )
+
+        return computed_ground_object_connections_result
+
+
+class LongestConnectionTimeStrategy(GroundToSpaceConnectionStrategy):
+    """
+    Connection strategy that connects ground objects to the furthest away satellites that are getting closer.
+    It sorts the visible satellites by their elevation above horizon and then checks which of them is getting closer to the ground object.
+    If a satellite is getting closer, it is added to the list of considered satellites. The strategy then connects the ground object to the best considered satellite.
+    If no satellites are getting closer, it connects the ground object to the best visible satellite.
+    If the ground object already has a connection to a satellite, it will keep that connection as long as it is still visible.
+    Minimizes number of handover
+    """
+
+    strategy_name = "longest-connection-time-strategy"
+
+    def compute_ground_object_connection_strategy(
+        self,
+        ground_object: GroundObject,
+        satellites: list[Satellite],
+    ):
+
+        maximum_number_of_links = (
+            ground_object.ground_object_domain.maximum_connected_satellites
+        )
+
+        computed_ground_object_connections_result = (
+            ComputedGroundObjectConnectionsResult()
+        )
+
+        # Remove all existing links, we will compute them all anyway
+        computed_ground_object_connections_result.obsolete_links.extend(
+            [
+                link
+                for link in ground_object.links
+                if isinstance(link, GroundToSpaceLink)
+            ]
+        )
+
+        visible_satellites = get_visible_satellites(
+            satellites=satellites, ground_object=ground_object
+        )
+
+        # There is a linear relationship between distance and elevation so lets sort by elevation
+        visible_satellites.sort(key=lambda x: x.elevation_above_horizon, reverse=True)
+
+        ############## First check: Keep existing connections if they are still valid ##############
+
+        for visible_satellite in visible_satellites:
+
+            if (
+                visible_satellite.satellite
+                in [
+                    link.source
+                    for link in ground_object.links
+                    if isinstance(
+                        link, GroundToSpaceLink
+                    )  # This checks if satellite is already connected
+                ]
+                and len(
+                    computed_ground_object_connections_result.new_ground_object_connections
+                )
+                < maximum_number_of_links
+            ):  # This checks if the maximum number of links is not exceeded
+                new_link = GroundToSpaceConnection(
+                    ground_object=ground_object,
+                    satellite=visible_satellite.satellite,
+                    connection_info={
+                        "elevation_above_horizon": visible_satellite.elevation_above_horizon
+                    },
+                )
+
+                # Keep the connection if it already exists
+                computed_ground_object_connections_result.new_ground_object_connections.append(
+                    new_link
+                )
+
+        if (
+            len(computed_ground_object_connections_result.new_ground_object_connections)
+            >= maximum_number_of_links
+        ):
+            # If we already have enough connections, we can stop here
+
+            return computed_ground_object_connections_result
+
+        list_of_satellites = []
+        for visible_satellite in visible_satellites:
+            time_until_disconnection = self.estimate_time_until_disconnection(
+                ground_object=ground_object,
+                satellite=visible_satellite.satellite,
+                minimum_elevation=ground_object.ground_object_domain.elevation_above_horizon,
+            )
+
+            list_of_satellites.append((visible_satellite, time_until_disconnection))
+
+        # Sort the visible satellites by time until disconnection
+        list_of_satellites.sort(key=lambda x: x[1], reverse=True)
+
+        for visible_satellite, time_until_disconnection in list_of_satellites:
+            if (
+                len(
+                    computed_ground_object_connections_result.new_ground_object_connections
+                )
+                >= maximum_number_of_links
+            ):
+                # If we already have enough connections, we can stop here
+                break
+            new_link = GroundToSpaceConnection(
+                ground_object=ground_object,
+                satellite=visible_satellite.satellite,
+                connection_info={
+                    "elevation_above_horizon": visible_satellite.elevation_above_horizon
+                },
+            )
+            computed_ground_object_connections_result.new_ground_object_connections.append(
+                new_link
+            )
 
         return computed_ground_object_connections_result

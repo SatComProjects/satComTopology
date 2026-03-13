@@ -284,9 +284,11 @@ class SimulationManager:
         satellite: Satellite,
         ground_station: GroundStation,
         elevation_above_horizon_angle: float = 0,
+        estimated_link_duration: float = None,
     ) -> GroundStationLink:
         """
         Create a ground station link between a satellite and a ground station and append it to the simulation.
+        :param estimated_link_duration:
         :param satellite: Satellite instance
         :param ground_station: GroundStation instance
         :param elevation_above_horizon_angle:
@@ -298,6 +300,7 @@ class SimulationManager:
         ground_station_link.elevation_above_horizon_angle = (
             elevation_above_horizon_angle
         )
+        ground_station_link.estimated_link_duration = estimated_link_duration
 
         satellite.links.append(ground_station_link)
         ground_station.links.append(ground_station_link)
@@ -310,6 +313,7 @@ class SimulationManager:
         satellite: Satellite,
         user_terminal: UserTerminal,
         elevation_above_horizon_angle: float = 0,
+        estimated_link_duration: float = None,
     ) -> UserTerminalLink:
         """
         Create a user terminal link between a satellite and a user terminal
@@ -321,6 +325,7 @@ class SimulationManager:
         user_terminal_link = UserTerminalLink()
         user_terminal_link.connect(satellite, user_terminal)
         user_terminal_link.elevation_above_horizon_angle = elevation_above_horizon_angle
+        user_terminal_link.estimated_link_duration = estimated_link_duration
 
         satellite.links.append(user_terminal_link)
         user_terminal.links.append(user_terminal_link)
@@ -991,7 +996,7 @@ class SimulationManager:
             if isinstance(satellite.shell, WalkerShell)
         ]
 
-    def sso_shell_satellites(self):
+    def get_sso_shell_satellites(self):
         """
         Get all satellites in sso shell
         :return: List of satellites in sso shell
@@ -1042,6 +1047,9 @@ class SimulationManager:
                     elevation_above_horizon_angle=new_connection.connection_info.get(
                         "elevation_above_horizon", -1
                     ),
+                    estimated_link_duration=new_connection.connection_info.get(
+                        "estimated_link_duration", -1
+                    ),
                 )
 
     def __update_ground_stations_default(self):
@@ -1067,6 +1075,9 @@ class SimulationManager:
                     ground_station=ground_station,
                     elevation_above_horizon_angle=new_connection.connection_info.get(
                         "elevation_above_horizon", -1
+                    ),
+                    estimated_link_duration=new_connection.connection_info.get(
+                        "estimated_link_duration", -1
                     ),
                 )
 

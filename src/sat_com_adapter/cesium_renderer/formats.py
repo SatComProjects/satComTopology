@@ -56,12 +56,13 @@ class CesiumFormat:
         description: str,
         on_ground: bool,
         properties: dict,
+        random_id: bool = False,
     ):
         source = link.source
         destination = link.destination
 
         link_unique_id = get_link_cesium_unique_identifier(
-            source.topology_uniq_id, destination.topology_uniq_id
+            source.topology_uniq_id, destination.topology_uniq_id, random_id
         )
 
         if properties is None:

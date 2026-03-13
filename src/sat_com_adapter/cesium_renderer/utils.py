@@ -5,8 +5,18 @@ def get_topology_object_cesium_unique_identifier(
 
 
 def get_link_cesium_unique_identifier(
-    topology_object_id_a: int, topology_object_id_b: int
+    topology_object_id_a: int, topology_object_id_b: int, random_id: bool
 ) -> str:
+    if random_id:
+        import random
+
+        random_suffix = random.randint(0, 1000000)
+        return "link_{link_a}-{link_b}_{random_suffix}".format(
+            link_a=topology_object_id_a,
+            link_b=topology_object_id_b,
+            random_suffix=random_suffix,
+        )
+
     return "link_{link_a}-{link_b}".format(
         link_a=topology_object_id_a, link_b=topology_object_id_b
     )

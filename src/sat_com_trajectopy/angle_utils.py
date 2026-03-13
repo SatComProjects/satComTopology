@@ -1,5 +1,7 @@
 import math
 
+from sat_com_model.constants import WGS72_A
+
 
 def latitude_longitude_altitude_to_x_y_z(lat, lon, elev):
     """
@@ -9,7 +11,7 @@ def latitude_longitude_altitude_to_x_y_z(lat, lon, elev):
     :param elev: Elevation
     :return: Cartesian coordinates
     """
-    R = 6378.137 * 1000  # Radius of the Earth in km
+    R = WGS72_A * 1000  # Radius of the Earth in km
     x = (R + elev) * math.cos(math.radians(lat)) * math.cos(math.radians(lon))
     y = (R + elev) * math.cos(math.radians(lat)) * math.sin(math.radians(lon))
     z = (R + elev) * math.sin(math.radians(lat))

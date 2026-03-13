@@ -4,7 +4,7 @@ import datetime
 import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, Generic, TypeVar, Type, Any
+from typing import Optional, Generic, TypeVar, Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, computed_field
@@ -165,6 +165,14 @@ class MovementModel(ABC):
     """
 
     @abstractmethod
+    def get_datetime(self) -> datetime.datetime:
+        """
+        Return the current time of the movement model.
+        :return:
+        """
+        pass
+
+    @abstractmethod
     def is_ascending(self) -> bool:
         """
         Return True if the Orbital object is in its ascending phase.
@@ -183,7 +191,7 @@ class MovementModel(ABC):
         return self.get_longitude_latitude_altitude()
 
     @abstractmethod
-    def get_longitude_latitude_altitude(self) -> SpatialPosition:
+    def get_longitude_latitude_altitude(self, delta_t: float = 0.0) -> SpatialPosition:
         """
         Return the longitude, latitude  and elevation on ground of the orbital object
         :return:
@@ -191,7 +199,9 @@ class MovementModel(ABC):
         pass
 
     @abstractmethod
-    def get_position_earth_general_inertial(self) -> tuple[float, float, float]:
+    def get_position_earth_general_inertial(
+        self, delta: float = 0.0
+    ) -> tuple[float, float, float]:
         """
         This method returns the position of the orbital object in the referential of EGI.
         It can be used in the is_ascending method.
@@ -200,7 +210,9 @@ class MovementModel(ABC):
         pass
 
     @abstractmethod
-    def get_velocity_earth_general_inertial(self) -> tuple[float, float, float]:
+    def get_velocity_earth_general_inertial(
+        self, delta: float = 0.0
+    ) -> tuple[float, float, float]:
         """
         This method returns the velocity of the orbital object in the referential of EGI.
         It can be used in the is_ascending method.
@@ -250,7 +262,9 @@ class GroundObjectDomain(BaseModel):
     maximum_satellite_connected_count: Optional[int] = None
     shell_white_lists: list[str] = Field(default_factory=list)
     maximum_connected_satellites: Optional[int] = None
-    ground_to_space_connections_strategy: str = Field(default="")
+    ground_to_space_connections_strategy: str = Field(
+        default="best-angle-until-disconnection"
+    )
 
 
 class OrbitalObject(TopologyObject):
@@ -354,7 +368,9 @@ class OpticalLinkConfiguration(BaseModel):
 
 
 class OpticalLinkTerminal(BaseModel):
-    link: InterSatelliteLink = Field(default=None)
+    link: Optional[InterSatelliteLink] = Field(default=None)
+
+    possible_links: list[InterSatelliteLink] = Field(default_factory=list)
 
     terminal_configuration: OpticalLinkConfiguration = Field(
         default_factory=OpticalLinkConfiguration
@@ -373,16 +389,12 @@ class Satellite(Generic[T_Shell], OrbitalObject):
     def __init__(self, /, **data: Any):
         super().__init__(**data)
 
-        if self.shell is not None:
-            optical_link_configuration = self.shell.optical_link_configuration
-            if optical_link_configuration is not None:
-                for optical_link_configuration_value in optical_link_configuration:
-                    self.optical_link_terminals.append(
-                        OpticalLinkTerminal(
-                            link=None,
-                            terminal_orientation=optical_link_configuration_value,
-                        )
-                    )
+        for i in range(4):
+            self.optical_link_terminals.append(
+                OpticalLinkTerminal(
+                    link=None,
+                )
+            )
 
     def __str__(self):
         return f"Satellite name: {self.satellite_name} satellite_id: {self.object_id} shell type: {self.shell.type}"
@@ -532,8 +544,32 @@ class InterSatelliteLink(Link):
         use_enum_values = True
 
 
+class OpticalConstraint(BaseModel):
+    azimuth_angle_degree: float = Field(default=None)
+    elevation_angle_degree: float = Field(default=None)
+    range_distance_km: float = Field(default=None)
+    angular_velocity_rate_degree_per_second: float = Field(default=None)
+
+
+class OpticalInterSatelliteLink(InterSatelliteLink):
+    source_constraint: OpticalConstraint = Field(default=None)
+    destination_constraint: OpticalConstraint = Field(default=None)
+
+
 class GroundToSpaceLink(Link):
     elevation_above_horizon_angle: float = Field(default=None)
+
+    estimated_link_duration: float = Field(default=None)
+
+    def get_ground_object(self) -> TopologyObject:
+        return (
+            self.source if isinstance(self.source, GroundObject) else self.destination
+        )
+
+    def get_space_object(self) -> TopologyObject:
+        return (
+            self.source if isinstance(self.source, OrbitalObject) else self.destination
+        )
 
 
 class GroundStationLink(GroundToSpaceLink):
@@ -562,6 +598,14 @@ class GroundStationLink(GroundToSpaceLink):
             )
 
         super().connect(source, destination)
+
+    def get_satellite(self):
+        return self.source if isinstance(self.source, Satellite) else self.destination
+
+    def get_ground_station(self):
+        return (
+            self.source if isinstance(self.source, GroundStation) else self.destination
+        )
 
 
 class UserTerminalLink(GroundToSpaceLink):

@@ -46,24 +46,7 @@ from sgp4.conveniences import jday
 from sgp4.exporter import export_tle
 
 from sat_com_constellation.utils import TwoLineElement
-
-# ---------------------------------------------------------------------------
-# Earth physical constants
-# ---------------------------------------------------------------------------
-# WGS72 constants are used throughout because TLEs are defined in the WGS72
-# frame. The SGP4 propagator (which consumes TLEs) was fitted to WGS72.
-# Using WGS84 constants would introduce a small but systematic inconsistency.
-# Reference: [1] Appendix D; sgp4 library source (Vallado et al., 2006).
-
-MU_KM3_S2 = 398600.8  # km^3/s^2
-RE_KM = 6378.135  # km
-J2 = 1.082616e-3
-J4 = -1.65597e-6
-
-# Sun's mean angular velocity along the ecliptic (tropical year).
-# Using Vallado's precise value of 365.2421897 days [1, p.863].
-TROPICAL_YEAR_DAYS = 365.2421897
-SUN_MEAN_MOTION_RAD_S = 2.0 * math.pi / (TROPICAL_YEAR_DAYS * 86400.0)  # rad/s
+from sat_com_model.constants import RE_KM, MU_KM3_S2, SUN_MEAN_MOTION_RAD_S, J2, J4
 
 # ===========================================================================
 # Step 1 — High-precision Sun right ascension
