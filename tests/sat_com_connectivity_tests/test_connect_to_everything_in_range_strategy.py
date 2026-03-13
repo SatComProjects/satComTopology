@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from sat_com_connectivity.ground_object_to_space_connectivity.strategies import (
     ConnectToEverythingInRangeStrategy,
@@ -10,13 +10,26 @@ from tests.sat_com_connectivity_tests.utils import (
 )
 
 
-def test_connect_to_everything_in_range_strategy():
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.get_elevation_angle"
+)
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
+def test_connect_to_everything_in_range_strategy(
+    mock_estimate_time_until_disconnection, mock_get_elevation_angle
+):
     mock_distance_model = MagicMock()
 
     strategy = ConnectToEverythingInRangeStrategy(distance_model=mock_distance_model)
 
     ground_object = make_fake_ground_object()
     ground_object.ground_object_domain.maximum_satellite_range_distance = 1000
+
+    mock_estimate_time_until_disconnection.return_value = 300
+
+    mock_get_elevation_angle.return_value = 45
+    strategy.distance_model.get_3d_distance_meters.return_value = 800_000
 
     sat_in_range_1 = make_fake_satellite()
     sat_in_range_1.topology_uniq_id = 101
@@ -53,7 +66,3 @@ def test_connect_to_everything_in_range_strategy():
 
     connected_ids = {conn.satellite.topology_uniq_id for conn in new_connections}
     assert connected_ids == {101, 102}
-
-    # Connection info should be empty dicts
-    for conn in new_connections:
-        assert conn.connection_info == {}
