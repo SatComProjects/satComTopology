@@ -131,22 +131,19 @@ class TestISLCreatedEvent:
         sat_a = make_satellite(topology_uniq_id=1)
         sat_b = make_satellite(topology_uniq_id=2)
 
-        with patch("asyncio.create_task") as mock_task:
+        with patch("asyncio.run") as mock_run:
             manager.create_and_add_inter_satellite_link_connection(sat_a, sat_b)
-            assert mock_task.called
-            event = mock_task.call_args[0][0]  # the coroutine argument
+            assert mock_run.called
 
     def test_isl_created_event_type(self):
         manager = make_simulation_manager()
         sat_a = make_satellite(topology_uniq_id=1)
         sat_b = make_satellite(topology_uniq_id=2)
 
-        published_events = []
-
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.create_and_add_inter_satellite_link_connection(sat_a, sat_b)
 
         manager.event_bus.publish.assert_called_once()
@@ -158,10 +155,10 @@ class TestISLCreatedEvent:
         sat_a = make_satellite(topology_uniq_id=1)
         sat_b = make_satellite(topology_uniq_id=2)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.create_and_add_inter_satellite_link_connection(sat_a, sat_b)
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -173,10 +170,10 @@ class TestISLCreatedEvent:
         sat_a = make_satellite(topology_uniq_id=1)
         sat_b = make_satellite(topology_uniq_id=2)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.create_and_add_inter_satellite_link_connection(sat_a, sat_b)
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -187,10 +184,9 @@ class TestISLCreatedEvent:
         sat_a = make_satellite(topology_uniq_id=1)
         sat_b = make_satellite(topology_uniq_id=2)
 
-        # Should not raise
-        with patch("asyncio.create_task") as mock_task:
+        with patch("asyncio.run") as mock_run:
             manager.create_and_add_inter_satellite_link_connection(sat_a, sat_b)
-            mock_task.assert_not_called()
+            mock_run.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -201,10 +197,10 @@ class TestISLCreatedEvent:
 class TestGSLCreatedEvent:
 
     def _create_gsl(self, manager, sat, gs, elevation=30.0, duration=300.0):
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             return manager.create_and_add_ground_station_link_connection(
                 satellite=sat,
                 ground_station=gs,
@@ -275,10 +271,10 @@ class TestGSLCreatedEvent:
 class TestUTLCreatedEvent:
 
     def _create_utl(self, manager, sat, ut, elevation=25.0, duration=200.0):
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             return manager.create_and_add_user_terminal_link_connection(
                 satellite=sat,
                 user_terminal=ut,
@@ -348,10 +344,10 @@ class TestISLRemovedEvent:
         sat_b.links.append(link)
         manager.simulation.inter_satellite_links.append(link)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.remove_link(link)
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -366,10 +362,10 @@ class TestISLRemovedEvent:
         sat_b.links.append(link)
         manager.simulation.inter_satellite_links.append(link)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.remove_link(link)
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -393,10 +389,10 @@ class TestGSLRemovedEvent:
         gs.links.append(link)
         manager.simulation.ground_station_links.append(link)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.remove_link(link)
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -411,10 +407,10 @@ class TestGSLRemovedEvent:
         gs.links.append(link)
         manager.simulation.ground_station_links.append(link)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.remove_link(link)
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -438,10 +434,10 @@ class TestUTLRemovedEvent:
         ut.links.append(link)
         manager.simulation.user_terminal_links.append(link)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.remove_link(link)
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -456,10 +452,10 @@ class TestUTLRemovedEvent:
         ut.links.append(link)
         manager.simulation.user_terminal_links.append(link)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.remove_link(link)
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -484,10 +480,10 @@ class TestGSLUpdatedEvent:
         manager = make_simulation_manager()
         link = self._make_gsl_link()
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
                 ground_to_space_link=link,
                 connection_info={
@@ -504,10 +500,10 @@ class TestGSLUpdatedEvent:
         manager = make_simulation_manager()
         link = self._make_gsl_link(sat_id=2, gs_id=11)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
                 ground_to_space_link=link,
                 connection_info={"elevation_above_horizon_angle": 55.0},
@@ -520,10 +516,10 @@ class TestGSLUpdatedEvent:
         manager = make_simulation_manager()
         link = self._make_gsl_link()
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
                 ground_to_space_link=link,
                 connection_info={"distance_km": 1200.0},
@@ -536,10 +532,10 @@ class TestGSLUpdatedEvent:
         manager = make_simulation_manager()
         link = self._make_gsl_link()
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
                 ground_to_space_link=link,
                 connection_info={"estimated_link_duration": 250.0},
@@ -552,13 +548,13 @@ class TestGSLUpdatedEvent:
         manager = make_simulation_manager()
         link = self._make_gsl_link()
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
                 ground_to_space_link=link,
-                connection_info={},  # all missing
+                connection_info={},
             )
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -570,10 +566,10 @@ class TestGSLUpdatedEvent:
         manager = make_simulation_manager()
         link = self._make_gsl_link(sat_id=7, gs_id=42)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
                 ground_to_space_link=link, connection_info={}
             )
@@ -600,10 +596,10 @@ class TestUTLUpdatedEvent:
         manager = make_simulation_manager()
         link = self._make_utl_link()
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_user_terminal_link(
                 user_terminal_link=link,
                 connection_info={
@@ -620,10 +616,10 @@ class TestUTLUpdatedEvent:
         manager = make_simulation_manager()
         link = self._make_utl_link(sat_id=8, ut_id=33)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_user_terminal_link(
                 user_terminal_link=link, connection_info={}
             )
@@ -636,10 +632,10 @@ class TestUTLUpdatedEvent:
         manager = make_simulation_manager()
         link = self._make_utl_link()
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_user_terminal_link(
                 user_terminal_link=link, connection_info={}
             )
@@ -670,10 +666,10 @@ class TestISLUpdatedEvent:
             )
         )
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_inter_satellite_links()
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -692,10 +688,10 @@ class TestISLUpdatedEvent:
             )
         )
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_inter_satellite_links()
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -711,18 +707,18 @@ class TestISLUpdatedEvent:
         manager.simulation.inter_satellite_links.append(link)
         manager.simulation.get_distance_model = MagicMock(
             return_value=MagicMock(
-                get_3d_distance_meters=MagicMock(return_value=1_500_000)  # metres
+                get_3d_distance_meters=MagicMock(return_value=1_500_000)
             )
         )
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.update_inter_satellite_links()
 
         event = manager.event_bus.publish.call_args[0][0]
-        assert event.distance_km == pytest.approx(1500.0)  # converted to km
+        assert event.distance_km == pytest.approx(1500.0)
 
 
 # ---------------------------------------------------------------------------
@@ -756,7 +752,7 @@ class TestNoEventBus:
 
 
 # ---------------------------------------------------------------------------
-# sim_time is stamped only when time_manager is present
+# sim_time stamping
 # ---------------------------------------------------------------------------
 
 
@@ -767,14 +763,13 @@ class TestSimTimeStamping:
         sat_a = make_satellite(1)
         sat_b = make_satellite(2)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.create_and_add_inter_satellite_link_connection(sat_a, sat_b)
 
         event = manager.event_bus.publish.call_args[0][0]
-        # sim_time should not be set (remains at default, usually None)
         assert not hasattr(event, "sim_time") or event.sim_time is None
 
     def test_event_sim_time_matches_current_time(self):
@@ -785,10 +780,10 @@ class TestSimTimeStamping:
         sat_a = make_satellite(1)
         sat_b = make_satellite(2)
 
-        def capture_task(coro):
+        def capture_run(coro):
             run_async(coro)
 
-        with patch("asyncio.create_task", side_effect=capture_task):
+        with patch("asyncio.run", side_effect=capture_run):
             manager.create_and_add_inter_satellite_link_connection(sat_a, sat_b)
 
         event = manager.event_bus.publish.call_args[0][0]
