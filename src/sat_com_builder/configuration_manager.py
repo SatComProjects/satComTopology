@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 import yaml
 
+from sat_com_application.event_bus.bus import EventBus
 from sat_com_application.simulation_manager import (
     SimulationManager,
     get_object_by_object_id,
@@ -63,8 +64,12 @@ class ConfigurationManager(ABC):
 
 class BaseConfigurationManager(ConfigurationManager):
 
-    def __init__(self, simulation_property: SimulationProperty):
+    def __init__(
+        self, simulation_property: SimulationProperty, event_bus: EventBus = None
+    ):
         self.simulation_property = simulation_property
+
+        self.event_bus = event_bus
 
     def __save_property_inside_simulation_manager(
         self, simulation_manager: SimulationManager
@@ -335,7 +340,9 @@ class BaseConfigurationManager(ConfigurationManager):
     def load_simulation(self) -> SimulationManager:
         simulation = self.__create_and_load_simulation()
 
-        simulation_manager = SimulationManager(simulation=simulation)
+        simulation_manager = SimulationManager(
+            simulation=simulation, event_bus=self.event_bus
+        )
 
         self.__save_property_inside_simulation_manager(simulation_manager)
 

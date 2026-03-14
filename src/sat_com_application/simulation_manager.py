@@ -150,10 +150,17 @@ class SimulationManager:
             update_function()
 
     def __publish_event(self, event: Event):
-        if self.event_bus is not None:
-            if self.time_manager:
-                event.sim_time = self.time_manager.current_time
-            asyncio.create_task(self.event_bus.publish(event))
+        if self.event_bus is None:
+            return
+
+        if self.time_manager:
+            event.sim_time = self.time_manager.current_time
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.event_bus.publish(event))
+        except RuntimeError:
+            asyncio.run(self.event_bus.publish(event))
 
     def append_flows(self, list_of_flows: list[list]) -> set[Link]:
         """
