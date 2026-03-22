@@ -6,6 +6,8 @@ import random
 import numpy as np
 from sklearn.neighbors import BallTree
 
+from sat_com_model.constants import EARTH_MEAN_RADIUS_KM
+
 with importlib.resources.open_text(
     "sat_com_traffic.earth_internet_user_generator.data",
     "world_data.json",
@@ -58,7 +60,7 @@ def execute_balltree_query(
 ) -> list:
     positions_rad = np.radians(input_to_query_positions)
 
-    distance_max = distance_max_km / 6371
+    distance_max = distance_max_km / EARTH_MEAN_RADIUS_KM
 
     tree = BallTree(np.deg2rad(center_points_of_urban_areas), metric="haversine")
     indices = tree.query_radius(positions_rad, r=distance_max, return_distance=False)

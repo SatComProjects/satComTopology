@@ -51,8 +51,13 @@ def test_keep_existing_link(mock_get_elevation_angle_visibility_angle):
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
 def test_obsolete_link_then_pick_best(
-    mock_get_elevation_angle, mock_get_visible_satellites
+    mock_estimate_time_until_disconnection,
+    mock_get_elevation_angle,
+    mock_get_visible_satellites,
 ):
     strategy = ConnectToBestAngleUntilDisconnectionStrategy()
     ground_object = make_fake_ground_object()
@@ -68,6 +73,8 @@ def test_obsolete_link_then_pick_best(
 
     # Old link is invalid (elevation too low)
     mock_get_elevation_angle.return_value = 10
+
+    mock_estimate_time_until_disconnection.return_value = 300
 
     mock_get_visible_satellites.return_value = [
         MagicMock(satellite=sat_new1, elevation_above_horizon=30),
@@ -116,8 +123,13 @@ def test_no_visible_satellites(mock_get_elevation_angle, mock_get_visible_satell
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
 def test_best_satellite_has_highest_elevation(
-    mock_get_elevation_angle, mock_get_visible_satellites
+    mock_estimate_time_until_disconnection,
+    mock_get_elevation_angle,
+    mock_get_visible_satellites,
 ):
     strategy = ConnectToBestAngleUntilDisconnectionStrategy()
     ground_object = make_fake_ground_object()
@@ -125,6 +137,8 @@ def test_best_satellite_has_highest_elevation(
     sat1 = make_fake_satellite()
     sat2 = make_fake_satellite()
     sat3 = make_fake_satellite()
+
+    mock_estimate_time_until_disconnection.return_value = 300
 
     mock_get_visible_satellites.return_value = [
         MagicMock(satellite=sat1, elevation_above_horizon=20),

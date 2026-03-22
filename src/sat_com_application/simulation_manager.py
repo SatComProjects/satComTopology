@@ -1,9 +1,28 @@
+import asyncio
 import uuid
 from typing import Callable
 
+from typing_extensions import deprecated
+
+from sat_com_application.event_bus.bus import EventBus
+from sat_com_application.event_bus.events import (
+    Event,
+    ISLCreatedEvent,
+    GSLCreatedEvent,
+    UTLCreatedEvent,
+    ISLRemovedEvent,
+    GSLRemovedEvent,
+    UTLRemovedEvent,
+    GSLUpdatedEvent,
+    UTLUpdatedEvent,
+    ISLUpdatedEvent,
+)
 from sat_com_application.time_managers import SimulationTimeManager
 from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
     GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
+)
+from sat_com_connectivity.ground_object_to_space_connectivity.models import (
+    ComputedGroundObjectConnectionsResult,
 )
 from sat_com_model.exceptions import (
     TopologyObjectNotFoundError,
@@ -22,11 +41,13 @@ from sat_com_model.models import (
     GroundStationLink,
     UserTerminalLink,
     Flow,
-    WalkerShell,
+    Shell,
     GroundObjectDomain,
     GroundObject,
     GroundObjectLink,
     PointOfPresence,
+    WalkerShell,
+    DawnDuskSSOShell,
 )
 from sat_com_model.specifications import (
     SourceDestinationMatchWithLinkSpecification,
@@ -91,17 +112,19 @@ class SimulationManager:
 
     simulation: Simulation
 
-    time_manager: SimulationTimeManager
+    time_manager: SimulationTimeManager | None
 
     static_ground_station_link_mode: bool
 
     ground_to_space_connection_strategies: dict = dict()
 
-    def __init__(self, simulation: Simulation):
+    def __init__(self, simulation: Simulation, event_bus: EventBus = None):
         self.simulation = simulation
         self.configuration = dict()
+        self.event_bus = event_bus
         self.enabled_update_functions = None
         self.static_ground_station_link_mode = False
+        self.time_manager = None
 
         self.ground_to_space_connection_strategies = {}
         for name, cls in GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY.items():
@@ -125,6 +148,19 @@ class SimulationManager:
     def __update(self):
         for update_function in self.update_protocol:
             update_function()
+
+    def __publish_event(self, event: Event):
+        if self.event_bus is None:
+            return
+
+        if self.time_manager:
+            event.sim_time = self.time_manager.current_time
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.event_bus.publish(event))
+        except RuntimeError:
+            asyncio.run(self.event_bus.publish(event))
 
     def append_flows(self, list_of_flows: list[list]) -> set[Link]:
         """
@@ -273,6 +309,14 @@ class SimulationManager:
         satellite_b.links.append(inter_satellite_link)
 
         self.simulation.inter_satellite_links.append(inter_satellite_link)
+
+        self.__publish_event(
+            ISLCreatedEvent(
+                satellite_a_id=satellite_a.topology_uniq_id,
+                satellite_b_id=satellite_b.topology_uniq_id,
+            )
+        )
+
         return inter_satellite_link
 
     def create_and_add_ground_station_link_connection(
@@ -280,9 +324,11 @@ class SimulationManager:
         satellite: Satellite,
         ground_station: GroundStation,
         elevation_above_horizon_angle: float = 0,
+        estimated_link_duration: float = None,
     ) -> GroundStationLink:
         """
         Create a ground station link between a satellite and a ground station and append it to the simulation.
+        :param estimated_link_duration:
         :param satellite: Satellite instance
         :param ground_station: GroundStation instance
         :param elevation_above_horizon_angle:
@@ -294,11 +340,22 @@ class SimulationManager:
         ground_station_link.elevation_above_horizon_angle = (
             elevation_above_horizon_angle
         )
+        ground_station_link.estimated_link_duration = estimated_link_duration
 
         satellite.links.append(ground_station_link)
         ground_station.links.append(ground_station_link)
 
         self.simulation.ground_station_links.append(ground_station_link)
+
+        self.__publish_event(
+            GSLCreatedEvent(
+                satellite_id=satellite.topology_uniq_id,
+                ground_station_id=ground_station.topology_uniq_id,
+                estimated_duration=ground_station_link.estimated_link_duration,
+                elevation_angle=ground_station_link.elevation_above_horizon_angle,
+            )
+        )
+
         return ground_station_link
 
     def create_and_add_user_terminal_link_connection(
@@ -306,9 +363,11 @@ class SimulationManager:
         satellite: Satellite,
         user_terminal: UserTerminal,
         elevation_above_horizon_angle: float = 0,
+        estimated_link_duration: float = None,
     ) -> UserTerminalLink:
         """
         Create a user terminal link between a satellite and a user terminal
+        :param estimated_link_duration:
         :param elevation_above_horizon_angle:
         :param satellite: Satellite instance
         :param user_terminal: User terminal instance
@@ -317,11 +376,22 @@ class SimulationManager:
         user_terminal_link = UserTerminalLink()
         user_terminal_link.connect(satellite, user_terminal)
         user_terminal_link.elevation_above_horizon_angle = elevation_above_horizon_angle
+        user_terminal_link.estimated_link_duration = estimated_link_duration
 
         satellite.links.append(user_terminal_link)
         user_terminal.links.append(user_terminal_link)
 
         self.simulation.user_terminal_links.append(user_terminal_link)
+
+        self.__publish_event(
+            UTLCreatedEvent(
+                satellite_id=satellite.topology_uniq_id,
+                user_terminal_id=user_terminal.topology_uniq_id,
+                estimated_link_duration=user_terminal_link.estimated_link_duration,
+                elevation_above_horizon_angle=user_terminal_link.elevation_above_horizon_angle,
+            )
+        )
+
         return user_terminal_link
 
     def create_and_add_ground_object_link_connection(
@@ -439,6 +509,22 @@ class SimulationManager:
         """
         return self.simulation.get_distance_model().get_ground_distance_km(
             object_1.get_coordinates(), object_2.get_coordinates()
+        )
+
+    def get_3d_distance_between_two_topology_object_km(
+        self, object_1: TopologyObject, object_2: TopologyObject
+    ) -> float:
+        """
+        Get distance between two topology object in km.
+        :param object_1: Topology object A
+        :param object_2: Topology object  B
+        :return: float: Distance between two topology objects
+        """
+        return (
+            self.simulation.get_distance_model().get_3d_distance_meters(
+                object_1.get_coordinates(), object_2.get_coordinates()
+            )
+            / 1000
         )
 
     def get_closest_satellite_to_a_ground_station(
@@ -796,6 +882,7 @@ class SimulationManager:
 
         return list(satellites_connected)
 
+    @deprecated("Use ground_connectives_strategies instead")
     def connect_user_terminal_to_satellites(
         self, user_terminal: UserTerminal, maximum_satellite_range_distance: float
     ):
@@ -825,6 +912,7 @@ class SimulationManager:
                     "An object of type " + type(satellite).__name__ + " wasn't expected"
                 )
 
+    @deprecated("Use ground_connectives_strategies instead")
     def connect_ground_station_to_satellites(
         self,
         ground_station: GroundStation,
@@ -875,10 +963,29 @@ class SimulationManager:
 
         if isinstance(link, InterSatelliteLink):
             self.remove_inter_satellite_link(link)
+            self.__publish_event(
+                ISLRemovedEvent(
+                    satellite_a_id=link.source.topology_uniq_id,
+                    satellite_b_id=link.destination.topology_uniq_id,
+                )
+            )
         elif isinstance(link, GroundStationLink):
             self.remove_ground_station_link(link)
+            self.__publish_event(
+                GSLRemovedEvent(
+                    satellite_id=link.get_satellite().topology_uniq_id,
+                    ground_station_id=link.get_ground_station().topology_uniq_id,
+                )
+            )
+
         elif isinstance(link, UserTerminalLink):
             self.remove_user_terminal_link(link)
+            self.__publish_event(
+                UTLRemovedEvent(
+                    satellite_id=link.get_satellite().topology_uniq_id,
+                    user_terminal_id=link.get_user_terminal().topology_uniq_id,
+                )
+            )
         else:
             raise ValueError("Link type unknown: " + link.type)
         return link
@@ -974,6 +1081,70 @@ class SimulationManager:
         for point_of_presence in self.simulation.point_of_presences:
             self.remove_cascade_topology_object(point_of_presence)
 
+    def get_walker_shell_satellites(self):
+        """
+        Get all satellites in walker shell
+        :return: List of satellites in walker shell
+        """
+        return [
+            satellite
+            for satellite in self.get_satellites()
+            if isinstance(satellite.shell, WalkerShell)
+        ]
+
+    def get_sso_shell_satellites(self):
+        """
+        Get all satellites in sso shell
+        :return: List of satellites in sso shell
+        """
+        return [
+            satellite
+            for satellite in self.get_satellites()
+            if isinstance(satellite.shell, DawnDuskSSOShell)
+        ]
+
+    def update_ground_station_link(
+        self, ground_to_space_link: GroundStationLink, connection_info: dict
+    ):
+        ground_to_space_link.estimated_link_duration = connection_info.get(
+            "estimated_link_duration", -1
+        )
+        ground_to_space_link.elevation_above_horizon_angle = connection_info.get(
+            "elevation_above_horizon_angle", -1
+        )
+        ground_to_space_link.distance_km = connection_info.get("distance_km", -1)
+
+        self.__publish_event(
+            GSLUpdatedEvent(
+                elevation_above_horizon_angle=ground_to_space_link.elevation_above_horizon_angle,
+                distance_km=ground_to_space_link.distance_km,
+                estimated_link_duration=ground_to_space_link.estimated_link_duration,
+                ground_station_id=ground_to_space_link.get_ground_station().topology_uniq_id,
+                satellite_id=ground_to_space_link.get_satellite().topology_uniq_id,
+            )
+        )
+
+    def update_user_terminal_link(
+        self, user_terminal_link: UserTerminalLink, connection_info: dict
+    ):
+        user_terminal_link.estimated_link_duration = connection_info.get(
+            "estimated_link_duration", -1
+        )
+        user_terminal_link.elevation_above_horizon_angle = connection_info.get(
+            "elevation_above_horizon_angle", -1
+        )
+        user_terminal_link.distance_km = connection_info.get("distance_km", -1)
+
+        self.__publish_event(
+            UTLUpdatedEvent(
+                elevation_above_horizon_angle=user_terminal_link.elevation_above_horizon_angle,
+                distance_km=user_terminal_link.distance_km,
+                estimated_link_duration=user_terminal_link.estimated_link_duration,
+                user_terminal_id=user_terminal_link.get_user_terminal().topology_uniq_id,
+                satellite_id=user_terminal_link.get_satellite().topology_uniq_id,
+            )
+        )
+
     def __update_user_terminal_links_in_static_mode(self):
         """
         This method will disable all ground station link that aren't connected
@@ -997,10 +1168,12 @@ class SimulationManager:
         This method will delete all user terminals links and will create new ones according to the current strategy
         :return:
         """
+        walker_satellites = self.get_walker_shell_satellites()
+
         for terminal in self.get_user_terminals():
             update_response = self.ground_to_space_connection_strategies.get(
                 terminal.ground_object_domain.ground_to_space_connections_strategy
-            ).compute_ground_object_connection_strategy(terminal, self.get_satellites())
+            ).compute_ground_object_connection_strategy(terminal, walker_satellites)
 
             for link in update_response.obsolete_links:
                 self.remove_link(link)
@@ -1012,18 +1185,33 @@ class SimulationManager:
                     elevation_above_horizon_angle=new_connection.connection_info.get(
                         "elevation_above_horizon", -1
                     ),
+                    estimated_link_duration=new_connection.connection_info.get(
+                        "estimated_link_duration", -1
+                    ),
+                )
+            for updates in update_response.updated_links:
+                if not isinstance(updates.ground_to_space_link, UserTerminalLink):
+                    raise TypeError("A Ground Station Link was expected")
+
+                self.update_user_terminal_link(
+                    user_terminal_link=updates.ground_to_space_link,
+                    connection_info=updates.connection_info,
                 )
 
-    def __update_ground_stations_default(self):
+    def __update_ground_station_links_default(self):
         """
         This method will delete all ground station links and will create new ones according to the current strategy
         :return:
         """
+        walker_satellites = self.get_walker_shell_satellites()
+
         for ground_station in self.get_ground_stations():
-            update_response = self.ground_to_space_connection_strategies.get(
+            update_response: (
+                ComputedGroundObjectConnectionsResult
+            ) = self.ground_to_space_connection_strategies.get(
                 ground_station.ground_object_domain.ground_to_space_connections_strategy
             ).compute_ground_object_connection_strategy(
-                ground_station, self.get_satellites()
+                ground_station, walker_satellites
             )
 
             for link in update_response.obsolete_links:
@@ -1036,7 +1224,40 @@ class SimulationManager:
                     elevation_above_horizon_angle=new_connection.connection_info.get(
                         "elevation_above_horizon", -1
                     ),
+                    estimated_link_duration=new_connection.connection_info.get(
+                        "estimated_link_duration", -1
+                    ),
                 )
+
+            for updates in update_response.updated_links:
+                if not isinstance(updates.ground_to_space_link, GroundStationLink):
+                    raise TypeError("A Ground Station Link was expected")
+
+                self.update_ground_station_link(
+                    ground_to_space_link=updates.ground_to_space_link,
+                    connection_info=updates.connection_info,
+                )
+
+    def __update_inter_satellite_links_default(self):
+        for link in self.get_inter_satellites_links():
+            link.distance_km = self.get_3d_distance_between_two_topology_object_km(
+                object_1=link.source, object_2=link.destination
+            )
+
+            self.__publish_event(
+                ISLUpdatedEvent(
+                    distance_km=link.distance_km,
+                    satellite_a_id=link.source.topology_uniq_id,
+                    satellite_b_id=link.destination.topology_uniq_id,
+                )
+            )
+
+    def update_inter_satellite_links(self):
+        """
+        Update ISL. Now we only have static ISL so the logic is easy.
+        :return:
+        """
+        self.__update_inter_satellite_links_default()
 
     def update_ground_station_links(self):
         """
@@ -1051,7 +1272,7 @@ class SimulationManager:
 
             self.__update_ground_stations_in_static_mode()
         else:
-            self.__update_ground_stations_default()
+            self.__update_ground_station_links_default()
 
     def update_satellites(self):
         """
@@ -1108,15 +1329,13 @@ class SimulationManager:
             self.update_user_terminal,
             self.update_ground_station_links,
             self.update_user_terminal_links,
+            self.update_inter_satellite_links,
         ]
-
-    def add_walker_shell(self, walker_shell: WalkerShell):
-        self.simulation.walker_shells.append(walker_shell)
 
     def add_ground_object_domain(self, ground_object_domain: GroundObjectDomain):
         self.simulation.ground_object_domains.append(ground_object_domain)
 
-    def get_walker_shell(self, identifier: str) -> WalkerShell:
+    def get_walker_shell(self, identifier: str) -> Shell:
         walker_shells_found = [
             walker_shell
             for walker_shell in self.simulation.walker_shells
@@ -1146,3 +1365,9 @@ class SimulationManager:
 
     def get_point_of_presences(self):
         return self.simulation.point_of_presences
+
+    def add_walker_shell(self, walker_shell: WalkerShell):
+        self.simulation.walker_shells.append(walker_shell)
+
+    def add_sso_shell(self, sso_shell: DawnDuskSSOShell):
+        self.simulation.down_dusk_sso_shells.append(sso_shell)

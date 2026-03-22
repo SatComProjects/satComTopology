@@ -19,7 +19,7 @@ def get_best_visible_satellite_with_biggest_shell(
     # Group satellites by their shell identity
     shell_to_visible_satellites: dict[int, list[VisibleSatellite]] = {}
     for vs in visible_satellites:
-        shell_id = id(vs.satellite.walker_shell)
+        shell_id = id(vs.satellite.shell)
         shell_to_visible_satellites.setdefault(shell_id, []).append(vs)
 
     # Select the highest-elevation satellite from each shell
@@ -32,8 +32,8 @@ def get_best_visible_satellite_with_biggest_shell(
     return max(
         best_per_shell,
         key=lambda s: (
-            s.satellite.walker_shell.amount_of_satellite_per_orbit_plane
-            * s.satellite.walker_shell.amount_of_orbit_plane,
+            s.satellite.shell.amount_of_satellite_per_orbit_plane
+            * s.satellite.shell.amount_of_orbit_plane,
             s.elevation_above_horizon,
         ),
         default=None,
@@ -54,7 +54,7 @@ def get_best_visible_satellite_with_lowest_shell(
 
     shell_to_visible_satellites: dict[int, list[VisibleSatellite]] = {}
     for vs in visible_satellites:
-        shell_id = id(vs.satellite.walker_shell)
+        shell_id = id(vs.satellite.shell)
         shell_to_visible_satellites.setdefault(shell_id, []).append(vs)
 
     # Build a single list of one "best" satellite per shell (highest elevation in that shell)
@@ -67,7 +67,7 @@ def get_best_visible_satellite_with_lowest_shell(
     return max(
         best_per_shell,
         key=lambda s: (
-            s.satellite.walker_shell.mean_revolution_per_day,
+            s.satellite.shell.mean_revolution_per_day,
             s.elevation_above_horizon,
         ),
         default=None,

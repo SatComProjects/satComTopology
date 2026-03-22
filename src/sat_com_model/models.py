@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import datetime
 import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional
+from typing import Optional, Generic, TypeVar, Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, computed_field
@@ -164,6 +165,14 @@ class MovementModel(ABC):
     """
 
     @abstractmethod
+    def get_datetime(self) -> datetime.datetime:
+        """
+        Return the current time of the movement model.
+        :return:
+        """
+        pass
+
+    @abstractmethod
     def is_ascending(self) -> bool:
         """
         Return True if the Orbital object is in its ascending phase.
@@ -182,7 +191,7 @@ class MovementModel(ABC):
         return self.get_longitude_latitude_altitude()
 
     @abstractmethod
-    def get_longitude_latitude_altitude(self) -> SpatialPosition:
+    def get_longitude_latitude_altitude(self, delta_t: float = 0.0) -> SpatialPosition:
         """
         Return the longitude, latitude  and elevation on ground of the orbital object
         :return:
@@ -190,7 +199,9 @@ class MovementModel(ABC):
         pass
 
     @abstractmethod
-    def get_position_earth_general_inertial(self) -> tuple[float, float, float]:
+    def get_position_earth_general_inertial(
+        self, delta: float = 0.0
+    ) -> tuple[float, float, float]:
         """
         This method returns the position of the orbital object in the referential of EGI.
         It can be used in the is_ascending method.
@@ -198,10 +209,26 @@ class MovementModel(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_velocity_earth_general_inertial(
+        self, delta: float = 0.0
+    ) -> tuple[float, float, float]:
+        """
+        This method returns the velocity of the orbital object in the referential of EGI.
+        It can be used in the is_ascending method.
+        :return:
+        """
+        pass
 
-class WalkerShell(BaseModel):
+
+class Shell(BaseModel):
     identifier: str
     type: str
+    optical_link_configuration: Optional[AbstractOpticalLinkConfiguration] = None
+
+
+class WalkerShell(Shell):
+    type: str = Field(default="WalkerShell", frozen=True)
     amount_of_orbit_plane: int
     amount_of_satellite_per_orbit_plane: int
     inclination: float = Field(default=98.7)
@@ -218,6 +245,13 @@ class WalkerShell(BaseModel):
     ground_object_white_list: list[str] = Field(default_factory=list)
 
 
+class DawnDuskSSOShell(Shell):
+    epoch: datetime.datetime
+    altitude_in_km: float
+
+    type: str = Field(default="SSOShell", frozen=True)
+
+
 class GroundObjectDomain(BaseModel):
 
     identifier: str
@@ -228,7 +262,9 @@ class GroundObjectDomain(BaseModel):
     maximum_satellite_connected_count: Optional[int] = None
     shell_white_lists: list[str] = Field(default_factory=list)
     maximum_connected_satellites: Optional[int] = None
-    ground_to_space_connections_strategy: str = Field(default="")
+    ground_to_space_connections_strategy: str = Field(
+        default="best-angle-until-disconnection"
+    )
 
 
 class OrbitalObject(TopologyObject):
@@ -301,19 +337,67 @@ class OrbitalObject(TopologyObject):
         self.get_coordinates()
 
 
-class Satellite(OrbitalObject):
-    satellite_name: str
-    type: str = Field(default="Satellite", frozen=True)
+class AbstractOpticalLinkConfiguration(Enum):
+    pass
 
-    walker_shell: Optional[WalkerShell] = None
+
+class IntraPlaneOpticalLinkConfiguration(AbstractOpticalLinkConfiguration):
+    FORWARD = 1
+    BACKWARD = 2
+
+
+class Standard4OpticalLinkTopology(AbstractOpticalLinkConfiguration):
+    INTRA_PLANE_FORWARD = 1
+    INTRA_PLANE_BACKWARD = 2
+    INTER_PLANE_RIGHT = 3
+    INTER_PLANE_LEFT = 4
+
+
+class OpticalLinkConfiguration(BaseModel):
+    maximum_angular_velocity_degree_per_second: float = Field(default=1)
+    maximum_range_distance_km: float = Field(default=7800)
+    minimum_contact_duration_seconds: float = Field(default=30)
+
+    max_azimuth_degrees: float = Field(default=175)  # ±175° azimuth
+    min_elevation_degrees: float = Field(default=-25)  # +5°/-25° elev
+    max_elevation_degrees: float = Field(default=5)
+
+    los_central_angle_max_degrees: float = Field(default=80)
+
+    enable_dynamic_reassignment: bool = Field(default=True)
+
+
+class OpticalLinkTerminal(BaseModel):
+    link: Optional[InterSatelliteLink] = Field(default=None)
+
+    possible_links: list[InterSatelliteLink] = Field(default_factory=list)
+
+    terminal_configuration: OpticalLinkConfiguration = Field(
+        default_factory=OpticalLinkConfiguration
+    )
+
+
+T_Shell = TypeVar("T_Shell", bound=Shell)
+
+
+class Satellite(Generic[T_Shell], OrbitalObject):
+    satellite_name: str
+    shell: Optional[T_Shell] = None
+
+    optical_link_terminals: list[OpticalLinkTerminal] = Field(default_factory=list)
+
+    def __init__(self, /, **data: Any):
+        super().__init__(**data)
+
+        for i in range(4):
+            self.optical_link_terminals.append(
+                OpticalLinkTerminal(
+                    link=None,
+                )
+            )
 
     def __str__(self):
-        return (
-            super().__str__()
-            + "Satellite name: {satellite_name} satellite_id: {satellite_id} ".format(
-                satellite_name=self.satellite_name, satellite_id=self.object_id
-            )
-        )
+        return f"Satellite name: {self.satellite_name} satellite_id: {self.object_id} shell type: {self.shell.type}"
 
 
 class GroundObject(TopologyObject):
@@ -393,6 +477,8 @@ class Link(BaseModel):
 
     disabled: bool = Field(default=False)
 
+    distance_km: Optional[float] = Field(default=None)
+
     def get_used_capacity_between_hops_unidirectional(
         self, previous_hop: TopologyObject, next_hop: TopologyObject
     ) -> float:
@@ -460,8 +546,32 @@ class InterSatelliteLink(Link):
         use_enum_values = True
 
 
+class OpticalConstraint(BaseModel):
+    azimuth_angle_degree: float = Field(default=None)
+    elevation_angle_degree: float = Field(default=None)
+    range_distance_km: float = Field(default=None)
+    angular_velocity_rate_degree_per_second: float = Field(default=None)
+
+
+class OpticalInterSatelliteLink(InterSatelliteLink):
+    source_constraint: OpticalConstraint = Field(default=None)
+    destination_constraint: OpticalConstraint = Field(default=None)
+
+
 class GroundToSpaceLink(Link):
     elevation_above_horizon_angle: float = Field(default=None)
+
+    estimated_link_duration: float = Field(default=None)
+
+    def get_ground_object(self) -> GroundObject:
+        return (
+            self.source if isinstance(self.source, GroundObject) else self.destination
+        )
+
+    def get_space_object(self) -> OrbitalObject:
+        return (
+            self.source if isinstance(self.source, OrbitalObject) else self.destination
+        )
 
 
 class GroundStationLink(GroundToSpaceLink):
@@ -491,6 +601,14 @@ class GroundStationLink(GroundToSpaceLink):
 
         super().connect(source, destination)
 
+    def get_satellite(self):
+        return self.source if isinstance(self.source, Satellite) else self.destination
+
+    def get_ground_station(self):
+        return (
+            self.source if isinstance(self.source, GroundStation) else self.destination
+        )
+
 
 class UserTerminalLink(GroundToSpaceLink):
     type: str = Field(default="UserTerminalLink", frozen=True)
@@ -513,6 +631,14 @@ class UserTerminalLink(GroundToSpaceLink):
             raise UserTerminalConnectionError()
 
         super().connect(source, destination)
+
+    def get_satellite(self):
+        return self.source if isinstance(self.source, Satellite) else self.destination
+
+    def get_user_terminal(self):
+        return (
+            self.source if isinstance(self.source, UserTerminal) else self.destination
+        )
 
 
 class GroundObjectLink(Link):
@@ -599,6 +725,7 @@ class Simulation:
     simulation_name: str
 
     satellites: list[Satellite]
+
     inter_satellite_links: list[InterSatelliteLink]
 
     ground_object_links: list[GroundObjectLink]
@@ -612,6 +739,9 @@ class Simulation:
     point_of_presences: list[PointOfPresence]
 
     walker_shells: list[WalkerShell]
+
+    down_dusk_sso_shells: list[DawnDuskSSOShell]
+
     ground_object_domains: list[GroundObjectDomain]
 
     distance_model: DistanceModel = None
@@ -626,6 +756,7 @@ class Simulation:
         self.user_terminals = list()
         self.user_terminal_links = list()
         self.walker_shells = list()
+        self.down_dusk_sso_shells = list()
         self.ground_object_domains = list()
         self.ground_object_links = list()
         self.point_of_presences = list()
@@ -668,17 +799,19 @@ class Simulation:
 def create_satellite(
     satellite_name: str,
     object_id: int,
+    shell: T_Shell,
     domain: str = "public",
-) -> Satellite:
+) -> Satellite[T_Shell]:
     """
     This function creates a Satellite object.
+    :param shell:
     :param satellite_name: The name of the satellite
     :param object_id: The business id of the satellite
     :param domain: The constellation identifier of the satellite.
     :return:
     """
     created_satellite = Satellite(
-        satellite_name=satellite_name, object_id=object_id, domain=domain
+        satellite_name=satellite_name, object_id=object_id, domain=domain, shell=shell
     )
 
     created_satellite.object_id = object_id

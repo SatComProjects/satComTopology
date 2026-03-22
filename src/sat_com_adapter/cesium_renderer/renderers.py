@@ -176,6 +176,20 @@ class CesiumRenderer:
 
         return self
 
+    def add_link(self, link: Link, color: str = "RED") -> "CesiumRenderer":
+        self.append_next(
+            self.cesium_format.create_link(
+                link=link,
+                color=color,
+                width=3.0,
+                description=HtmlFormatter(link).format(),
+                properties={},
+                on_ground=False,
+                random_id=True,
+            )
+        )
+        return self
+
     def add_route_from_link(
         self, link: Link, underlined: bool = False, color: str = "RED"
     ) -> "CesiumRenderer":
@@ -281,7 +295,11 @@ class CesiumHtmlRenderer(CesiumRenderer):
 
     def render(self) -> str:
         html_code = get_full_html(
-            self.cesium_token, "\n".join(self.elements_to_display)
+            self.cesium_token,
+            "\n".join(self.elements_to_display),
+            clock_time=self.simulation_manager.time_manager.current_time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
         )
         return html_code
 
