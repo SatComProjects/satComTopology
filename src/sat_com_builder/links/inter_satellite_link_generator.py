@@ -19,7 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from sat_com_application.simulation_manager import SimulationManager
+
 from sat_com_builder.models import OrbitalConnectivityProperty, WalkerShellProperty
 
 # Modifications :
@@ -38,7 +38,9 @@ from sat_com_model.exceptions import (
     TopologyObjectNotFoundError,
     TopologyConnectionError,
 )
-from sat_com_model.models import InterSatelliteLinkDirection
+from sat_com_model.models import (
+    InterSatelliteLinkDirection,
+)
 
 
 def generate_walker_star_constellation_grid(
@@ -161,50 +163,42 @@ def generate_sun_synchronous_constellation_grid(
     return list_inter_satellite_links
 
 
-def transform_grid_to_inter_satellite_links(
-    simulation_service: SimulationManager,
-    list_isl: list,
-    constellation_property: ConstellationProperty,
-):
-    """
-    This function will create inter satellite links based on the ISL list previously generated.
-    :param walker_shell_property: Property of the shell
-    :param simulation_service: SimulationManager object
-    :param list_isl: list of vector like object (int, int, InterSatelliteLinkDirection)
-    :return:
-    """
-    for a, b, type_link in list_isl:
-        satellite_a = None
-        satellite_b = None
-        try:
-            satellite_a = simulation_service.get_satellite_by_object_id(
-                a, constellation_property.identifier
-            )
-        except TopologyObjectNotFoundError:
-            print("Satellite {sat_id} not found".format(sat_id=a))
-
-        try:
-            satellite_b = simulation_service.get_satellite_by_object_id(
-                b, constellation_property.identifier
-            )
-
-        except TopologyObjectNotFoundError:
-            print("Satellite {sat_id} not found".format(sat_id=b))
-
-        if satellite_a is not None and satellite_b is not None:
-            try:
-                created_link = (
-                    simulation_service.create_and_add_inter_satellite_link_connection(
-                        satellite_a, satellite_b
-                    )
-                )
-                created_link.inter_satellite_direction = type_link
-            except TopologyConnectionError as tpe:
-                print(
-                    "Failed to connect {sat_a} and {sat_b} : {message}".format(
-                        sat_a=str(satellite_a), sat_b=str(satellite_b), message=tpe
-                    )
-                )
+#
+# def transform_grid_to_inter_satellite_links(
+#     simulation_service: SimulationManager,
+#     list_isl: list,
+#     constellation_property: ConstellationProperty,
+# ):
+#     for a, b, type_link in list_isl:
+#         satellite_a = None
+#         satellite_b = None
+#         try:
+#             satellite_a = simulation_service.get_satellite_by_object_id(
+#                 a, constellation_property.identifier
+#             )
+#         except TopologyObjectNotFoundError:
+#             print(f"Satellite {a} not found")
+#
+#         try:
+#             satellite_b = simulation_service.get_satellite_by_object_id(
+#                 b, constellation_property.identifier
+#             )
+#         except TopologyObjectNotFoundError:
+#             print(f"Satellite {b} not found")
+#
+#         if satellite_a is None or satellite_b is None:
+#             continue
+#
+#         try:
+#             created_link = (
+#                 simulation_service.create_and_add_inter_satellite_link_connection(
+#                     satellite_a, satellite_b
+#                 )
+#             )
+#             created_link.inter_satellite_direction = type_link
+#
+#         except TopologyConnectionError as tpe:
+#             print(f"Failed to connect {satellite_a} and {satellite_b}: {tpe}")
 
 
 def create_inter_satellite_links_for_walker_delta_constellation(
@@ -229,41 +223,42 @@ def create_inter_satellite_links_for_walker_star_constellation(
     )
 
 
-def create_inter_satellite_links_for_sun_synchronous_constellation(
-    sso_constellation: DawnDuskSunSynchronousOrbitConstellationProperty,
-    simulation_manager: SimulationManager,
-):
-
-    generated_grid = generate_sun_synchronous_constellation_grid(
-        number_satellites_per_orbit=sso_constellation.amount_of_satellite,
-    )
-
-    transform_grid_to_inter_satellite_links(
-        simulation_manager, generated_grid, sso_constellation
-    )
-
-
-def create_inter_satellite_links_for_walker_constellation(
-    simulation_manager: SimulationManager,
-    walker_shell_properties: WalkerShellProperty,
-):
-
-    if walker_shell_properties.type == "star":
-        generated_grid = create_inter_satellite_links_for_walker_star_constellation(
-            walker_shell_properties.constellation_property,
-            walker_shell_properties.orbital_connectivity_property,
-        )
-
-    elif walker_shell_properties.type == "delta":
-        generated_grid = create_inter_satellite_links_for_walker_delta_constellation(
-            walker_shell_properties.constellation_property,
-            walker_shell_properties.orbital_connectivity_property,
-        )
-    else:
-        raise ValueError("Unknown type of walker constellation")
-
-    transform_grid_to_inter_satellite_links(
-        simulation_manager,
-        generated_grid,
-        walker_shell_properties.constellation_property,
-    )
+#
+# def create_inter_satellite_links_for_sun_synchronous_constellation(
+#     sso_constellation: DawnDuskSunSynchronousOrbitConstellationProperty,
+#     simulation_manager: SimulationManager,
+# ):
+#
+#     generated_grid = generate_sun_synchronous_constellation_grid(
+#         number_satellites_per_orbit=sso_constellation.amount_of_satellite,
+#     )
+#
+#     transform_grid_to_inter_satellite_links(
+#         simulation_manager, generated_grid, sso_constellation
+#     )
+#
+#
+# def create_inter_satellite_links_for_walker_constellation(
+#     simulation_manager: SimulationManager,
+#     walker_shell_properties: WalkerShellProperty,
+# ):
+#
+#     if walker_shell_properties.type == "star":
+#         generated_grid = create_inter_satellite_links_for_walker_star_constellation(
+#             walker_shell_properties.constellation_property,
+#             walker_shell_properties.orbital_connectivity_property,
+#         )
+#
+#     elif walker_shell_properties.type == "delta":
+#         generated_grid = create_inter_satellite_links_for_walker_delta_constellation(
+#             walker_shell_properties.constellation_property,
+#             walker_shell_properties.orbital_connectivity_property,
+#         )
+#     else:
+#         raise ValueError("Unknown type of walker constellation")
+#
+#     transform_grid_to_inter_satellite_links(
+#         simulation_manager,
+#         generated_grid,
+#         walker_shell_properties.constellation_property,
+#     )

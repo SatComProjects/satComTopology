@@ -79,11 +79,14 @@ def test_load_single_shell_simulation():
     assert simulation_manager.simulation.ground_object_domains[0].identifier == "public"
 
     # Assert that every satellite have 4 isl
-    assert all(
-        len([link for link in satellite.links if isinstance(link, InterSatelliteLink)])
-        == 4
-        for satellite in simulation_manager.get_satellites()
-    )
+
+    for satellite in simulation_manager.get_satellites():
+        number_of_isl = len(
+            [isl for isl in satellite.links if isinstance(isl, InterSatelliteLink)]
+        )
+        assert (
+            number_of_isl == 4
+        ), f"Satellite: {satellite.topology_uniq_id} as {number_of_isl}, {[link.inter_satellite_direction for link in satellite.links]}"
 
     assert all(
         isinstance(satellite.shell, WalkerShell)
