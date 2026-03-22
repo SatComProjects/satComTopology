@@ -16,6 +16,11 @@ from sat_com_application.event_bus.events import (
     ISLUpdatedEvent,
 )
 from sat_com_application.simulation_manager import SimulationManager
+from sat_com_connectivity.inter_satellite_link_connectivity.models import (
+    LinkAssociation,
+    InterSatelliteConnectivityResult,
+    OpticISLVisibilityConstraintResult,
+)
 from sat_com_model.models import (
     Satellite,
     GroundStation,
@@ -24,7 +29,10 @@ from sat_com_model.models import (
     GroundStationLink,
     UserTerminalLink,
     Simulation,
+    OpticalConstraint,
+    InterSatelliteLinkDirection,
 )
+from tests.sat_com_connectivity_tests.test_addressing_plans import make_terminal
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -649,28 +657,67 @@ class TestUTLUpdatedEvent:
 # ---------------------------------------------------------------------------
 # ISL — Updated
 # ---------------------------------------------------------------------------
+def make_constraint() -> OpticalConstraint:
+    return OpticalConstraint(
+        azimuth_angle_degree=0.0,
+        elevation_angle_degree=5.0,
+        range_distance_km=500.0,
+        angular_velocity_rate_degree_per_second=0.1,
+    )
+
+
+def make_visibility_constraint() -> OpticISLVisibilityConstraintResult:
+    return OpticISLVisibilityConstraintResult(
+        elevation_angle_degree=5.0,
+        azimuth_angle_degree=0.0,
+        range_distance_km=500.0,
+        angular_velocity_rate_degree_per_second=0.1,
+        flag_elevation=True,
+        flag_azimuth=True,
+        flag_range=True,
+        flag_angular_velocity=True,
+        flag_overall=True,
+        flag_bidirectional=True,
+    )
+
+
+def make_link_association(sat_a, sat_b, link, terminal_a=None, terminal_b=None):
+    return LinkAssociation(
+        satellite_a=sat_a,
+        terminal_a=terminal_a or make_terminal(),
+        satellite_b=sat_b,
+        terminal_b=terminal_b or make_terminal(),
+        direction=InterSatelliteLinkDirection.ORBITAL,
+        link=link,
+        constraint_a_to_b=make_visibility_constraint(),
+        constraint_b_to_a=make_visibility_constraint(),
+    )
 
 
 class TestISLUpdatedEvent:
+
+    def _make_strategy_mock(self, updated=None, new=None, obsolete=None):
+        result = InterSatelliteConnectivityResult(
+            updated_links=updated or [],
+            new_links=new or [],
+            obsolete_links=obsolete or [],
+        )
+        strategy = MagicMock()
+        strategy.compute_strategy.return_value = result
+        return strategy
 
     def test_isl_updated_event_type(self):
         manager = make_simulation_manager()
         sat_a = make_satellite(topology_uniq_id=1)
         sat_b = make_satellite(topology_uniq_id=2)
         link = make_isl(sat_a, sat_b)
-        link.distance_km = 0
-        manager.simulation.inter_satellite_links.append(link)
-        manager.simulation.get_distance_model = MagicMock(
-            return_value=MagicMock(
-                get_3d_distance_meters=MagicMock(return_value=1_200_000)
-            )
+
+        manager.inter_satellite_link_connection_strategy = self._make_strategy_mock(
+            updated=[make_link_association(sat_a, sat_b, link)]
         )
+        manager.simulation.inter_satellite_links.append(link)
 
-        def capture_run(coro):
-            run_async(coro)
-
-        with patch("asyncio.run", side_effect=capture_run):
-            manager.update_inter_satellite_links()
+        manager.update_inter_satellite_links()
 
         event = manager.event_bus.publish.call_args[0][0]
         assert isinstance(event, ISLUpdatedEvent)
@@ -680,45 +727,34 @@ class TestISLUpdatedEvent:
         sat_a = make_satellite(topology_uniq_id=4)
         sat_b = make_satellite(topology_uniq_id=7)
         link = make_isl(sat_a, sat_b)
-        link.distance_km = 0
-        manager.simulation.inter_satellite_links.append(link)
-        manager.simulation.get_distance_model = MagicMock(
-            return_value=MagicMock(
-                get_3d_distance_meters=MagicMock(return_value=800_000)
-            )
+
+        manager.inter_satellite_link_connection_strategy = self._make_strategy_mock(
+            updated=[make_link_association(sat_a, sat_b, link)]
         )
+        manager.simulation.inter_satellite_links.append(link)
 
-        def capture_run(coro):
-            run_async(coro)
-
-        with patch("asyncio.run", side_effect=capture_run):
-            manager.update_inter_satellite_links()
+        manager.update_inter_satellite_links()
 
         event = manager.event_bus.publish.call_args[0][0]
         assert event.satellite_a_id == 4
         assert event.satellite_b_id == 7
 
-    def test_isl_updated_event_distance_km(self):
+    def test_isl_updated_event_constraints_are_applied(self):
+        """Optical constraints from the association are set on the link."""
         manager = make_simulation_manager()
         sat_a = make_satellite(topology_uniq_id=1)
         sat_b = make_satellite(topology_uniq_id=2)
         link = make_isl(sat_a, sat_b)
-        link.distance_km = 0
-        manager.simulation.inter_satellite_links.append(link)
-        manager.simulation.get_distance_model = MagicMock(
-            return_value=MagicMock(
-                get_3d_distance_meters=MagicMock(return_value=1_500_000)
-            )
+
+        manager.inter_satellite_link_connection_strategy = self._make_strategy_mock(
+            updated=[make_link_association(sat_a, sat_b, link)]
         )
+        manager.simulation.inter_satellite_links.append(link)
 
-        def capture_run(coro):
-            run_async(coro)
+        manager.update_inter_satellite_links()
 
-        with patch("asyncio.run", side_effect=capture_run):
-            manager.update_inter_satellite_links()
-
-        event = manager.event_bus.publish.call_args[0][0]
-        assert event.distance_km == pytest.approx(1500.0)
+        assert link.source_constraint is not None
+        assert link.source_constraint.range_distance_km == pytest.approx(500.0)
 
 
 # ---------------------------------------------------------------------------

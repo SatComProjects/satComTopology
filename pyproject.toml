@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sat_com_topology"
-version = "4.3.0"
+version = "5.0.0"
 authors = [
   { name="Louis BARBIER", email="louis.barbier@isae-supaero.fr" },
 ]

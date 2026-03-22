@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 
 import yaml
@@ -22,14 +23,19 @@ from sat_com_builder.ground_objects.generate_point_of_presences import (
 from sat_com_builder.ground_objects.generate_user_terminals import (
     generate_user_terminal_from_file,
 )
-from sat_com_builder.links.inter_satellite_link_generator import (
-    create_inter_satellite_links_for_walker_constellation,
-    create_inter_satellite_links_for_sun_synchronous_constellation,
-)
+
 from sat_com_builder.models import SimulationProperty
 from sat_com_builder.utils import parse_date
 from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
     GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
+)
+from sat_com_connectivity.inter_satellite_link_connectivity.addressing_plans import (
+    WalkerStaticAddressingPlan,
+    SSODawnDuskStaticAddressingPlan,
+)
+from sat_com_connectivity.inter_satellite_link_connectivity.strategies import (
+    IntraShellStaticConnectivity,
+    InterShellSSOPriorityConnectivity,
 )
 from sat_com_constellation.models import (
     WalkerStarConstellation,
@@ -45,6 +51,7 @@ from sat_com_model.models import (
     GroundObjectDomain,
     DawnDuskSSOShell,
     WalkerShell,
+    SatelliteConfiguration,
 )
 from sat_com_trajectopy.distance_models import (
     GeopyDistanceModel,
@@ -80,7 +87,7 @@ class BaseConfigurationManager(ConfigurationManager):
             )
         )
 
-    def __load_inter_satellite_configuration(
+    def __load_inter_satellite_addressing_plans_configuration(
         self, simulation_manager: SimulationManager
     ):
         """
@@ -90,16 +97,46 @@ class BaseConfigurationManager(ConfigurationManager):
         :return:
         """
 
-        for shell in self.simulation_property.walker_shells:
-            create_inter_satellite_links_for_walker_constellation(
-                simulation_manager=simulation_manager, walker_shell_properties=shell
+        for shell in simulation_manager.get_walker_shells():
+            static_link_addressing_plan = WalkerStaticAddressingPlan(walker_shell=shell)
+            simulation_manager.shell_addressing_plans.append(
+                (shell, static_link_addressing_plan)
             )
 
-        for shell in self.simulation_property.dawn_dusk_sso_shells:
-            create_inter_satellite_links_for_sun_synchronous_constellation(
-                simulation_manager=simulation_manager,
-                sso_constellation=shell.constellation_property,
+        for sso_shell in simulation_manager.get_sso_shells():
+            static_sso_shell_addressing_plan = SSODawnDuskStaticAddressingPlan(
+                sso_shell=sso_shell
             )
+            simulation_manager.shell_addressing_plans.append(
+                (sso_shell, static_sso_shell_addressing_plan)
+            )
+
+    def __load_inter_satellite_links_configuration(
+        self, simulation_manager: SimulationManager
+    ):
+        isl_connection_strategy = (
+            self.simulation_property.inter_satellite_link_connection_strategy
+        )
+
+        if isl_connection_strategy == IntraShellStaticConnectivity.type:
+            strategy = IntraShellStaticConnectivity(
+                satellites=simulation_manager.get_satellites(),
+                shell_and_plans=simulation_manager.shell_addressing_plans,
+            )
+
+        elif isl_connection_strategy == InterShellSSOPriorityConnectivity.type:
+            strategy = InterShellSSOPriorityConnectivity(
+                satellites=simulation_manager.get_satellites(),
+                shell_and_plans=simulation_manager.shell_addressing_plans,
+            )
+        else:
+            raise ValueError(
+                f"Unknown inter-satellite connection strategy: {isl_connection_strategy}"
+            )
+
+        simulation_manager.inter_satellite_link_connection_strategy = strategy
+
+        simulation_manager.update_inter_satellite_links()
 
     def __load_static_ground_to_ground_link_configuration(
         self, simulation_manager: SimulationManager
@@ -231,6 +268,9 @@ class BaseConfigurationManager(ConfigurationManager):
             )
 
             sso_shell = DawnDuskSSOShell(
+                satellite_configuration=SatelliteConfiguration(
+                    **sso_shell.satellite_property.model_dump()
+                ),
                 **sso_shell.constellation_property.model_dump(),
                 **sso_shell.model_dump(),
             )
@@ -273,7 +313,11 @@ class BaseConfigurationManager(ConfigurationManager):
                 raise ValueError("Walker constellation type not found: " + shell.type)
 
             walker_shell = WalkerShell(
-                **shell.constellation_property.model_dump(), **shell.model_dump()
+                satellite_configuration=SatelliteConfiguration(
+                    **shell.satellite_property.model_dump()
+                ),
+                **shell.constellation_property.model_dump(),
+                **shell.model_dump(),
             )
 
             simulation_manager.add_walker_shell(walker_shell)
@@ -338,28 +382,75 @@ class BaseConfigurationManager(ConfigurationManager):
         return simulation
 
     def load_simulation(self) -> SimulationManager:
-        simulation = self.__create_and_load_simulation()
+        import time
 
-        simulation_manager = SimulationManager(
-            simulation=simulation, event_bus=self.event_bus
+        def timed_step(name: str, func):
+            start = time.perf_counter()
+            result = func()
+            end = time.perf_counter()
+            print(f"{name:<55} | {end - start:.4f} s")
+            return result
+
+        simulation = timed_step(
+            "__create_and_load_simulation",
+            lambda: self.__create_and_load_simulation(),
         )
 
-        self.__save_property_inside_simulation_manager(simulation_manager)
-
-        self.__load_time_manager(simulation_manager=simulation_manager)
-
-        self.__load_satellite_configuration(simulation_manager=simulation_manager)
-
-        self.__load_ground_object_configuration(simulation_manager=simulation_manager)
-
-        self.__load_inter_satellite_configuration(simulation_manager=simulation_manager)
-
-        self.__load_satellite_to_ground_link_configuration(
-            simulation_manager=simulation_manager
+        simulation_manager = timed_step(
+            "SimulationManager init",
+            lambda: SimulationManager(simulation=simulation, event_bus=self.event_bus),
         )
 
-        self.__load_static_ground_to_ground_link_configuration(
-            simulation_manager=simulation_manager
+        timed_step(
+            "__save_property_inside_simulation_manager",
+            lambda: self.__save_property_inside_simulation_manager(simulation_manager),
+        )
+
+        timed_step(
+            "__load_time_manager",
+            lambda: self.__load_time_manager(simulation_manager=simulation_manager),
+        )
+
+        timed_step(
+            "__load_satellite_configuration",
+            lambda: self.__load_satellite_configuration(
+                simulation_manager=simulation_manager
+            ),
+        )
+
+        timed_step(
+            "__load_ground_object_configuration",
+            lambda: self.__load_ground_object_configuration(
+                simulation_manager=simulation_manager
+            ),
+        )
+
+        timed_step(
+            "__load_inter_satellite_addressing_plans_configuration",
+            lambda: self.__load_inter_satellite_addressing_plans_configuration(
+                simulation_manager=simulation_manager
+            ),
+        )
+
+        timed_step(
+            "__load_inter_satellite_links_configuration",
+            lambda: self.__load_inter_satellite_links_configuration(
+                simulation_manager=simulation_manager
+            ),
+        )
+
+        timed_step(
+            "__load_satellite_to_ground_link_configuration",
+            lambda: self.__load_satellite_to_ground_link_configuration(
+                simulation_manager=simulation_manager
+            ),
+        )
+
+        timed_step(
+            "__load_static_ground_to_ground_link_configuration",
+            lambda: self.__load_static_ground_to_ground_link_configuration(
+                simulation_manager=simulation_manager
+            ),
         )
 
         return simulation_manager

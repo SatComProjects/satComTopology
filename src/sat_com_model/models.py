@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import datetime
+import uuid
 import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, Generic, TypeVar, Any
+from typing import Optional, Generic, TypeVar, Any, cast
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict, computed_field
+from typing_extensions import deprecated
 
 from .exceptions import (
     InterSatelliteConnectionError,
@@ -26,6 +28,7 @@ class InterSatelliteLinkDirection(Enum):
     ORBITAL = 1
     ADJACENT = 2
     UNDEFINED = 3
+    INTER_SHELL = 4
 
 
 class SpatialPosition(BaseModel):
@@ -221,10 +224,125 @@ class MovementModel(ABC):
         pass
 
 
+class InterSatelliteLinkOrientation(str, Enum):
+    INTRA_PLANE_FORWARD = "INTRA_PLANE_FORWARD"
+    INTRA_PLANE_BACKWARD = "INTRA_PLANE_BACKWARD"
+    INTER_PLANE_RIGHT = "INTER_PLANE_RIGHT"
+    INTER_PLANE_LEFT = "INTER_PLANE_LEFT"
+
+    CROSS_PLANE_FORWARD = "CROSS_PLANE_FORWARD"
+    CROSS_PLANE_BACKWARD = "CROSS_PLANE_BACKWARD"
+    CROSS_PLANE_LEFT = "CROSS_PLANE_LEFT"
+    CROSS_PLANE_RIGHT = "CROSS_PLANE_RIGHT"
+
+    INTER_SHELL_FORWARD = "INTER_SHELL_FORWARD"
+    INTER_SHELL_BACKWARD = "INTER_SHELL_BACKWARD"
+    INTER_SHELL_LEFT = "INTER_SHELL_LEFT"
+    INTER_SHELL_RIGHT = "INTER_SHELL_RIGHT"
+
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
+
+
+class OpticalTerminalConfiguration(BaseModel):
+    maximum_angular_velocity_degree_per_second: float = Field(default=1)
+    maximum_range_distance_km: float = Field(default=7800)
+    minimum_contact_duration_seconds: float = Field(default=30)
+
+    max_azimuth_degrees: float = Field(default=175)  # ±175° azimuth
+    min_elevation_degrees: float = Field(default=-25)  # +5°/-25° elev
+    max_elevation_degrees: float = Field(default=5)
+
+    los_central_angle_max_degrees: float = Field(default=80)
+
+    enable_dynamic_reassignment: bool = Field(default=True)
+
+
+class OpticalTerminalInstallationConfiguration(BaseModel):
+    azimuth_angle_configuration: float = Field(
+        default=0
+    )  # 0 ° (X along track), 90°, -90°, -180°
+    elevation_angle_configuration: float = Field(
+        default=-180
+    )  # Nadir anti nadir is 180
+
+    descriptor: InterSatelliteLinkOrientation = Field(
+        default=InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD
+    )  # az=0° and nadir=-180° is InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD
+
+    orientation_possibilities: list[InterSatelliteLinkOrientation] = Field(
+        default=[InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD]
+    )
+
+    optical_terminal_property: OpticalTerminalConfiguration = Field(
+        default_factory=OpticalTerminalConfiguration
+    )  # Configured as CONDOR gen 1
+
+
+class SatelliteConfiguration(BaseModel):
+    optical_inter_satellite_link_installations: list[
+        OpticalTerminalInstallationConfiguration
+    ] = [
+        OpticalTerminalInstallationConfiguration(
+            azimuth_angle_configuration=0.0,
+            elevation_angle_configuration=-180,
+            descriptor=InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD,
+            orientation_possibilities=[
+                InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD
+            ],
+        ),
+        OpticalTerminalInstallationConfiguration(
+            azimuth_angle_configuration=90.0,
+            elevation_angle_configuration=-180,
+            descriptor=InterSatelliteLinkOrientation.INTER_PLANE_LEFT,
+            orientation_possibilities=[
+                InterSatelliteLinkOrientation.INTER_PLANE_LEFT,
+                InterSatelliteLinkOrientation.INTER_SHELL_LEFT,
+            ],
+        ),
+        OpticalTerminalInstallationConfiguration(
+            azimuth_angle_configuration=-90.0,
+            elevation_angle_configuration=-180,
+            descriptor=InterSatelliteLinkOrientation.INTER_PLANE_RIGHT,
+            orientation_possibilities=[
+                InterSatelliteLinkOrientation.INTER_PLANE_RIGHT,
+                InterSatelliteLinkOrientation.INTER_SHELL_RIGHT,
+            ],
+        ),
+        OpticalTerminalInstallationConfiguration(
+            azimuth_angle_configuration=-180.0,
+            elevation_angle_configuration=-180,
+            descriptor=InterSatelliteLinkOrientation.INTRA_PLANE_BACKWARD,
+            orientation_possibilities=[
+                InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD
+            ],
+        ),
+    ]  # default has 4 ISL anti-nadir INTER and INTRA Planes
+
+
 class Shell(BaseModel):
+
+    model_config = ConfigDict(frozen=True)
+
+    shell_id: UUID = Field(default_factory=uuid.uuid4, frozen=True)
+
     identifier: str
     type: str
-    optical_link_configuration: Optional[AbstractOpticalLinkConfiguration] = None
+    satellite_configuration: Optional[SatelliteConfiguration] = Field(default=None)
+
+    def __hash__(self) -> int:
+        return hash(self.shell_id)
+
+    def __eq__(self, other):
+        if not isinstance(other, Shell):
+            return False
+        return self.shell_id == other.shell_id
 
 
 class WalkerShell(Shell):
@@ -248,6 +366,8 @@ class WalkerShell(Shell):
 class DawnDuskSSOShell(Shell):
     epoch: datetime.datetime
     altitude_in_km: float
+
+    amount_of_satellite: int
 
     type: str = Field(default="SSOShell", frozen=True)
 
@@ -337,44 +457,41 @@ class OrbitalObject(TopologyObject):
         self.get_coordinates()
 
 
-class AbstractOpticalLinkConfiguration(Enum):
-    pass
-
-
-class IntraPlaneOpticalLinkConfiguration(AbstractOpticalLinkConfiguration):
-    FORWARD = 1
-    BACKWARD = 2
-
-
-class Standard4OpticalLinkTopology(AbstractOpticalLinkConfiguration):
-    INTRA_PLANE_FORWARD = 1
-    INTRA_PLANE_BACKWARD = 2
-    INTER_PLANE_RIGHT = 3
-    INTER_PLANE_LEFT = 4
-
-
-class OpticalLinkConfiguration(BaseModel):
-    maximum_angular_velocity_degree_per_second: float = Field(default=1)
-    maximum_range_distance_km: float = Field(default=7800)
-    minimum_contact_duration_seconds: float = Field(default=30)
-
-    max_azimuth_degrees: float = Field(default=175)  # ±175° azimuth
-    min_elevation_degrees: float = Field(default=-25)  # +5°/-25° elev
-    max_elevation_degrees: float = Field(default=5)
-
-    los_central_angle_max_degrees: float = Field(default=80)
-
-    enable_dynamic_reassignment: bool = Field(default=True)
-
-
 class OpticalLinkTerminal(BaseModel):
-    link: Optional[InterSatelliteLink] = Field(default=None)
+    terminal_id: uuid.UUID = Field(default_factory=uuid.uuid4, frozen=True)
 
-    possible_links: list[InterSatelliteLink] = Field(default_factory=list)
-
-    terminal_configuration: OpticalLinkConfiguration = Field(
-        default_factory=OpticalLinkConfiguration
+    link: Optional[InterSatelliteLink] = Field(default=None, exclude=True)
+    target_optical_link_terminal: Optional["OpticalLinkTerminal"] = Field(
+        default=None, exclude=True
     )
+    host_satellite: Satellite = Field(exclude=True, frozen=True)
+
+    azimuth_angle_configuration: float = Field(
+        default=0
+    )  # 0 ° (X along track), 90°, -90°, -180°
+    elevation_angle_configuration: float = Field(
+        default=-180
+    )  # Nadir anti nadir is 180
+
+    descriptor: InterSatelliteLinkOrientation = Field(
+        default=InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD
+    )  # az
+
+    orientation_possibilities: list[InterSatelliteLinkOrientation] = Field(
+        default=[InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD]
+    )
+
+    terminal_configuration: OpticalTerminalConfiguration = Field(
+        default_factory=OpticalTerminalConfiguration
+    )  # Global terminal config
+
+    def __hash__(self):
+        return hash(self.terminal_id)
+
+    def __eq__(self, other):
+        if not isinstance(other, OpticalLinkTerminal):
+            return False
+        return self.terminal_id == other.terminal_id
 
 
 T_Shell = TypeVar("T_Shell", bound=Shell)
@@ -389,15 +506,45 @@ class Satellite(Generic[T_Shell], OrbitalObject):
     def __init__(self, /, **data: Any):
         super().__init__(**data)
 
-        for i in range(4):
-            self.optical_link_terminals.append(
-                OpticalLinkTerminal(
-                    link=None,
-                )
+        if self.shell is None or self.shell.satellite_configuration is None:
+            satellite_configuration = SatelliteConfiguration()
+        else:
+            satellite_configuration = self.shell.satellite_configuration
+        self.__configure_satellite(satellite_configuration=satellite_configuration)
+
+    def __configure_satellite(self, satellite_configuration: SatelliteConfiguration):
+        for (
+            optical_installation
+        ) in satellite_configuration.optical_inter_satellite_link_installations:
+            optical_terminal = OpticalLinkTerminal(
+                descriptor=optical_installation.descriptor,
+                azimuth_angle_configuration=optical_installation.azimuth_angle_configuration,
+                elevation_angle_configuration=optical_installation.elevation_angle_configuration,
+                orientation_possibilities=optical_installation.orientation_possibilities,
+                terminal_configuration=optical_installation.optical_terminal_property,
+                host_satellite=self,
             )
+
+            self.optical_link_terminals.append(optical_terminal)
+
+    def reconfigure_satellite(self, satellite_configuration: SatelliteConfiguration):
+        """
+        Re configure the satellite with a new configuration. This will update the optical link terminals of the satellite.
+        Warning: it might diverge from the Shell default configuration.
+        :param satellite_configuration:
+        :return:
+        """
+        self.__configure_satellite(satellite_configuration)
 
     def __str__(self):
         return f"Satellite name: {self.satellite_name} satellite_id: {self.object_id} shell type: {self.shell.type}"
+
+    def __repr__(self):
+        return "Satellite(name={name}, topology_object_id={topology_object_id}, shell={shell})".format(
+            name=self.satellite_name,
+            topology_object_id=self.topology_uniq_id,
+            shell=self.shell.shell_id if self.shell else "(no shell)",
+        )
 
 
 class GroundObject(TopologyObject):
@@ -466,6 +613,8 @@ class Link(BaseModel):
     Links are considered as bidirectional for this first version.
     """
 
+    link_id: uuid.UUID = Field(default_factory=uuid.uuid4)
+
     type: str = Field(default="Link", frozen=True)
 
     source: TopologyObject = Field(default=None)
@@ -515,35 +664,13 @@ class Link(BaseModel):
         self.source = source
         self.destination = destination
 
+    def __hash__(self) -> int:
+        return hash(self.link_id)
 
-class InterSatelliteLink(Link):
-    type: str = Field(default="InterSatelliteLink", frozen=True)
-
-    inter_satellite_direction: InterSatelliteLinkDirection = Field(
-        default=InterSatelliteLinkDirection.UNDEFINED
-    )
-
-    def connect(
-        self,
-        source: TopologyObject,
-        destination: TopologyObject,
-        inter_satellite_direction: InterSatelliteLinkDirection = InterSatelliteLinkDirection.UNDEFINED,
-    ):
-        object_are_both_satellites = isinstance(source, Satellite) and isinstance(
-            destination, Satellite
-        )
-        if not object_are_both_satellites:
-            raise InterSatelliteConnectionError(
-                "You cannot use InterSatellite connection between these two object : {source} - {destination} ".format(
-                    source=source.__class__, destination=destination.__class__
-                )
-            )
-        self.inter_satellite_direction = inter_satellite_direction
-
-        super().connect(source, destination)
-
-    class ConfigDict:
-        use_enum_values = True
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Link):
+            return False
+        return self.link_id == other.link_id
 
 
 class OpticalConstraint(BaseModel):
@@ -553,9 +680,173 @@ class OpticalConstraint(BaseModel):
     angular_velocity_rate_degree_per_second: float = Field(default=None)
 
 
-class OpticalInterSatelliteLink(InterSatelliteLink):
-    source_constraint: OpticalConstraint = Field(default=None)
-    destination_constraint: OpticalConstraint = Field(default=None)
+class InterSatelliteLink(Link):
+    type: str = Field(default="InterSatelliteLink", frozen=True)
+
+    inter_satellite_direction: InterSatelliteLinkDirection = Field(
+        default=InterSatelliteLinkDirection.UNDEFINED
+    )
+    source_constraint: OpticalConstraint | None = Field(default=None)
+    destination_constraint: OpticalConstraint | None = Field(default=None)
+
+    source_optical_terminal: Optional[OpticalLinkTerminal] = Field(
+        default=None, exclude=True
+    )
+    destination_optical_terminal: Optional[OpticalLinkTerminal] = Field(
+        default=None, exclude=True
+    )
+
+    def connect(
+        self,
+        source: TopologyObject,
+        destination: TopologyObject,
+        source_optical_terminal: OpticalLinkTerminal = None,
+        destination_optical_terminal: OpticalLinkTerminal = None,
+        source_constraint: OpticalConstraint = None,
+        destination_constraint: OpticalConstraint = None,
+        inter_satellite_direction: InterSatelliteLinkDirection = InterSatelliteLinkDirection.UNDEFINED,
+    ):
+        object_are_both_satellites = isinstance(source, Satellite) and isinstance(
+            destination, Satellite
+        )
+
+        if not object_are_both_satellites:
+            raise InterSatelliteConnectionError(
+                f"You cannot use InterSatellite connection between these two objects: "
+                f"{source.__class__} - {destination.__class__}"
+            )
+
+        source__destination_optical_terminal_are_the_same = (
+            source_optical_terminal is not None
+            and destination_optical_terminal is not None
+            and source_optical_terminal == destination_optical_terminal
+        )
+
+        if source__destination_optical_terminal_are_the_same:
+            raise InterSatelliteConnectionError("Terminals cannot be the same")
+
+        # Logic Related to the ISL
+        self.inter_satellite_direction = inter_satellite_direction
+
+        # Logic Related To Every Links
+        super().connect(source, destination)
+
+        if source_optical_terminal and destination_optical_terminal:
+            self.bind_terminals(
+                source_terminal=source_optical_terminal,
+                destination_terminal=destination_optical_terminal,
+                source_constraint=source_constraint,
+                destination_constraint=destination_constraint,
+            )
+
+    def bind_terminals(
+        self,
+        source_terminal: OpticalLinkTerminal,
+        destination_terminal: OpticalLinkTerminal,
+        source_constraint: OpticalConstraint,
+        destination_constraint: OpticalConstraint,
+    ):
+        """
+        Bind optical terminals to this link and wire all back-references:
+          - link.source_optical_terminal / destination_optical_terminal
+          - terminal.link on both sides
+          - terminal.target_optical_link_terminal on both sides (peer reference)
+
+        Must be called after connect().
+        """
+
+        if source_terminal.link is not None and source_terminal.link is not self:
+            raise ValueError(
+                f"Terminal {source_terminal.terminal_id} is already bound to "
+                f"{source_terminal.link!r}. Call unbind_terminals() on the old "
+                f"link before rebinding."
+            )
+        if (
+            destination_terminal.link is not None
+            and destination_terminal.link is not self
+        ):
+            raise ValueError(
+                f"Terminal {destination_terminal.terminal_id} is already bound to "
+                f"{destination_terminal.link!r}. Call unbind_terminals() on the old "
+                f"link before rebinding."
+            )
+
+        self.source_optical_terminal = source_terminal
+        self.destination_optical_terminal = destination_terminal
+
+        self.source_constraint = source_constraint
+        self.destination_constraint = destination_constraint
+
+        source_terminal.link = self
+        destination_terminal.link = self
+
+        source_terminal.target_optical_link_terminal = destination_terminal
+        destination_terminal.target_optical_link_terminal = source_terminal
+
+    def unbind_terminals(self):
+        """
+        Clear all terminal bindings on both sides — call before removing the link
+        so terminals are released back to the unassigned pool.
+        """
+        if self.source_optical_terminal is not None:
+            self.source_optical_terminal.link = None
+            self.source_optical_terminal.target_optical_link_terminal = None
+
+        if self.destination_optical_terminal is not None:
+            self.destination_optical_terminal.link = None
+            self.destination_optical_terminal.target_optical_link_terminal = None
+
+        self.source_optical_terminal = None
+        self.destination_optical_terminal = None
+
+        self.source_constraint = None
+        self.destination_constraint = None
+
+    def get_satellite_source(self) -> "Satellite":
+        return cast(Satellite, self.source)
+
+    def get_satellite_destination(self) -> "Satellite":
+        return cast(Satellite, self.destination)
+
+    def get_peer_satellite(self, satellite: "Satellite") -> "Satellite":
+        """Return the satellite on the other end of this link."""
+        if self.source == satellite:
+            return cast(Satellite, self.destination)
+        elif self.destination == satellite:
+            return cast(Satellite, self.source)
+        raise ValueError(
+            f"Satellite {satellite.satellite_name} is not an endpoint of this link."
+        )
+
+    def get_terminal_for_satellite(
+        self, satellite: "Satellite"
+    ) -> Optional[OpticalLinkTerminal]:
+        """Return the optical terminal assigned to the given satellite's side."""
+        if self.source == satellite:
+            return self.source_optical_terminal
+        elif self.destination == satellite:
+            return self.destination_optical_terminal
+        raise ValueError(
+            f"Satellite {satellite.satellite_name} is not an endpoint of this link."
+        )
+
+    def get_peer_terminal(
+        self, terminal: OpticalLinkTerminal
+    ) -> Optional[OpticalLinkTerminal]:
+        """Return the terminal on the other side of this link."""
+        if terminal == self.source_optical_terminal:
+            return self.destination_optical_terminal
+        elif terminal == self.destination_optical_terminal:
+            return self.source_optical_terminal
+        raise ValueError("Terminal is not bound to this link.")
+
+    class ConfigDict:
+        use_enum_values = True
+
+    def __repr__(self):
+        src_id = self.source.topology_uniq_id if self.source else None
+        dst_id = self.destination.topology_uniq_id if self.destination else None
+        return f"InterSatelliteLink(source={src_id}, destination={dst_id})"
 
 
 class GroundToSpaceLink(Link):
@@ -796,6 +1087,9 @@ class Simulation:
         return ground_objects
 
 
+@deprecated(
+    "This factory will be removed in the factories.py. Please use the one in factories.py"
+)
 def create_satellite(
     satellite_name: str,
     object_id: int,
@@ -821,6 +1115,9 @@ def create_satellite(
     return created_satellite
 
 
+@deprecated(
+    "This factory will be removed in the factories.py. Please use the one in factories.py"
+)
 def create_ground_station(object_id: int, domain: str = "public") -> GroundStation:
     """
     Create a ground station.
@@ -835,6 +1132,9 @@ def create_ground_station(object_id: int, domain: str = "public") -> GroundStati
     return created_ground_station
 
 
+@deprecated(
+    "This factory will be removed in the factories.py. Please use the one in factories.py"
+)
 def create_user_terminal(object_id: int, domain: str = "public") -> UserTerminal:
     """
     Create a user terminal.
@@ -850,6 +1150,9 @@ def create_user_terminal(object_id: int, domain: str = "public") -> UserTerminal
     return created_user
 
 
+@deprecated(
+    "This factory will be removed in the factories.py. Please use the one in factories.py"
+)
 def create_point_of_presence(object_id: int, domain: str = "public") -> PointOfPresence:
     """
     Create a point of presence.

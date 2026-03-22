@@ -1,0 +1,449 @@
+import warnings
+from abc import abstractmethod, ABC
+
+from sat_com_builder.links.inter_satellite_link_generator import (
+    generate_walker_star_constellation_grid,
+    generate_walker_delta_constellation_grid,
+    generate_sun_synchronous_constellation_grid,
+)
+from sat_com_connectivity.inter_satellite_link_connectivity.models import (
+    PossibleOpticalLink,
+    LinkAssociation,
+)
+from sat_com_connectivity.inter_satellite_link_connectivity.optical_helpers import (
+    compute_OISL_possible_links_for_satellite_pair,
+    compute_OISL_links_from_terminal_pools,
+)
+from sat_com_model.models import (
+    WalkerShell,
+    Satellite,
+    OpticalLinkTerminal,
+    InterSatelliteLinkDirection,
+    DawnDuskSSOShell,
+    InterSatelliteLinkOrientation,
+)
+
+# ---------------------------------------------------------------------------
+# ADDRESSING PLAN — static topology descriptor
+# One plan per shell type. Describes which satellite connects to which,
+# and on which terminal, without touching simulation state.
+# ---------------------------------------------------------------------------
+
+
+_ORBITAL_INTER_SATELLITE_LINK_ORIENTATION = {
+    InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD,
+    InterSatelliteLinkOrientation.INTRA_PLANE_BACKWARD,
+}
+
+_ADJACENT_INTER_SATELLITE_LINK_ORIENTATION = {
+    InterSatelliteLinkOrientation.INTER_PLANE_RIGHT,
+    InterSatelliteLinkOrientation.INTER_PLANE_LEFT,
+}
+
+_INTER_SHELL_ORIENTATIONS = {
+    InterSatelliteLinkOrientation.INTER_SHELL_FORWARD,
+    InterSatelliteLinkOrientation.INTER_SHELL_BACKWARD,
+    InterSatelliteLinkOrientation.INTER_SHELL_LEFT,
+    InterSatelliteLinkOrientation.INTER_SHELL_RIGHT,
+}
+
+_ADJACENT_INTRA_SHELL_RULES = {
+    InterSatelliteLinkOrientation.INTER_PLANE_RIGHT: InterSatelliteLinkOrientation.INTER_PLANE_LEFT,
+    InterSatelliteLinkOrientation.INTER_PLANE_LEFT: InterSatelliteLinkOrientation.INTER_PLANE_RIGHT,
+}
+
+
+def _filter_by_orientation(
+    candidates: list[PossibleOpticalLink],
+    expected_a: set[InterSatelliteLinkOrientation],
+    expected_b: set[InterSatelliteLinkOrientation],
+) -> list[PossibleOpticalLink]:
+    return [
+        c
+        for c in candidates
+        if c.terminal_a.descriptor in expected_a
+        and c.terminal_b.descriptor in expected_b
+    ]
+
+
+def _filter_terminals_by_orientation(
+    candidates: list[OpticalLinkTerminal],
+    expected: set[InterSatelliteLinkOrientation],
+) -> list[OpticalLinkTerminal]:
+    return [c for c in candidates if c.descriptor in expected]
+
+
+def _filter_terminals_pool_by_orientation(
+    pool_a: list[OpticalLinkTerminal],
+    pool_b: list[OpticalLinkTerminal],
+    expected_a: set[InterSatelliteLinkOrientation],
+    expected_b: set[InterSatelliteLinkOrientation],
+):
+    return (
+        _filter_terminals_by_orientation(pool_a, expected_a),
+        _filter_terminals_by_orientation(pool_b, expected_b),
+    )
+
+
+def _is_inter_shell_capable(terminal: OpticalLinkTerminal) -> bool:
+    """A terminal is inter-shell capable if any of its orientation_possibilities
+    includes an INTER_SHELL orientation."""
+    return any(
+        o in _INTER_SHELL_ORIENTATIONS for o in terminal.orientation_possibilities
+    )
+
+
+# ---------------------------------------------------------------------------
+# RESULT TYPES — pure data, no side effects
+# ---------------------------------------------------------------------------
+
+
+class StaticAddressingPlan(ABC):
+    """
+    Base class for static intra-shell addressing plans.
+    A plan is a pure descriptor — it computes intended connectivity
+    but does not create or modify any simulation objects.
+    """
+
+    @abstractmethod
+    def get_link_associations(
+        self, satellites: list[Satellite]
+    ) -> list["LinkAssociation"]:
+        """
+        Compute the full set of intended terminal-to-terminal associations
+        for all satellites in this shell.
+        Returns LinkAssociation objects with link=None — the SimulationManager
+        is responsible for actually creating the ISL objects.
+        """
+        pass
+
+
+class WalkerStaticAddressingPlan(StaticAddressingPlan):
+    """
+    Static addressing plan for a Walker constellation (delta or star).
+    Encodes the intra-plane (ORBITAL) and inter-plane (ADJACENT) mesh topology.
+    Uses compute_OISL_links_from_terminal_pools to select the best
+    terminal pair per intended link, filtered by descriptor group so ORBITAL
+    links never land on ADJACENT-facing terminals and vice versa.
+
+    Walker constellation has 4 intra-shell ISL. two inter-plane, two intra-plane.
+    This addressing plan generate the grid according to the old pattern, that has been used and tested.
+
+    What it does now is parameterizing the optical link terminals pairs. The rules are the following:
+    --
+    For a satellite A and a Satellite B, both on the same plane, both neighbors according to the plan.
+    Satellite A will have two terminals that can connect to satellite B, one with INTRA_PLANE_FORWARD and the other with INTRA_PLANE_BACKWARD.
+    The one that will be selected will be the one with the best alignment. Has there is no ambiguity, it should be enough to always tales the best alignment score.
+    Satellite B will have the same but in reverse.
+
+    So for the link A to B, we will first try to connect the terminal of A with INTRA_PLANE_FORWARD with the terminal of B with INTRA_PLANE_BACKWARD.
+    If this pair is not available (that should not happen for orbital link), we will try the other way around, so A with INTRA_PLANE_BACKWARD and B with INTRA_PLANE_FORWARD.
+    --
+    For a Satellite A and a Satellite B, both on adjacent plane, both neighbors (and connected) according to the plan.
+    The same logic apply, as before. But this time it can have an ambiguity near the pole, has the alignment can be very close between the left and the right.
+    So we will try first the terminal of A with INTER_PLANE_RIGHT with the terminal of B with INTER_PLANE_LEFT, then the other way around if the first pair is not available.
+
+    """
+
+    def __init__(self, walker_shell: WalkerShell):
+        self.walker_shell = walker_shell
+
+        if self.walker_shell.type == "star":
+            grid = generate_walker_star_constellation_grid(
+                number_orbits=self.walker_shell.amount_of_orbit_plane,
+                number_satellites_per_orbit=self.walker_shell.amount_of_satellite_per_orbit_plane,
+                isl_shift=self.walker_shell.adjacent_inter_satellite_shifting,
+            )
+        else:
+            # Default to delta for any other type
+            grid = generate_walker_delta_constellation_grid(
+                number_orbits=self.walker_shell.amount_of_orbit_plane,
+                number_satellites_per_orbit=self.walker_shell.amount_of_satellite_per_orbit_plane,
+                isl_shift=self.walker_shell.adjacent_inter_satellite_shifting,
+            )
+        self.grid: list[tuple[int, int, InterSatelliteLinkDirection]] = grid
+
+    def _build_associations_from_grid(
+        self,
+        satellite_lookup: dict[int, Satellite],
+    ) -> list[LinkAssociation]:
+        associations: list[LinkAssociation] = []
+        booked_terminals: set[OpticalLinkTerminal] = set()
+
+        for a_id, b_id, direction in self.grid:
+            sat_a = satellite_lookup.get(a_id)
+            sat_b = satellite_lookup.get(b_id)
+
+            if sat_a is None or sat_b is None:
+                warnings.warn(
+                    f"Satellite id {a_id if sat_a is None else b_id} not found "
+                    f"in satellite list — skipping link ({a_id}, {b_id})."
+                )
+                continue
+
+            if direction == InterSatelliteLinkDirection.ADJACENT:
+                sources_left, destinations_right = (
+                    _filter_terminals_pool_by_orientation(
+                        sat_a.optical_link_terminals,
+                        sat_b.optical_link_terminals,
+                        {InterSatelliteLinkOrientation.INTER_PLANE_LEFT},
+                        {InterSatelliteLinkOrientation.INTER_PLANE_RIGHT},
+                    )
+                )
+
+                sources_right, destinations_left = (
+                    _filter_terminals_pool_by_orientation(
+                        sat_a.optical_link_terminals,
+                        sat_b.optical_link_terminals,
+                        {InterSatelliteLinkOrientation.INTER_PLANE_RIGHT},
+                        {InterSatelliteLinkOrientation.INTER_PLANE_LEFT},
+                    )
+                )
+
+                candidates_case_1 = compute_OISL_links_from_terminal_pools(
+                    terminals_group_1=sources_left,
+                    terminals_group_2=destinations_right,
+                    angular_velocity_dt_seconds=1.0,
+                )
+                candidates_case_2 = compute_OISL_links_from_terminal_pools(
+                    terminals_group_1=destinations_left,
+                    terminals_group_2=sources_right,
+                    angular_velocity_dt_seconds=1.0,
+                )
+
+                all_candidates: list[PossibleOpticalLink] = (
+                    candidates_case_1 + candidates_case_2
+                )
+                all_candidates.sort(key=lambda x: x.selection_score)
+
+            elif direction == InterSatelliteLinkDirection.ORBITAL:
+                sources_forward, destinations_backward = (
+                    _filter_terminals_pool_by_orientation(
+                        sat_a.optical_link_terminals,
+                        sat_b.optical_link_terminals,
+                        {InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD},
+                        {InterSatelliteLinkOrientation.INTRA_PLANE_BACKWARD},
+                    )
+                )
+                sources_backward, destinations_forward = (
+                    _filter_terminals_pool_by_orientation(
+                        sat_a.optical_link_terminals,
+                        sat_b.optical_link_terminals,
+                        {InterSatelliteLinkOrientation.INTRA_PLANE_BACKWARD},
+                        {InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD},
+                    )
+                )
+
+                candidates_case_1 = compute_OISL_links_from_terminal_pools(
+                    terminals_group_1=sources_forward,
+                    terminals_group_2=destinations_backward,
+                    angular_velocity_dt_seconds=1.0,
+                )
+                candidates_case_2 = compute_OISL_links_from_terminal_pools(
+                    terminals_group_1=sources_backward,
+                    terminals_group_2=destinations_forward,
+                    angular_velocity_dt_seconds=1.0,
+                )
+
+                all_candidates: list[PossibleOpticalLink] = (
+                    candidates_case_1 + candidates_case_2
+                )
+                all_candidates.sort(key=lambda x: x.selection_score)
+
+            else:
+                raise ValueError(
+                    "This direction is not recognized by the addressing plan."
+                )
+
+            if not all_candidates:
+                warnings.warn(
+                    f"No valid {direction.name} terminal pair found between "
+                    f"{sat_a.satellite_name} and {sat_b.satellite_name} — skipping."
+                )
+                continue
+
+            # The best candidate is the one with the best score. But in some case where the satellite are
+            # approaching the descending / ascending transition, the LEFT and right has no sense. There is a time step t
+            # where the satellite from the adjacent orbit that was at right has a better angle to the left. but the left
+            # is already booked before by the other adjacent sat that is still on the left ! So we have to iterate
+            # if not will  have two satellites that will try to tke the same terminal
+
+            candidate_selected_rank = 0
+
+            best = all_candidates[candidate_selected_rank]
+
+            while (
+                best.terminal_a in booked_terminals
+                or best.terminal_b in booked_terminals
+            ):
+                warnings.warn(
+                    "Special situation where the satellite alignment is ambiguous"
+                )
+                candidate_selected_rank += 1
+                if candidate_selected_rank > len(all_candidates) - 1:
+                    raise ValueError(
+                        f"No available terminal found the {direction} link between {a_id} and {b_id}."
+                    )
+                best = all_candidates[candidate_selected_rank]
+
+            booked_terminals.add(best.terminal_a)
+            booked_terminals.add(best.terminal_b)
+
+            associations.append(
+                LinkAssociation(
+                    satellite_a=sat_a,
+                    terminal_a=best.terminal_a,
+                    satellite_b=sat_b,
+                    terminal_b=best.terminal_b,
+                    direction=direction,
+                    link=None,
+                    constraint_a_to_b=best.constraint_a_to_b,
+                    constraint_b_to_a=best.constraint_b_to_a,
+                )
+            )
+
+        return associations
+
+    def get_link_associations(
+        self, satellites: list[Satellite]
+    ) -> list[LinkAssociation]:
+        satellite_lookup = {sat.object_id: sat for sat in satellites}
+
+        return self._build_associations_from_grid(satellite_lookup)
+
+
+class SSODawnDuskStaticAddressingPlan(StaticAddressingPlan):
+    """
+    Static addressing plan for a Dawn-Dusk Sun-Synchronous orbit constellation.
+    SSO constellations have only a single orbital plane, so only intra-plane
+    (ORBITAL) links exist — there are no adjacent-plane links.
+    The grid is a simple ring: each satellite connects to the next in the orbit.
+
+
+    This type of shell uses the same logic has WalkerShell but only with orbital links. There is no adjacent planes.
+    Right now, no adjacent intra-shell exists. Intershell could exist, but they can only be managed with the strategy,
+    not with a static plan.
+    We might add the adjacent plane in the future, but this is not our priority.
+
+    """
+
+    def __init__(self, sso_shell: DawnDuskSSOShell):
+        self.sso_shell = sso_shell
+
+        self.grid: list[tuple[int, int, InterSatelliteLinkDirection]] = (
+            generate_sun_synchronous_constellation_grid(
+                number_satellites_per_orbit=sso_shell.amount_of_satellite,
+            )
+        )
+
+    def _build_associations_from_grid(
+        self,
+        satellite_lookup: dict[int, Satellite],
+    ) -> list[LinkAssociation]:
+        associations: list[LinkAssociation] = []
+        booked_terminals: set[OpticalLinkTerminal] = set()
+
+        for a_id, b_id, direction in self.grid:
+            sat_a = satellite_lookup.get(a_id)
+            sat_b = satellite_lookup.get(b_id)
+
+            if sat_a is None or sat_b is None:
+                warnings.warn(
+                    f"Satellite id {a_id if sat_a is None else b_id} not found "
+                    f"in satellite list — skipping link ({a_id}, {b_id})."
+                )
+                continue
+
+            if direction != InterSatelliteLinkDirection.ORBITAL:
+                raise NotImplementedError(
+                    f"{direction} direction links are not implemented yet."
+                )
+
+            sources_forward, destinations_backward = (
+                _filter_terminals_pool_by_orientation(
+                    sat_a.optical_link_terminals,
+                    sat_b.optical_link_terminals,
+                    {InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD},
+                    {InterSatelliteLinkOrientation.INTRA_PLANE_BACKWARD},
+                )
+            )
+            sources_backward, destinations_forward = (
+                _filter_terminals_pool_by_orientation(
+                    sat_a.optical_link_terminals,
+                    sat_b.optical_link_terminals,
+                    {InterSatelliteLinkOrientation.INTRA_PLANE_BACKWARD},
+                    {InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD},
+                )
+            )
+
+            candidates_case_1 = compute_OISL_links_from_terminal_pools(
+                terminals_group_1=sources_forward,
+                terminals_group_2=destinations_backward,
+                angular_velocity_dt_seconds=1.0,
+            )
+            candidates_case_2 = compute_OISL_links_from_terminal_pools(
+                terminals_group_1=sources_backward,
+                terminals_group_2=destinations_forward,
+                angular_velocity_dt_seconds=1.0,
+            )
+
+            all_candidates: list[PossibleOpticalLink] = (
+                candidates_case_1 + candidates_case_2
+            )
+            all_candidates.sort(key=lambda x: x.selection_score)
+
+            if not all_candidates:
+                warnings.warn(
+                    f"No valid {direction.name} terminal pair found between "
+                    f"{sat_a.satellite_name} and {sat_b.satellite_name} — skipping."
+                )
+                continue
+
+            # The best candidate is the one with the best score. But in some case where the satellite are
+            # approaching the descending / ascending transition, the LEFT and right has no sense. There is a time step t
+            # where the satellite from the adjacent orbit that was at right has a better angle to the left. but the left
+            # is already booked before by the other adjacent sat that is still on the left ! So we have to iterate
+            # if not will  have two satellites that will try to tke the same terminal
+
+            candidate_selected_rank = 0
+
+            best = all_candidates[candidate_selected_rank]
+
+            while (
+                best.terminal_a in booked_terminals
+                or best.terminal_b in booked_terminals
+            ):
+                warnings.warn(
+                    "Special situation where the satellite alignment is ambiguous"
+                )
+                candidate_selected_rank += 1
+                if candidate_selected_rank > len(all_candidates) - 1:
+                    raise ValueError(
+                        f"No available terminal found the {direction} link between {a_id} and {b_id}."
+                    )
+                best = all_candidates[candidate_selected_rank]
+
+            booked_terminals.add(best.terminal_a)
+            booked_terminals.add(best.terminal_b)
+
+            associations.append(
+                LinkAssociation(
+                    satellite_a=sat_a,
+                    terminal_a=best.terminal_a,
+                    satellite_b=sat_b,
+                    terminal_b=best.terminal_b,
+                    direction=direction,
+                    link=None,
+                    constraint_a_to_b=best.constraint_a_to_b,
+                    constraint_b_to_a=best.constraint_b_to_a,
+                )
+            )
+
+        return associations
+
+    def get_link_associations(
+        self, satellites: list[Satellite]
+    ) -> list[LinkAssociation]:
+        satellite_lookup = {sat.object_id: sat for sat in satellites}
+
+        return self._build_associations_from_grid(satellite_lookup)
