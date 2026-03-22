@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -44,8 +44,23 @@ def test_valid_existing_link(strategy):
     assert len(result.obsolete_links) == 0
 
 
-def test_obsolete_link_then_connect_to_closest_satellite(strategy):
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+)
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
+def test_obsolete_link_then_connect_to_closest_satellite(
+    mock_get_elevation_angle,
+    mock_estimate_time_until_disconnection,
+    strategy,
+):
+    mock_get_elevation_angle.return_value = 45
+    mock_estimate_time_until_disconnection.return_value = 300
+
     mock_distance_model = strategy.distance_model
+
+    strategy.distance_model.get_3d_distance_meters.return_value = 800_000
 
     # Setup ground object and satellites
     ground_object = make_fake_ground_object()
@@ -88,8 +103,19 @@ def test_obsolete_link_then_connect_to_closest_satellite(strategy):
     assert result.new_ground_object_connections[0].satellite == candidate_sat_2
 
 
-def test_no_links_and_no_visible_satellites(strategy):
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+)
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
+def test_no_links_and_no_visible_satellites(
+    mock_get_elevation_angle, mock_estimate_time_until_disconnection, strategy
+):
     mock_distance_model = strategy.distance_model
+
+    mock_get_elevation_angle.return_value = 45
+    mock_estimate_time_until_disconnection.return_value = 300
 
     ground_object = make_fake_ground_object()
     ground_object.links = []
@@ -97,6 +123,7 @@ def test_no_links_and_no_visible_satellites(strategy):
     satellite = make_fake_satellite()
 
     mock_distance_model.spatial_position_on_ground_in_range.return_value = []
+    mock_get_elevation_angle.get_3d_distance_meters.return_value = 800_000
 
     result = strategy.compute_ground_object_connection_strategy(
         ground_object, [satellite]
@@ -106,8 +133,20 @@ def test_no_links_and_no_visible_satellites(strategy):
     assert result.new_ground_object_connections == []
 
 
-def test_k_closest_returns_non_satellite(strategy):
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+)
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
+def test_k_closest_returns_non_satellite(
+    mock_get_elevation_angle, mock_estimate_time_until_disconnection, strategy
+):
     mock_distance_model = strategy.distance_model
+
+    mock_get_elevation_angle.return_value = 45
+    mock_estimate_time_until_disconnection.return_value = 300
+    mock_get_elevation_angle.get_3d_distance_meters.return_value = 800_000
 
     ground_object = make_fake_ground_object()
     satellite = make_fake_satellite()

@@ -19,7 +19,9 @@ from tests.sat_com_connectivity_tests.utils import (
     "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
 def test_keep_existing_link(mock_get_elevation_angle_visibility_angle):
-    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy()
+    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
+        distance_model=MagicMock()
+    )
     ground_object = make_fake_ground_object()
     satellite = make_fake_satellite_big_low_inclination_shell()
 
@@ -43,10 +45,17 @@ def test_keep_existing_link(mock_get_elevation_angle_visibility_angle):
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
 def test_obsolete_link_then_pick_best(
-    mock_get_elevation_angle, mock_get_visible_satellites
+    mock_estimate_time_until_disconnection,
+    mock_get_elevation_angle,
+    mock_get_visible_satellites,
 ):
-    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy()
+    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
+        distance_model=MagicMock()
+    )
     ground_object = make_fake_ground_object()
     sat_old = make_fake_satellite_big_low_inclination_shell()
     sat_new1 = make_fake_satellite_big_low_inclination_shell()
@@ -60,6 +69,7 @@ def test_obsolete_link_then_pick_best(
 
     # Old link is invalid (elevation too low)
     mock_get_elevation_angle.return_value = 10
+    mock_estimate_time_until_disconnection.return_value = 100
 
     mock_get_visible_satellites.return_value = [
         MagicMock(satellite=sat_new1, elevation_above_horizon=30),
@@ -83,13 +93,24 @@ def test_obsolete_link_then_pick_best(
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
 )
-def test_no_visible_satellites(mock_get_elevation_angle, mock_get_visible_satellites):
-    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy()
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
+def test_no_visible_satellites(
+    mock_estimate_time_until_disconnection,
+    mock_get_elevation_angle,
+    mock_get_visible_satellites,
+):
+    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
+        distance_model=MagicMock()
+    )
     ground_object = make_fake_ground_object()
     satellite = make_fake_satellite()
 
     link = GroundToSpaceLink(source=ground_object, destination=satellite)
     ground_object.links = [link]
+
+    mock_estimate_time_until_disconnection.return_value = 300
 
     mock_get_elevation_angle.return_value = 10  # Invalid link
     mock_get_visible_satellites.return_value = []  # Nothing visible
@@ -105,9 +126,25 @@ def test_no_visible_satellites(mock_get_elevation_angle, mock_get_visible_satell
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.get_visible_satellites"
 )
-def test_best_satellite_has_highest_elevation(mock_get_visible_satellites):
-    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy()
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+)
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
+def test_best_satellite_has_highest_elevation(
+    mock_estimate_time_until_disconnection,
+    mock_get_elevation_angle,
+    mock_get_visible_satellites,
+):
+    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
+        distance_model=MagicMock()
+    )
     ground_object = make_fake_ground_object()
+
+    strategy.distance_model.get_3d_distance_meters.return_value = 800_000
+    mock_estimate_time_until_disconnection.return_value = 300
+    mock_get_elevation_angle.return_value = 45
 
     sat1 = make_fake_satellite_big_low_inclination_shell()
     sat2 = make_fake_satellite_big_low_inclination_shell()
@@ -135,9 +172,23 @@ def test_best_satellite_has_highest_elevation(mock_get_visible_satellites):
     )
 
 
-def test_that_if_two_shells_exists_ground_station_selects_bigger_shell():
-    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy()
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+)
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
+def test_that_if_two_shells_exists_ground_station_selects_bigger_shell(
+    mock_estimate_time_until_disconnection, mock_get_elevation_angle
+):
+    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
+        distance_model=MagicMock()
+    )
     ground_object = make_fake_ground_object()
+
+    strategy.distance_model.get_3d_distance_meters.return_value = 800_000
+    mock_estimate_time_until_disconnection.return_value = 100
+    mock_get_elevation_angle.return_value = 45
 
     # Create satellites from two different shells
     sat_small_shell = make_fake_satellite_small_close_polar_shell()
@@ -171,14 +222,29 @@ def test_that_if_two_shells_exists_ground_station_selects_bigger_shell():
         )
 
 
-def test_that_if_only_lower_shell_is_visible_it_gets_selected():
-    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy()
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+)
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
+def test_that_if_only_lower_shell_is_visible_it_gets_selected(
+    mock_estimate_time_until_disconnection,
+    mock_get_elevation_angle,
+):
+    strategy = ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
+        distance_model=MagicMock()
+    )
     ground_object = make_fake_ground_object()
 
     # Create satellites from two different shells
     sat_small_shell = make_fake_satellite_small_close_polar_shell()
 
     sat_big_shell = make_fake_satellite_big_low_inclination_shell()
+
+    strategy.distance_model.get_3d_distance_meters.return_value = 800_000
+    mock_estimate_time_until_disconnection.return_value = 300
+    mock_get_elevation_angle.return_value = 45
 
     # Only the small shell satellite is visible
     with patch(

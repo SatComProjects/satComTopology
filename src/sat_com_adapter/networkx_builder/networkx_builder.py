@@ -1,7 +1,13 @@
 import networkx as nx
 
 from sat_com_application.simulation_manager import SimulationManager
-from sat_com_model.models import TopologyObject, Link, Satellite
+from sat_com_model.models import (
+    TopologyObject,
+    Link,
+    Satellite,
+    DawnDuskSSOShell,
+    WalkerShell,
+)
 from sat_com_trajectopy.grid_mesh_calculator import calculate_satellite_mesh_coordinates
 
 
@@ -70,14 +76,16 @@ class NetworkxBuilder:
             topology_uniq_id=topology_object.topology_uniq_id,
         )
 
-        if self.enable_export_grid_coordinates and isinstance(
-            topology_object, Satellite
+        if (
+            self.enable_export_grid_coordinates
+            and isinstance(topology_object, Satellite)
+            and isinstance(topology_object.shell, WalkerShell)
         ):
             coordinates_on_grid = calculate_satellite_mesh_coordinates(
                 topology_object.object_id,
-                topology_object.walker_shell.amount_of_orbit_plane,
-                topology_object.walker_shell.amount_of_satellite_per_orbit_plane,
-                topology_object.walker_shell.adjacent_inter_satellite_shifting,
+                topology_object.shell.amount_of_orbit_plane,
+                topology_object.shell.amount_of_satellite_per_orbit_plane,
+                topology_object.shell.adjacent_inter_satellite_shifting,
             )
             data.update(
                 orbit_plane_id=coordinates_on_grid[0],

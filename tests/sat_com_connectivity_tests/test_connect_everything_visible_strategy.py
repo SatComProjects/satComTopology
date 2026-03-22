@@ -13,7 +13,12 @@ from tests.sat_com_connectivity_tests.utils import (
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.get_visible_satellites"
 )
-def test_connect_to_everything_visible_strategy(mock_get_visible_satellites):
+@patch(
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
+)
+def test_connect_to_everything_visible_strategy(
+    mock_estimate_time_until_disconnection, mock_get_visible_satellites
+):
     # Setup strategy and fake objects
     strategy = ConnectToEverythingVisibleStrategy()
 
@@ -27,6 +32,8 @@ def test_connect_to_everything_visible_strategy(mock_get_visible_satellites):
 
     satellite_3 = make_fake_satellite()
     satellite_3.topology_uniq_id = 103
+
+    mock_estimate_time_until_disconnection.return_value = 300
 
     # Add existing link that should be removed
     old_link = GroundToSpaceLink(source=ground_object, destination=satellite_1)

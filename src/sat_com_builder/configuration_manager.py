@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 import yaml
 
+from sat_com_application.event_bus.bus import EventBus
 from sat_com_application.simulation_manager import (
     SimulationManager,
     get_object_by_object_id,
@@ -23,6 +24,7 @@ from sat_com_builder.ground_objects.generate_user_terminals import (
 )
 from sat_com_builder.links.inter_satellite_link_generator import (
     create_inter_satellite_links_for_walker_constellation,
+    create_inter_satellite_links_for_sun_synchronous_constellation,
 )
 from sat_com_builder.models import SimulationProperty
 from sat_com_builder.utils import parse_date
@@ -32,6 +34,7 @@ from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_
 from sat_com_constellation.models import (
     WalkerStarConstellation,
     WalkerDeltaConstellation,
+    DawnDuskSunSynchronousOrbitConstellation,
 )
 from sat_com_model.exceptions import (
     DistanceModelUndefinedError,
@@ -40,13 +43,13 @@ from sat_com_model.exceptions import (
 from sat_com_model.models import (
     Simulation,
     GroundObjectDomain,
+    DawnDuskSSOShell,
     WalkerShell,
 )
 from sat_com_trajectopy.distance_models import (
     GeopyDistanceModel,
     SkLearningDistanceModel,
 )
-
 from sat_com_trajectopy.satellites.generate_satellite import (
     generate_satellites_from_walker_constellation,
 )
@@ -61,8 +64,12 @@ class ConfigurationManager(ABC):
 
 class BaseConfigurationManager(ConfigurationManager):
 
-    def __init__(self, simulation_property: SimulationProperty):
+    def __init__(
+        self, simulation_property: SimulationProperty, event_bus: EventBus = None
+    ):
         self.simulation_property = simulation_property
+
+        self.event_bus = event_bus
 
     def __save_property_inside_simulation_manager(
         self, simulation_manager: SimulationManager
@@ -86,6 +93,12 @@ class BaseConfigurationManager(ConfigurationManager):
         for shell in self.simulation_property.walker_shells:
             create_inter_satellite_links_for_walker_constellation(
                 simulation_manager=simulation_manager, walker_shell_properties=shell
+            )
+
+        for shell in self.simulation_property.dawn_dusk_sso_shells:
+            create_inter_satellite_links_for_sun_synchronous_constellation(
+                simulation_manager=simulation_manager,
+                sso_constellation=shell.constellation_property,
             )
 
     def __load_static_ground_to_ground_link_configuration(
@@ -199,9 +212,45 @@ class BaseConfigurationManager(ConfigurationManager):
                     "Invalid ground object type: " + str(ground_object.type)
                 )
 
-    def __load_satellite_configuration(self, simulation_manager: SimulationManager):
+    def __load_sso_configuration(self, simulation_manager: SimulationManager):
         """
-        Load the simulation related to the satellites
+        Load the simulation related to the satellites with sun synchronous orbit constellation.
+        :param simulation_manager:
+        :return:
+        """
+        movement_model = self.simulation_property.movement_model
+
+        for sso_shell in self.simulation_property.dawn_dusk_sso_shells:
+            if sso_shell.constellation_property.epoch is None:
+                sso_shell.constellation_property.epoch = (
+                    simulation_manager.time_manager.current_time
+                )
+
+            sun_synchronous_orbit = DawnDuskSunSynchronousOrbitConstellation(
+                sun_synchronous_orbit_constellation_property=sso_shell.constellation_property,
+            )
+
+            sso_shell = DawnDuskSSOShell(
+                **sso_shell.constellation_property.model_dump(),
+                **sso_shell.model_dump(),
+            )
+
+            simulation_manager.add_sso_shell(sso_shell)
+
+            if movement_model == "pyorbital":
+                satellites = generate_satellites_from_walker_constellation(
+                    constellation=sun_synchronous_orbit,
+                    timer_manager=simulation_manager.time_manager,
+                    shell=sso_shell,
+                )
+            else:
+                raise ValueError("Invalid movement model: " + str(movement_model))
+
+            simulation_manager.add_all_satellites(satellites)
+
+    def __load_walker_configuration(self, simulation_manager: SimulationManager):
+        """
+        Load the simulation related to the satellites with walker constellation.
         :param simulation_manager:
         :return:
         """
@@ -231,16 +280,25 @@ class BaseConfigurationManager(ConfigurationManager):
 
             if movement_model == "pyorbital":
                 satellites = generate_satellites_from_walker_constellation(
-                    walker_constellation=shell_constellation,
+                    constellation=shell_constellation,
                     timer_manager=simulation_manager.time_manager,
+                    shell=walker_shell,
                 )
             else:
                 raise ValueError("Invalid movement model: " + str(movement_model))
 
-            for satellite in satellites:
-                satellite.walker_shell = walker_shell
-
             simulation_manager.add_all_satellites(satellites)
+
+    def __load_satellite_configuration(self, simulation_manager: SimulationManager):
+        """
+        Load the simulation related to the satellites
+        :param simulation_manager:
+        :return:
+        """
+
+        self.__load_walker_configuration(simulation_manager=simulation_manager)
+
+        self.__load_sso_configuration(simulation_manager=simulation_manager)
 
     def __load_time_manager(self, simulation_manager: SimulationManager):
 
@@ -282,7 +340,9 @@ class BaseConfigurationManager(ConfigurationManager):
     def load_simulation(self) -> SimulationManager:
         simulation = self.__create_and_load_simulation()
 
-        simulation_manager = SimulationManager(simulation=simulation)
+        simulation_manager = SimulationManager(
+            simulation=simulation, event_bus=self.event_bus
+        )
 
         self.__save_property_inside_simulation_manager(simulation_manager)
 

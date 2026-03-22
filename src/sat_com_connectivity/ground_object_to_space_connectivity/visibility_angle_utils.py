@@ -26,6 +26,10 @@ def get_visible_satellites(
     """
     Vectorized computation of visible satellites for a single ground object.
     """
+
+    if len(satellites) == 0:
+        return []
+
     gnd_coords = ground_object.get_coordinates().to_latitude_longitude_altitude()
     gnd_ecef = np.array(latitude_longitude_altitude_to_x_y_z(*gnd_coords))
     up = ground_to_up_vector(gnd_coords)
