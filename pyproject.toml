@@ -25,7 +25,8 @@ dependencies = [
     'timezonefinder>=6.5.9',
     'sgp4>=2.23',
     'pydantic>=2.9.2',
-    "astropy"
+    "astropy",
+    "jplephem"
 ]
 
 [project.urls]
