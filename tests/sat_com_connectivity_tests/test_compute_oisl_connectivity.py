@@ -14,7 +14,6 @@ from sat_com_model.models import (
     InterSatelliteLinkDirection,
     InterSatelliteLink,
     Satellite,
-    OpticalInterSatelliteLink,
     OpticalConstraint,
 )
 
@@ -116,7 +115,7 @@ def test_compute_oils_connectivity_between_adjacent_satellites():
         print(
             f"Constraint between {constraint.satellite_a.satellite_name} and {constraint.satellite_b.satellite_name}:"
         )
-        optical_intersatellite_link = OpticalInterSatelliteLink()
+        optical_intersatellite_link = InterSatelliteLink()
 
         optical_intersatellite_link.connect(
             source=constraint.satellite_a,
@@ -137,10 +136,6 @@ def test_compute_oils_connectivity_between_adjacent_satellites():
             range_distance_km=constraint.constraint_b_to_a.range_distance_km,
             angular_velocity_rate_degree_per_second=constraint.constraint_b_to_a.angular_velocity_rate_degree_per_second,
         )
-
-        constraint.terminal_a.possible_links.append(optical_intersatellite_link)
-
-        constraint.terminal_b.possible_links.append(optical_intersatellite_link)
 
         simulation_renderer.add_link(
             optical_intersatellite_link,
@@ -237,7 +232,7 @@ def test_connectivity_between_sso_and_walker_shells():
         print(
             f"Constraint between {constraint.satellite_a.satellite_name} and {constraint.satellite_b.satellite_name}:"
         )
-        optical_intersatellite_link = OpticalInterSatelliteLink()
+        optical_intersatellite_link = InterSatelliteLink()
 
         optical_intersatellite_link.connect(
             source=constraint.satellite_a,
@@ -258,10 +253,6 @@ def test_connectivity_between_sso_and_walker_shells():
             range_distance_km=constraint.constraint_b_to_a.range_distance_km,
             angular_velocity_rate_degree_per_second=constraint.constraint_b_to_a.angular_velocity_rate_degree_per_second,
         )
-
-        constraint.terminal_a.possible_links.append(optical_intersatellite_link)
-
-        constraint.terminal_b.possible_links.append(optical_intersatellite_link)
 
         simulation_renderer.add_link(
             optical_intersatellite_link,
