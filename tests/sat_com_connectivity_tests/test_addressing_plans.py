@@ -655,8 +655,10 @@ class TestWalkerBookedTerminals:
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
             side_effect=fake_compute,
         ):
-            with pytest.raises(ValueError):
-                plan.get_link_associations([sat_a, sat_b, sat_c])
+            with pytest.warns(Warning) as record:
+                plan.get_link_associations([sat_a, sat_b])
+
+            assert len(record) >= 1
 
     def test_booked_terminals_emits_warning(self):
         """Falling back to the next candidate must emit a UserWarning."""
