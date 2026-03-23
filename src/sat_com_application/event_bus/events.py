@@ -35,20 +35,49 @@ class ISLCreatedEvent(Event):
     type: EventType = EventType.ISL_CREATED
     satellite_a_id: int
     satellite_b_id: int
+
+    direction: str | None = None
     distance_km: float | None = None
+
+    terminal_a_id: str | None = None  # OpticalLinkTerminal.terminal_id as str
+    terminal_b_id: str | None = None
+
+    azimuth_a_deg: float | None = None
+    elevation_a_deg: float | None = None
+    angular_velocity_a_deg_s: float | None = None
+
+    azimuth_b_deg: float | None = None
+    elevation_b_deg: float | None = None
+    angular_velocity_b_deg_s: float | None = None
 
 
 class ISLUpdatedEvent(Event):
     type: EventType = EventType.ISL_UPDATED
     satellite_a_id: int
     satellite_b_id: int
+
     distance_km: float | None = None
+
+    terminal_a_id: str | None = None
+    terminal_b_id: str | None = None
+
+    azimuth_a_deg: float | None = None
+    elevation_a_deg: float | None = None
+    angular_velocity_a_deg_s: float | None = None
+
+    azimuth_b_deg: float | None = None
+    elevation_b_deg: float | None = None
+    angular_velocity_b_deg_s: float | None = None
 
 
 class ISLRemovedEvent(Event):
     type: EventType = EventType.ISL_REMOVED
     satellite_a_id: int
     satellite_b_id: int
+
+    direction: str | None = None
+    terminal_a_id: str | None = None
+    terminal_b_id: str | None = None
 
 
 # -------------------------
