@@ -17,6 +17,7 @@ from sat_com_application.event_bus.events import (
     UTLUpdatedEvent,
     ISLUpdatedEvent,
 )
+from sat_com_application.event_bus.factories import EventFactories
 from sat_com_application.time_managers import SimulationTimeManager
 from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
     GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
@@ -128,9 +129,17 @@ class SimulationManager:
 
     ground_to_space_connection_strategies: dict = dict()
 
-    def __init__(self, simulation: Simulation, event_bus: EventBus = None):
+    def __init__(
+        self,
+        simulation: Simulation,
+        event_bus: EventBus = None,
+        event_factories: EventFactories = None,
+    ):
         self.simulation = simulation
         self.configuration = dict()
+
+        self.event_factories = event_factories or EventFactories()
+
         self.event_bus = event_bus
         self.enabled_update_functions = None
         self.static_ground_station_link_mode = False
@@ -371,10 +380,7 @@ class SimulationManager:
         self.simulation.inter_satellite_links.append(inter_satellite_link)
 
         self.__publish_event(
-            ISLCreatedEvent(
-                satellite_a_id=satellite_a.topology_uniq_id,
-                satellite_b_id=satellite_b.topology_uniq_id,
-            )
+            self.event_factories.isl_event_factory.created(inter_satellite_link)
         )
 
         return inter_satellite_link
@@ -408,12 +414,7 @@ class SimulationManager:
         self.simulation.ground_station_links.append(ground_station_link)
 
         self.__publish_event(
-            GSLCreatedEvent(
-                satellite_id=satellite.topology_uniq_id,
-                ground_station_id=ground_station.topology_uniq_id,
-                estimated_duration=ground_station_link.estimated_link_duration,
-                elevation_angle=ground_station_link.elevation_above_horizon_angle,
-            )
+            self.event_factories.gsl_event_factory.created(ground_station_link)
         )
 
         return ground_station_link
@@ -444,12 +445,7 @@ class SimulationManager:
         self.simulation.user_terminal_links.append(user_terminal_link)
 
         self.__publish_event(
-            UTLCreatedEvent(
-                satellite_id=satellite.topology_uniq_id,
-                user_terminal_id=user_terminal.topology_uniq_id,
-                estimated_link_duration=user_terminal_link.estimated_link_duration,
-                elevation_above_horizon_angle=user_terminal_link.elevation_above_horizon_angle,
-            )
+            self.event_factories.utl_event_factory.created(user_terminal_link)
         )
 
         return user_terminal_link
@@ -644,10 +640,7 @@ class SimulationManager:
         self.simulation.ground_station_links.remove(ground_station_link)
 
         self.__publish_event(
-            GSLRemovedEvent(
-                satellite_id=ground_station_link.get_satellite().topology_uniq_id,
-                ground_station_id=ground_station_link.get_ground_station().topology_uniq_id,
-            )
+            self.event_factories.gsl_event_factory.removed(ground_station_link)
         )
 
     def remove_inter_satellite_link(self, inter_satellite_link: InterSatelliteLink):
@@ -666,10 +659,7 @@ class SimulationManager:
         self.simulation.inter_satellite_links.remove(inter_satellite_link)
 
         self.__publish_event(
-            ISLRemovedEvent(
-                satellite_a_id=inter_satellite_link.source.topology_uniq_id,
-                satellite_b_id=inter_satellite_link.destination.topology_uniq_id,
-            )
+            self.event_factories.isl_event_factory.removed(inter_satellite_link)
         )
 
     def remove_user_terminal_link(self, user_terminal_link: UserTerminalLink):
@@ -687,10 +677,7 @@ class SimulationManager:
         self.simulation.user_terminal_links.remove(user_terminal_link)
 
         self.__publish_event(
-            UTLRemovedEvent(
-                satellite_id=user_terminal_link.get_satellite().topology_uniq_id,
-                user_terminal_id=user_terminal_link.get_user_terminal().topology_uniq_id,
-            )
+            self.event_factories.utl_event_factory.removed(user_terminal_link)
         )
 
     def remove_all_ground_station_links(
@@ -1185,13 +1172,7 @@ class SimulationManager:
         ground_to_space_link.distance_km = connection_info.get("distance_km", -1)
 
         self.__publish_event(
-            GSLUpdatedEvent(
-                elevation_above_horizon_angle=ground_to_space_link.elevation_above_horizon_angle,
-                distance_km=ground_to_space_link.distance_km,
-                estimated_link_duration=ground_to_space_link.estimated_link_duration,
-                ground_station_id=ground_to_space_link.get_ground_station().topology_uniq_id,
-                satellite_id=ground_to_space_link.get_satellite().topology_uniq_id,
-            )
+            self.event_factories.gsl_event_factory.updated(ground_to_space_link)
         )
 
     def update_user_terminal_link(
@@ -1206,13 +1187,7 @@ class SimulationManager:
         user_terminal_link.distance_km = connection_info.get("distance_km", -1)
 
         self.__publish_event(
-            UTLUpdatedEvent(
-                elevation_above_horizon_angle=user_terminal_link.elevation_above_horizon_angle,
-                distance_km=user_terminal_link.distance_km,
-                estimated_link_duration=user_terminal_link.estimated_link_duration,
-                user_terminal_id=user_terminal_link.get_user_terminal().topology_uniq_id,
-                satellite_id=user_terminal_link.get_satellite().topology_uniq_id,
-            )
+            self.event_factories.utl_event_factory.updated(user_terminal_link)
         )
 
     def update_inter_satellite_link(
@@ -1225,10 +1200,7 @@ class SimulationManager:
         inter_satellite_link.destination_constraint = optical_constraint_b_to_a
 
         self.__publish_event(
-            ISLUpdatedEvent(
-                satellite_a_id=inter_satellite_link.get_satellite_source().topology_uniq_id,
-                satellite_b_id=inter_satellite_link.get_satellite_destination().topology_uniq_id,
-            )
+            self.event_factories.isl_event_factory.updated(inter_satellite_link)
         )
 
     def __update_user_terminal_links_in_static_mode(self):
