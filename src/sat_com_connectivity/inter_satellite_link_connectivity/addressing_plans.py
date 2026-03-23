@@ -69,7 +69,13 @@ def _filter_terminals_by_orientation(
     candidates: list[OpticalLinkTerminal],
     expected: set[InterSatelliteLinkOrientation],
 ) -> list[OpticalLinkTerminal]:
-    return [c for c in candidates if c.descriptor in expected]
+    possible_candidates = []
+    for candidate in candidates:
+        for possibility in candidate.orientation_possibilities:
+            if possibility in expected:
+                possible_candidates.append(candidate)
+
+    return possible_candidates
 
 
 def _filter_terminals_pool_by_orientation(
