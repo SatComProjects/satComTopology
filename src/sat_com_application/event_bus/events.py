@@ -32,6 +32,8 @@ class Event(BaseModel):
 # Inter-Satellite Link
 # -------------------------
 class ISLCreatedEvent(Event):
+    link_id: str
+
     type: EventType = EventType.ISL_CREATED
     satellite_a_id: int
     satellite_b_id: int
@@ -52,6 +54,8 @@ class ISLCreatedEvent(Event):
 
 
 class ISLUpdatedEvent(Event):
+    link_id: str
+
     type: EventType = EventType.ISL_UPDATED
     satellite_a_id: int
     satellite_b_id: int
@@ -71,6 +75,7 @@ class ISLUpdatedEvent(Event):
 
 
 class ISLRemovedEvent(Event):
+    link_id: str
     type: EventType = EventType.ISL_REMOVED
     satellite_a_id: int
     satellite_b_id: int
@@ -84,6 +89,7 @@ class ISLRemovedEvent(Event):
 # Ground Station Link
 # -------------------------
 class GSLCreatedEvent(Event):
+    link_id: str
     type: EventType = EventType.GSL_CREATED
     satellite_id: int
     ground_station_id: int
@@ -93,6 +99,7 @@ class GSLCreatedEvent(Event):
 
 
 class GSLUpdatedEvent(Event):
+    link_id: str
     type: EventType = EventType.GSL_UPDATED
     satellite_id: int
     ground_station_id: int
@@ -102,6 +109,7 @@ class GSLUpdatedEvent(Event):
 
 
 class GSLRemovedEvent(Event):
+    link_id: str
     type: EventType = EventType.GSL_REMOVED
     satellite_id: int
     ground_station_id: int
@@ -111,6 +119,7 @@ class GSLRemovedEvent(Event):
 # User Terminal Link
 # -------------------------
 class UTLCreatedEvent(Event):
+    link_id: str
     type: EventType = EventType.UTL_CREATED
     satellite_id: int
     user_terminal_id: int
@@ -120,6 +129,7 @@ class UTLCreatedEvent(Event):
 
 
 class UTLUpdatedEvent(Event):
+    link_id: str
     type: EventType = EventType.UTL_UPDATED
     satellite_id: int
     user_terminal_id: int
@@ -129,6 +139,7 @@ class UTLUpdatedEvent(Event):
 
 
 class UTLRemovedEvent(Event):
+    link_id: str
     type: EventType = EventType.UTL_REMOVED
     satellite_id: int
     user_terminal_id: int
@@ -138,6 +149,7 @@ class UTLRemovedEvent(Event):
 # Ground Object Link
 # -------------------------
 class GOLCreatedEvent(Event):
+    link_id: str
     type: EventType = EventType.GOL_CREATED
     ground_object_a_id: int
     ground_object_b_id: int
@@ -145,6 +157,7 @@ class GOLCreatedEvent(Event):
 
 
 class GOLUpdatedEvent(Event):
+    link_id: str
     type: EventType = EventType.GOL_UPDATED
     ground_object_a_id: int
     ground_object_b_id: int
@@ -152,6 +165,7 @@ class GOLUpdatedEvent(Event):
 
 
 class GOLRemovedEvent(Event):
+    link_id: str
     type: EventType = EventType.GOL_REMOVED
     ground_object_a_id: int
     ground_object_b_id: int

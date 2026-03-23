@@ -88,6 +88,7 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
 
     def created(self, link: InterSatelliteLink) -> ISLCreatedEvent:
         return ISLCreatedEvent(
+            link_id=link.link_id.hex,
             satellite_a_id=link.source.topology_uniq_id,
             satellite_b_id=link.destination.topology_uniq_id,
             direction=str(link.inter_satellite_direction),
@@ -115,6 +116,7 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
 
     def updated(self, link: InterSatelliteLink) -> ISLUpdatedEvent:
         return ISLUpdatedEvent(
+            link_id=link.link_id.hex,
             satellite_a_id=link.get_satellite_source().topology_uniq_id,
             satellite_b_id=link.get_satellite_destination().topology_uniq_id,
             terminal_a_id=_terminal_id(link.source_optical_terminal),
@@ -142,6 +144,7 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
     def removed(self, link: InterSatelliteLink) -> ISLRemovedEvent:
         # Must be called BEFORE unbind_terminals() — terminals are still set here
         return ISLRemovedEvent(
+            link_id=link.link_id.hex,
             satellite_a_id=link.source.topology_uniq_id,
             satellite_b_id=link.destination.topology_uniq_id,
             direction=str(link.inter_satellite_direction),
@@ -154,6 +157,7 @@ class DefaultGSLEventFactory(AbstractGSLEventFactory):
 
     def created(self, link: GroundStationLink) -> GSLCreatedEvent:
         return GSLCreatedEvent(
+            link_id=link.link_id.hex,
             satellite_id=link.get_satellite().topology_uniq_id,
             ground_station_id=link.get_ground_station().topology_uniq_id,
             elevation_angle=link.elevation_above_horizon_angle,
@@ -162,6 +166,7 @@ class DefaultGSLEventFactory(AbstractGSLEventFactory):
 
     def updated(self, link: GroundStationLink) -> GSLUpdatedEvent:
         return GSLUpdatedEvent(
+            link_id=link.link_id.hex,
             satellite_id=link.get_satellite().topology_uniq_id,
             ground_station_id=link.get_ground_station().topology_uniq_id,
             elevation_above_horizon_angle=link.elevation_above_horizon_angle,
@@ -171,6 +176,7 @@ class DefaultGSLEventFactory(AbstractGSLEventFactory):
 
     def removed(self, link: GroundStationLink) -> GSLRemovedEvent:
         return GSLRemovedEvent(
+            link_id=link.link_id.hex,
             satellite_id=link.get_satellite().topology_uniq_id,
             ground_station_id=link.get_ground_station().topology_uniq_id,
         )
@@ -180,6 +186,7 @@ class DefaultUTLEventFactory(AbstractUTLEventFactory):
 
     def created(self, link: UserTerminalLink) -> UTLCreatedEvent:
         return UTLCreatedEvent(
+            link_id=link.link_id.hex,
             satellite_id=link.get_satellite().topology_uniq_id,
             user_terminal_id=link.get_user_terminal().topology_uniq_id,
             elevation_above_horizon_angle=link.elevation_above_horizon_angle,
@@ -188,6 +195,7 @@ class DefaultUTLEventFactory(AbstractUTLEventFactory):
 
     def updated(self, link: UserTerminalLink) -> UTLUpdatedEvent:
         return UTLUpdatedEvent(
+            link_id=link.link_id.hex,
             satellite_id=link.get_satellite().topology_uniq_id,
             user_terminal_id=link.get_user_terminal().topology_uniq_id,
             elevation_above_horizon_angle=link.elevation_above_horizon_angle,
@@ -197,6 +205,7 @@ class DefaultUTLEventFactory(AbstractUTLEventFactory):
 
     def removed(self, link: UserTerminalLink) -> UTLRemovedEvent:
         return UTLRemovedEvent(
+            link_id=link.link_id.hex,
             satellite_id=link.get_satellite().topology_uniq_id,
             user_terminal_id=link.get_user_terminal().topology_uniq_id,
         )
