@@ -11,7 +11,6 @@ from sat_com_connectivity.inter_satellite_link_connectivity.models import (
     LinkAssociation,
 )
 from sat_com_connectivity.inter_satellite_link_connectivity.optical_helpers import (
-    compute_OISL_possible_links_for_satellite_pair,
     compute_OISL_links_from_terminal_pools,
 )
 from sat_com_model.models import (

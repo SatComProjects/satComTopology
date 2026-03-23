@@ -112,6 +112,7 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             angular_velocity_b_deg_s=_constraint_field(
                 link.destination_constraint, "angular_velocity_rate_degree_per_second"
             ),
+            distance_km=_constraint_field(link.source_constraint, "range_distance_km"),
         )
 
     def updated(self, link: InterSatelliteLink) -> ISLUpdatedEvent:
@@ -139,6 +140,7 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             angular_velocity_b_deg_s=_constraint_field(
                 link.destination_constraint, "angular_velocity_rate_degree_per_second"
             ),
+            distance_km=_constraint_field(link.source_constraint, "range_distance_km"),
         )
 
     def removed(self, link: InterSatelliteLink) -> ISLRemovedEvent:
