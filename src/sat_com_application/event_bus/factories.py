@@ -91,7 +91,7 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             link_id=link.link_id.hex,
             satellite_a_id=link.source.topology_uniq_id,
             satellite_b_id=link.destination.topology_uniq_id,
-            direction=str(link.inter_satellite_direction),
+            direction=link.inter_satellite_direction,
             terminal_a_id=_terminal_id(link.source_optical_terminal),
             terminal_b_id=_terminal_id(link.destination_optical_terminal),
             azimuth_a_deg=_constraint_field(
@@ -121,6 +121,7 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             satellite_a_id=link.get_satellite_source().topology_uniq_id,
             satellite_b_id=link.get_satellite_destination().topology_uniq_id,
             terminal_a_id=_terminal_id(link.source_optical_terminal),
+            direction=link.inter_satellite_direction,
             terminal_b_id=_terminal_id(link.destination_optical_terminal),
             azimuth_a_deg=_constraint_field(
                 link.source_constraint, "azimuth_angle_degree"
