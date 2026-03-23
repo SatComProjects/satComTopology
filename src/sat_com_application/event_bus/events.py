@@ -60,6 +60,7 @@ class ISLUpdatedEvent(Event):
     satellite_a_id: int
     satellite_b_id: int
 
+    direction: str | None = None
     distance_km: float | None = None
 
     terminal_a_id: str | None = None

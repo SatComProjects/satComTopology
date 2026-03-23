@@ -24,11 +24,70 @@ from .exceptions import (
 )
 
 
-class InterSatelliteLinkDirection(Enum):
-    ORBITAL = 1
-    ADJACENT = 2
-    UNDEFINED = 3
-    INTER_SHELL = 4
+class InterSatelliteLinkDirection(str, Enum):
+    ORBITAL = "orbital"
+    ADJACENT = "adjacent"
+    UNDEFINED = "undefined"
+    INTER_SHELL = "inter_shell"
+
+    @classmethod
+    def _missing_(cls, value):
+        """
+        Enables case-insensitive and flexible parsing.
+        Called automatically by Enum when value is not found.
+        """
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            for member in cls:
+                if member.value == normalized:
+                    return member
+        return None
+
+    @classmethod
+    def from_str(cls, value: str) -> "InterSatelliteLinkDirection":
+        """
+        Explicit constructor with clear error message.
+        """
+        try:
+            return cls(value)
+        except ValueError:
+            valid = ", ".join([m.value for m in cls])
+            raise ValueError(f"Invalid direction '{value}'. Valid values: {valid}")
+
+    def __str__(self) -> str:
+        """
+        Clean string representation.
+        """
+        return self.value
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}.{self.name}"
+
+    def is_defined(self) -> bool:
+        return self is not self.UNDEFINED
+
+    def is_orbital(self) -> bool:
+        return self is self.ORBITAL
+
+    def is_adjacent(self) -> bool:
+        return self is self.ADJACENT
+
+    def is_inter_shell(self) -> bool:
+        return self is self.INTER_SHELL
+
+    @classmethod
+    def values(cls) -> list[str]:
+        """
+        Returns all possible string values.
+        """
+        return [member.value for member in cls]
+
+    @classmethod
+    def names(cls) -> list[str]:
+        """
+        Returns all enum names.
+        """
+        return [member.name for member in cls]
 
 
 class SpatialPosition(BaseModel):
