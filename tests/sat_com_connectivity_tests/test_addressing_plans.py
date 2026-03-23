@@ -860,7 +860,7 @@ class TestSSOBuildAssociationsOrbital:
         assert result[0].satellite_a == sat_a
         assert result[0].satellite_b == sat_b
 
-    def test_all_candidates_booked_raises_value_error(self):
+    def test_all_candidates_booked_raises_warnings(self):
         shell = make_sso_shell()
         plan = SSODawnDuskStaticAddressingPlan(shell)
         sat_a = make_4_terminal_satellite(0, 0, shell)
@@ -877,8 +877,10 @@ class TestSSOBuildAssociationsOrbital:
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
             return_value=[make_possible_link(only_a, only_b, score=0.0)],
         ):
-            with pytest.raises(ValueError):
+            with pytest.warns(Warning) as record:
                 plan.get_link_associations([sat_a, sat_b])
+
+            assert len(record) >= 2
 
     def test_booked_fallback_emits_warning(self):
         shell = make_sso_shell()
