@@ -286,10 +286,17 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                 )
                 candidate_selected_rank += 1
                 if candidate_selected_rank > len(all_candidates) - 1:
-                    raise ValueError(
-                        f"No available terminal found the {direction} link between {a_id} and {b_id}."
+                    warnings.warn(
+                        f"No available terminal found for the {direction} link between {a_id} and {b_id}."
                     )
+                    best = None
+                    break
+
                 best = all_candidates[candidate_selected_rank]
+
+            if best is None:
+                warnings.warn("No link will be created as no terminal are available.")
+                continue
 
             booked_terminals.add(best.terminal_a)
             booked_terminals.add(best.terminal_b)
