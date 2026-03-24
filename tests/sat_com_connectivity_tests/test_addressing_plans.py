@@ -7,6 +7,8 @@ from sat_com_connectivity.inter_satellite_link_connectivity.addressing_plans imp
     WalkerStaticAddressingPlan,
     SSODawnDuskStaticAddressingPlan,
     _filter_by_orientation,
+    FullMeshWalkerDeltaStaticAddressingPlan,
+    FullMeshWalkerStarStaticAddressingPlan,
 )
 from sat_com_connectivity.inter_satellite_link_connectivity.models import (
     PossibleOpticalLink,
@@ -233,7 +235,7 @@ class TestWalkerStaticAddressingPlanGridBuilding:
             f"{ADDRESSING_PLANS}.generate_walker_star_constellation_grid",
             return_value=[],
         ) as mock_star:
-            WalkerStaticAddressingPlan(
+            FullMeshWalkerDeltaStaticAddressingPlan(
                 make_walker_shell(shell_type="delta", orbits=5, sats_per_orbit=4)
             )
 
@@ -250,7 +252,7 @@ class TestWalkerStaticAddressingPlanGridBuilding:
             f"{ADDRESSING_PLANS}.generate_walker_star_constellation_grid",
             return_value=[],
         ) as mock_star:
-            WalkerStaticAddressingPlan(
+            FullMeshWalkerStarStaticAddressingPlan(
                 make_walker_shell(shell_type="star", orbits=4, sats_per_orbit=6)
             )
 
@@ -264,7 +266,7 @@ class TestWalkerStaticAddressingPlanGridBuilding:
             f"{ADDRESSING_PLANS}.generate_walker_delta_constellation_grid",
             return_value=[],
         ) as mock_delta:
-            WalkerStaticAddressingPlan(make_walker_shell(isl_shift=3))
+            FullMeshWalkerDeltaStaticAddressingPlan(make_walker_shell(isl_shift=3))
         assert mock_delta.call_args.kwargs["isl_shift"] == 3
 
     def test_grid_stored_as_instance_attribute(self):
@@ -273,15 +275,15 @@ class TestWalkerStaticAddressingPlanGridBuilding:
             f"{ADDRESSING_PLANS}.generate_walker_delta_constellation_grid",
             return_value=grid,
         ):
-            plan = WalkerStaticAddressingPlan(make_walker_shell())
+            plan = FullMeshWalkerDeltaStaticAddressingPlan(make_walker_shell())
         assert plan.grid == grid
 
     def test_star_and_delta_produce_different_link_counts(self):
         delta_shell = make_walker_shell(shell_type="delta", orbits=3, sats_per_orbit=3)
         star_shell = make_walker_shell(shell_type="star", orbits=3, sats_per_orbit=3)
 
-        plan_delta = WalkerStaticAddressingPlan(delta_shell)
-        plan_star = WalkerStaticAddressingPlan(star_shell)
+        plan_delta = FullMeshWalkerDeltaStaticAddressingPlan(delta_shell)
+        plan_star = FullMeshWalkerStarStaticAddressingPlan(star_shell)
 
         with patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
@@ -308,7 +310,7 @@ class TestWalkerBuildAssociationsOrbital:
         shell = make_walker_shell()
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
-        plan = WalkerStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
         plan.grid = [(0, 1, InterSatelliteLinkDirection.ORBITAL)]
         return plan, sat_a, sat_b
 
@@ -463,7 +465,7 @@ class TestWalkerBuildAssociationsOrbital:
 
     def test_satellite_lookup_uses_object_id_not_topology_id(self):
         shell = make_walker_shell()
-        plan = WalkerStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
         plan.grid = [(10, 20, InterSatelliteLinkDirection.ORBITAL)]
         sat_a = make_4_terminal_satellite(object_id=10, topology_id=99, shell=shell)
         sat_b = make_4_terminal_satellite(object_id=20, topology_id=88, shell=shell)
@@ -485,7 +487,7 @@ class TestWalkerBuildAssociationsAdjacent:
         shell = make_walker_shell()
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
-        plan = WalkerStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
         plan.grid = [(0, 1, InterSatelliteLinkDirection.ADJACENT)]
         return plan, sat_a, sat_b
 
@@ -588,7 +590,7 @@ class TestWalkerBookedTerminals:
         sat_b = make_4_terminal_satellite(1, 1, shell)
         sat_c = make_4_terminal_satellite(2, 2, shell)
 
-        plan = WalkerStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
         plan.grid = [
             (0, 1, InterSatelliteLinkDirection.ADJACENT),
             (2, 1, InterSatelliteLinkDirection.ADJACENT),
@@ -638,7 +640,7 @@ class TestWalkerBookedTerminals:
         sat_b = make_4_terminal_satellite(1, 1, shell)
         sat_c = make_4_terminal_satellite(2, 2, shell)
 
-        plan = WalkerStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
         plan.grid = [
             (0, 1, InterSatelliteLinkDirection.ORBITAL),
             (2, 1, InterSatelliteLinkDirection.ORBITAL),
@@ -667,7 +669,7 @@ class TestWalkerBookedTerminals:
         sat_b = make_4_terminal_satellite(1, 1, shell)
         sat_c = make_4_terminal_satellite(2, 2, shell)
 
-        plan = WalkerStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
         plan.grid = [
             (0, 1, InterSatelliteLinkDirection.ORBITAL),
             (2, 1, InterSatelliteLinkDirection.ORBITAL),
@@ -696,7 +698,7 @@ class TestWalkerUnknownDirection:
         shell = make_walker_shell()
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
-        plan = WalkerStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
         plan.grid = [(0, 1, InterSatelliteLinkDirection.UNDEFINED)]
 
         with pytest.raises(ValueError):

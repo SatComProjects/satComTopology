@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional
 
 from sat_com_constellation.models import (
@@ -170,8 +170,26 @@ class GroundObjectProperty(BaseModel):
     connectivity_properties: GroundConnectivityProperty
 
 
+class AddressingPlanType(str, Enum):
+    CHECKERBOARD_WALKER_DELTA = "CHECKERBOARD_WALKER_DELTA"
+    CHECKERBOARD_WALKER_STAR = "CHECKERBOARD_WALKER_STAR"
+    FULL_MESH_WALKER_DELTA = "FULL_MESH_WALKER_DELTA"
+    FULL_MESH_WALKER_STAR = "FULL_MESH_WALKER_STAR"
+    LINKED_SSO = "LINKED_SSO"
+
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return None
+
+
 class ShellProperty(BaseModel):
     satellite_property: SatelliteProperty = Field(default=SatelliteProperty())
+    static_addressing_plan: AddressingPlanType = Field(default=None)
 
 
 class DawnDuskSunSynchronousOrbitShellProperty(ShellProperty):
@@ -185,6 +203,9 @@ class DawnDuskSunSynchronousOrbitShellProperty(ShellProperty):
     orbital_connectivity_property: OrbitalConnectivityProperty
     ground_object_white_list: list[str] = Field(default_factory=list)
     constellation_white_list: list[str] = Field(default_factory=list)
+    static_addressing_plan: AddressingPlanType = Field(
+        default=AddressingPlanType.LINKED_SSO
+    )
 
 
 class WalkerShellType(str, Enum):
@@ -210,9 +231,22 @@ class WalkerShellProperty(ShellProperty):
 
     type: WalkerShellType = Field(default=WalkerShellType.DELTA)
 
+    static_addressing_plan: AddressingPlanType = Field(
+        default=None,
+    )
+
     constellation_property: WalkerConstellationProperty
     orbital_connectivity_property: OrbitalConnectivityProperty
     ground_object_white_list: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def set_default_addressing_plan(self):
+        if self.static_addressing_plan is None:
+            if self.type == WalkerShellType.DELTA:
+                self.static_addressing_plan = AddressingPlanType.FULL_MESH_WALKER_DELTA
+            else:
+                self.static_addressing_plan = AddressingPlanType.FULL_MESH_WALKER_STAR
+        return self
 
 
 class GroundConnectivity(BaseModel):

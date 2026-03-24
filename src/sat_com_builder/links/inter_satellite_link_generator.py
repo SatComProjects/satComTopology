@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from sat_com_builder.models import OrbitalConnectivityProperty, WalkerShellProperty
+from sat_com_builder.models import OrbitalConnectivityProperty
 
 # Modifications :
 # - Created transform_text_to_isl
@@ -31,12 +31,6 @@ from sat_com_builder.models import OrbitalConnectivityProperty, WalkerShellPrope
 
 from sat_com_constellation.models import (
     WalkerConstellationProperty,
-    DawnDuskSunSynchronousOrbitConstellationProperty,
-    ConstellationProperty,
-)
-from sat_com_model.exceptions import (
-    TopologyObjectNotFoundError,
-    TopologyConnectionError,
 )
 from sat_com_model.models import (
     InterSatelliteLinkDirection,
@@ -262,3 +256,97 @@ def create_inter_satellite_links_for_walker_star_constellation(
 #         generated_grid,
 #         walker_shell_properties.constellation_property,
 #     )
+
+
+def generate_checkerboard_walker_delta_constellation_grid(
+    number_orbits: int, number_satellites_per_orbit: int, isl_shift: int, idx_offset=0
+) -> list:
+
+    if number_orbits < 3 or number_satellites_per_orbit < 3:
+        raise ValueError("Number of x and y must each be at least 3")
+
+    list_inter_satellite_links = []
+
+    for i in range(number_orbits):
+        for j in range(number_satellites_per_orbit):
+            sat = i * number_satellites_per_orbit + j
+
+            # Same orbit neighbor
+            sat_same_orbit = i * number_satellites_per_orbit + (
+                (j + 1) % number_satellites_per_orbit
+            )
+
+            # Adjacent orbit neighbor
+            sat_adjacent_orbit = (
+                (i + 1) % number_orbits
+            ) * number_satellites_per_orbit + (
+                (j + isl_shift) % number_satellites_per_orbit
+            )
+
+            # Always keep intra-orbit links
+            list_inter_satellite_links.append(
+                (
+                    idx_offset + min(sat, sat_same_orbit),
+                    idx_offset + max(sat, sat_same_orbit),
+                    InterSatelliteLinkDirection.ORBITAL,
+                )
+            )
+
+            # ✅ Apply parity rule for adjacent links
+            if (i % 2 == 0 and j % 2 == 0) or (i % 2 == 1 and j % 2 == 1):
+                list_inter_satellite_links.append(
+                    (
+                        idx_offset + min(sat, sat_adjacent_orbit),
+                        idx_offset + max(sat, sat_adjacent_orbit),
+                        InterSatelliteLinkDirection.ADJACENT,
+                    )
+                )
+
+    return list_inter_satellite_links
+
+
+def generate_checkerboard_walker_star_constellation_grid(
+    number_orbits: int, number_satellites_per_orbit: int, isl_shift: int, idx_offset=0
+):
+    if number_orbits < 3 or number_satellites_per_orbit < 3:
+        raise ValueError("Number of x and y must each be at least 3")
+
+    list_inter_satellite_links = []
+
+    for i in range(number_orbits):
+        for j in range(number_satellites_per_orbit):
+            sat = i * number_satellites_per_orbit + j
+
+            # Same orbit neighbor
+            sat_same_orbit = i * number_satellites_per_orbit + (
+                (j + 1) % number_satellites_per_orbit
+            )
+
+            # Always keep intra-orbit links
+            list_inter_satellite_links.append(
+                (
+                    idx_offset + min(sat, sat_same_orbit),
+                    idx_offset + max(sat, sat_same_orbit),
+                    InterSatelliteLinkDirection.ORBITAL,
+                )
+            )
+
+            # Only connect to next orbit (no wrap-around in Walker Star)
+            has_an_inter_plane = i + 1 < number_orbits
+
+            if has_an_inter_plane:
+                sat_adjacent_orbit = (i + 1) * number_satellites_per_orbit + (
+                    (j + isl_shift) % number_satellites_per_orbit
+                )
+
+                # ✅ Apply parity rule
+                if (i % 2 == 0 and j % 2 == 0) or (i % 2 == 1 and j % 2 == 1):
+                    list_inter_satellite_links.append(
+                        (
+                            idx_offset + min(sat, sat_adjacent_orbit),
+                            idx_offset + max(sat, sat_adjacent_orbit),
+                            InterSatelliteLinkDirection.ADJACENT,
+                        )
+                    )
+
+    return list_inter_satellite_links
