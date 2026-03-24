@@ -1,4 +1,5 @@
 import inspect
+import math
 import warnings
 from abc import abstractmethod, ABC
 from enum import Enum
@@ -197,6 +198,11 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                     )
                 )
 
+                total_source_terminals = len(sources_left) + len(sources_right)
+                total_destination_terminals = len(destinations_left) + len(
+                    destinations_right
+                )
+
                 candidates_case_1 = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=sources_left,
                     terminals_group_2=destinations_right,
@@ -230,6 +236,10 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                         {InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD},
                     )
                 )
+                total_source_terminals = len(sources_forward) + len(sources_backward)
+                total_destination_terminals = len(destinations_backward) + len(
+                    destinations_forward
+                )
 
                 candidates_case_1 = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=sources_forward,
@@ -255,7 +265,11 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
             if not all_candidates:
                 warnings.warn(
                     f"No valid {direction.name} terminal pair found between "
-                    f"{sat_a.satellite_name} and {sat_b.satellite_name} — skipping."
+                    f"{sat_a.satellite_name} and {sat_b.satellite_name} — skipping.\n"
+                    f"{sat_a.satellite_name} has {total_source_terminals} terminal(s) for this direction."
+                    f"{sat_b.satellite_name} has {total_destination_terminals} terminal(s) for this direction."
+                    f"{sat_b.satellite_name} has {total_destination_terminals} terminal(s) for this direction."
+                    f"impossible connection might be due to an azimuth constraint as a dead zone is possible in some cases."
                 )
                 continue
 
@@ -522,6 +536,21 @@ class CheckerboardWalkerDeltaStaticAddressingPlan(WalkerStaticAddressingPlan):
 
     def get_type(self) -> str:
         return self.name
+
+    def _check_compatibility(self):
+        problems: list[str] = []
+        n_orbits = self.walker_shell.amount_of_orbit_plane
+        n_satellites = self.walker_shell.amount_of_satellite_per_orbit_plane
+        if n_orbits % 2 != 0 or n_satellites % 2 != 0:
+            problems.append(
+                "Checkerboard addressing requires both number of orbits "
+                "and satellites per orbit to be even."
+            )
+        if math.gcd(n_orbits, n_satellites) < 2:
+            problems.append(
+                "Checkerboard addressing requires orbit and satellite counts "
+                "to be commensurate (gcd >= 2) to avoid disconnected patterns."
+            )
 
     def __init__(self, walker_shell: WalkerShell):
         super().__init__(walker_shell)

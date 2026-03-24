@@ -20,8 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from sat_com_builder.models import OrbitalConnectivityProperty
-
 # Modifications :
 # - Created transform_text_to_isl
 # - create_isls_from_tles
@@ -29,9 +27,7 @@ from sat_com_builder.models import OrbitalConnectivityProperty
 
 # Source: https://github.com/snkas/hypatia
 
-from sat_com_constellation.models import (
-    WalkerConstellationProperty,
-)
+
 from sat_com_model.models import (
     InterSatelliteLinkDirection,
 )
@@ -157,113 +153,25 @@ def generate_sun_synchronous_constellation_grid(
     return list_inter_satellite_links
 
 
-#
-# def transform_grid_to_inter_satellite_links(
-#     simulation_service: SimulationManager,
-#     list_isl: list,
-#     constellation_property: ConstellationProperty,
-# ):
-#     for a, b, type_link in list_isl:
-#         satellite_a = None
-#         satellite_b = None
-#         try:
-#             satellite_a = simulation_service.get_satellite_by_object_id(
-#                 a, constellation_property.identifier
-#             )
-#         except TopologyObjectNotFoundError:
-#             print(f"Satellite {a} not found")
-#
-#         try:
-#             satellite_b = simulation_service.get_satellite_by_object_id(
-#                 b, constellation_property.identifier
-#             )
-#         except TopologyObjectNotFoundError:
-#             print(f"Satellite {b} not found")
-#
-#         if satellite_a is None or satellite_b is None:
-#             continue
-#
-#         try:
-#             created_link = (
-#                 simulation_service.create_and_add_inter_satellite_link_connection(
-#                     satellite_a, satellite_b
-#                 )
-#             )
-#             created_link.inter_satellite_direction = type_link
-#
-#         except TopologyConnectionError as tpe:
-#             print(f"Failed to connect {satellite_a} and {satellite_b}: {tpe}")
-
-
-def create_inter_satellite_links_for_walker_delta_constellation(
-    walker_delta_constellation: WalkerConstellationProperty,
-    connectivity_property: OrbitalConnectivityProperty,
-):
-    return generate_walker_delta_constellation_grid(
-        number_orbits=walker_delta_constellation.amount_of_orbit_plane,
-        number_satellites_per_orbit=walker_delta_constellation.amount_of_satellite_per_orbit_plane,
-        isl_shift=connectivity_property.adjacent_inter_satellite_shifting,
-    )
-
-
-def create_inter_satellite_links_for_walker_star_constellation(
-    walker_delta_constellation: WalkerConstellationProperty,
-    connectivity_property: OrbitalConnectivityProperty,
-):
-    return generate_walker_star_constellation_grid(
-        number_orbits=walker_delta_constellation.amount_of_orbit_plane,
-        number_satellites_per_orbit=walker_delta_constellation.amount_of_satellite_per_orbit_plane,
-        isl_shift=connectivity_property.adjacent_inter_satellite_shifting,
-    )
-
-
-#
-# def create_inter_satellite_links_for_sun_synchronous_constellation(
-#     sso_constellation: DawnDuskSunSynchronousOrbitConstellationProperty,
-#     simulation_manager: SimulationManager,
-# ):
-#
-#     generated_grid = generate_sun_synchronous_constellation_grid(
-#         number_satellites_per_orbit=sso_constellation.amount_of_satellite,
-#     )
-#
-#     transform_grid_to_inter_satellite_links(
-#         simulation_manager, generated_grid, sso_constellation
-#     )
-#
-#
-# def create_inter_satellite_links_for_walker_constellation(
-#     simulation_manager: SimulationManager,
-#     walker_shell_properties: WalkerShellProperty,
-# ):
-#
-#     if walker_shell_properties.type == "star":
-#         generated_grid = create_inter_satellite_links_for_walker_star_constellation(
-#             walker_shell_properties.constellation_property,
-#             walker_shell_properties.orbital_connectivity_property,
-#         )
-#
-#     elif walker_shell_properties.type == "delta":
-#         generated_grid = create_inter_satellite_links_for_walker_delta_constellation(
-#             walker_shell_properties.constellation_property,
-#             walker_shell_properties.orbital_connectivity_property,
-#         )
-#     else:
-#         raise ValueError("Unknown type of walker constellation")
-#
-#     transform_grid_to_inter_satellite_links(
-#         simulation_manager,
-#         generated_grid,
-#         walker_shell_properties.constellation_property,
-#     )
-
-
 def generate_checkerboard_walker_delta_constellation_grid(
     number_orbits: int, number_satellites_per_orbit: int, isl_shift: int, idx_offset=0
 ) -> list:
 
     if number_orbits < 3 or number_satellites_per_orbit < 3:
-        raise ValueError("Number of x and y must each be at least 3")
+        raise ValueError(
+            "Number of orbit and number of satellite per obit must each be at least 3"
+        )
+
+    is_number_of_orbit_even = number_orbits % 2 == 0
+
+    is_number_of_sat_per_orbit_even = number_satellites_per_orbit % 2 == 0
+
+    are_parameters_valid = is_number_of_orbit_even and is_number_of_sat_per_orbit_even
+
+    if not are_parameters_valid:
+        raise ValueError(
+            "Number of orbit and number of satellite per obit must each be even for checkerboard pattern"
+        )
 
     list_inter_satellite_links = []
 
@@ -292,7 +200,6 @@ def generate_checkerboard_walker_delta_constellation_grid(
                 )
             )
 
-            # ✅ Apply parity rule for adjacent links
             if (i % 2 == 0 and j % 2 == 0) or (i % 2 == 1 and j % 2 == 1):
                 list_inter_satellite_links.append(
                     (
@@ -310,6 +217,12 @@ def generate_checkerboard_walker_star_constellation_grid(
 ):
     if number_orbits < 3 or number_satellites_per_orbit < 3:
         raise ValueError("Number of x and y must each be at least 3")
+
+    is_number_of_sat_per_orbit_even = number_satellites_per_orbit % 2 == 0
+
+    # Do not need to be even for the orbit number as it has a mesh anyway
+    if not is_number_of_sat_per_orbit_even:
+        raise ValueError("Number of satellite per obit must each be even")
 
     list_inter_satellite_links = []
 

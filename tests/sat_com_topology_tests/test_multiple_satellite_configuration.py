@@ -14,6 +14,8 @@ from sat_com_builder.models import (
     OpticalTerminalInstallationProperty,
     InterSatelliteLinkOrientationProperty,
     DawnDuskSunSynchronousOrbitShellProperty,
+    AddressingPlanType,
+    OpticalTerminalProperty,
 )
 from sat_com_connectivity.inter_satellite_link_connectivity.strategies import (
     IntraShellStaticConnectivity,
@@ -84,6 +86,66 @@ def make_sso_shell_property():
             altitude_in_km=500,
         ),
     )
+
+
+def make_three_isl_configuration(M, N) -> SimulationProperty:
+    walker_constellation_property = WalkerConstellationProperty(
+        inclination=53,
+        identifier="Starlink group 7",
+        mean_revolution_per_day=15.3,
+        phase_difference_between_satellites=True,
+        amount_of_orbit_plane=M,
+        amount_of_satellite_per_orbit_plane=N,
+    )
+
+    walker_shell_property = WalkerShellProperty(
+        constellation_property=walker_constellation_property,
+        orbital_connectivity_property=OrbitalConnectivityProperty(
+            adjacent_inter_satellite_shifting=0
+        ),
+        static_addressing_plan=AddressingPlanType.CHECKERBOARD_WALKER_DELTA,
+        satellite_property=SatelliteProperty(
+            optical_inter_satellite_link_installations=[
+                OpticalTerminalInstallationProperty(
+                    azimuth_angle_configuration=0.0,
+                    elevation_angle_configuration=-180,
+                    descriptor=InterSatelliteLinkOrientationProperty.INTRA_PLANE_FORWARD,
+                    orientation_possibilities=[
+                        InterSatelliteLinkOrientationProperty.INTRA_PLANE_FORWARD,
+                    ],
+                ),
+                OpticalTerminalInstallationProperty(
+                    azimuth_angle_configuration=-180.0,
+                    elevation_angle_configuration=-180,
+                    descriptor=InterSatelliteLinkOrientationProperty.INTRA_PLANE_BACKWARD,
+                    orientation_possibilities=[
+                        InterSatelliteLinkOrientationProperty.INTRA_PLANE_BACKWARD,
+                    ],
+                ),
+                OpticalTerminalInstallationProperty(
+                    azimuth_angle_configuration=0.0,
+                    elevation_angle_configuration=-180,
+                    descriptor=InterSatelliteLinkOrientationProperty.INTER_PLANE_RIGHT,
+                    orientation_possibilities=[
+                        InterSatelliteLinkOrientationProperty.INTER_PLANE_RIGHT,
+                        InterSatelliteLinkOrientationProperty.INTER_PLANE_LEFT,
+                    ],
+                    optical_terminal_property=OpticalTerminalProperty(
+                        max_azimuth_degrees=180
+                    ),
+                ),
+            ]
+        ),
+    )
+    simulation_property = SimulationProperty(
+        start_date="01/01/2026 00:00:00",
+        end_date="01/01/2026 01:00:00",
+        walker_shells=[walker_shell_property],
+        inter_satellite_link_connection_strategy=IntraShellStaticConnectivity.type,
+        simulation_name="Starlink Gen2 Shell 3ISLs",
+    )
+
+    return simulation_property
 
 
 def make_basic_4_isl_satellite_installation_intershell_unauthorized():
@@ -729,3 +791,27 @@ def test_one_basic_walker_shell_for_10_minutes():
         )
         i += delta_in_seconds
         simulation_manager.time_manager.tick(seconds=delta_in_seconds)
+
+
+def test_that_checkerboard_grid_has_3_isl():
+
+    result_matrice: list[tuple[int, int, int]] = []
+    m = 10
+    n = 120
+    simulation_property = make_three_isl_configuration(M=m, N=n)
+
+    simulation_config = BaseConfigurationManager(
+        simulation_property=simulation_property
+    )
+    simulation_manager = simulation_config.load_simulation()
+
+    for satellite in simulation_manager.get_satellites():
+        isls = [
+            link for link in satellite.links if isinstance(link, InterSatelliteLink)
+        ]
+        if len(isls) != 3:
+            result: tuple[int, int, int] = (m, n, 0)
+            result_matrice.append(result)
+            break
+
+    print(result_matrice)
