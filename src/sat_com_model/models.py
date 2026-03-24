@@ -395,6 +395,8 @@ class Shell(BaseModel):
     type: str
     satellite_configuration: Optional[SatelliteConfiguration] = Field(default=None)
 
+    static_addressing_plan: str = Field(default="")
+
     def __hash__(self) -> int:
         return hash(self.shell_id)
 

@@ -7,15 +7,6 @@ from typing_extensions import deprecated
 from sat_com_application.event_bus.bus import EventBus
 from sat_com_application.event_bus.events import (
     Event,
-    ISLCreatedEvent,
-    GSLCreatedEvent,
-    UTLCreatedEvent,
-    ISLRemovedEvent,
-    GSLRemovedEvent,
-    UTLRemovedEvent,
-    GSLUpdatedEvent,
-    UTLUpdatedEvent,
-    ISLUpdatedEvent,
 )
 from sat_com_application.event_bus.factories import EventFactories
 from sat_com_application.time_managers import SimulationTimeManager

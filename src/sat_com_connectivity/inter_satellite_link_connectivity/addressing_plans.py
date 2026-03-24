@@ -1,10 +1,14 @@
+import inspect
 import warnings
 from abc import abstractmethod, ABC
+from enum import Enum
 
 from sat_com_builder.links.inter_satellite_link_generator import (
     generate_walker_star_constellation_grid,
     generate_walker_delta_constellation_grid,
     generate_sun_synchronous_constellation_grid,
+    generate_checkerboard_walker_star_constellation_grid,
+    generate_checkerboard_walker_delta_constellation_grid,
 )
 from sat_com_connectivity.inter_satellite_link_connectivity.models import (
     PossibleOpticalLink,
@@ -98,11 +102,6 @@ def _is_inter_shell_capable(terminal: OpticalLinkTerminal) -> bool:
     )
 
 
-# ---------------------------------------------------------------------------
-# RESULT TYPES — pure data, no side effects
-# ---------------------------------------------------------------------------
-
-
 class StaticAddressingPlan(ABC):
     """
     Base class for static intra-shell addressing plans.
@@ -121,6 +120,10 @@ class StaticAddressingPlan(ABC):
         is responsible for actually creating the ISL objects.
         """
         pass
+
+    @abstractmethod
+    def get_type(self) -> str:
+        raise NotImplementedError()
 
 
 class WalkerStaticAddressingPlan(StaticAddressingPlan):
@@ -153,20 +156,9 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
     def __init__(self, walker_shell: WalkerShell):
         self.walker_shell = walker_shell
 
-        if self.walker_shell.type == "star":
-            grid = generate_walker_star_constellation_grid(
-                number_orbits=self.walker_shell.amount_of_orbit_plane,
-                number_satellites_per_orbit=self.walker_shell.amount_of_satellite_per_orbit_plane,
-                isl_shift=self.walker_shell.adjacent_inter_satellite_shifting,
-            )
-        else:
-            # Default to delta for any other type
-            grid = generate_walker_delta_constellation_grid(
-                number_orbits=self.walker_shell.amount_of_orbit_plane,
-                number_satellites_per_orbit=self.walker_shell.amount_of_satellite_per_orbit_plane,
-                isl_shift=self.walker_shell.adjacent_inter_satellite_shifting,
-            )
-        self.grid: list[tuple[int, int, InterSatelliteLinkDirection]] = grid
+        self.grid: list[tuple[int, int, InterSatelliteLinkDirection]] = []
+
+        self.get_type()
 
     def _build_associations_from_grid(
         self,
@@ -323,6 +315,10 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
 
         return self._build_associations_from_grid(satellite_lookup)
 
+    @abstractmethod
+    def get_type(self) -> str:
+        raise NotImplementedError()
+
 
 class SSODawnDuskStaticAddressingPlan(StaticAddressingPlan):
     """
@@ -338,6 +334,11 @@ class SSODawnDuskStaticAddressingPlan(StaticAddressingPlan):
     We might add the adjacent plane in the future, but this is not our priority.
 
     """
+
+    name = "LINKED_SSO"
+
+    def get_type(self) -> str:
+        return self.name
 
     def __init__(self, sso_shell: DawnDuskSSOShell):
         self.sso_shell = sso_shell
@@ -466,3 +467,143 @@ class SSODawnDuskStaticAddressingPlan(StaticAddressingPlan):
         satellite_lookup = {sat.object_id: sat for sat in satellites}
 
         return self._build_associations_from_grid(satellite_lookup)
+
+
+class FullMeshWalkerStarStaticAddressingPlan(WalkerStaticAddressingPlan):
+    name = "FULL_MESH_WALKER_STAR"
+
+    def get_type(self) -> str:
+        return self.name
+
+    def __init__(self, walker_shell: WalkerShell):
+        super().__init__(walker_shell)
+
+        self.grid = generate_walker_star_constellation_grid(
+            number_orbits=self.walker_shell.amount_of_orbit_plane,
+            number_satellites_per_orbit=self.walker_shell.amount_of_satellite_per_orbit_plane,
+            isl_shift=self.walker_shell.adjacent_inter_satellite_shifting,
+        )
+
+
+class FullMeshWalkerDeltaStaticAddressingPlan(WalkerStaticAddressingPlan):
+    name = "FULL_MESH_WALKER_DELTA"
+
+    def get_type(self) -> str:
+        return self.name
+
+    def __init__(self, walker_shell: WalkerShell):
+        super().__init__(walker_shell)
+
+        self.grid = generate_walker_delta_constellation_grid(
+            number_orbits=self.walker_shell.amount_of_orbit_plane,
+            number_satellites_per_orbit=self.walker_shell.amount_of_satellite_per_orbit_plane,
+            isl_shift=self.walker_shell.adjacent_inter_satellite_shifting,
+        )
+
+
+class CheckerboardWalkerStarStaticAddressingPlan(WalkerStaticAddressingPlan):
+    name = "CHECKERBOARD_WALKER_STAR"
+
+    def get_type(self) -> str:
+        return self.name
+
+    def __init__(self, walker_shell: WalkerShell):
+        super().__init__(walker_shell)
+
+        self.grid = generate_checkerboard_walker_star_constellation_grid(
+            number_orbits=self.walker_shell.amount_of_orbit_plane,
+            number_satellites_per_orbit=self.walker_shell.amount_of_satellite_per_orbit_plane,
+            isl_shift=self.walker_shell.adjacent_inter_satellite_shifting,
+        )
+
+
+class CheckerboardWalkerDeltaStaticAddressingPlan(WalkerStaticAddressingPlan):
+    name = "CHECKERBOARD_WALKER_DELTA"
+
+    def get_type(self) -> str:
+        return self.name
+
+    def __init__(self, walker_shell: WalkerShell):
+        super().__init__(walker_shell)
+
+        self.grid = generate_checkerboard_walker_delta_constellation_grid(
+            number_orbits=self.walker_shell.amount_of_orbit_plane,
+            number_satellites_per_orbit=self.walker_shell.amount_of_satellite_per_orbit_plane,
+            isl_shift=self.walker_shell.adjacent_inter_satellite_shifting,
+        )
+
+
+class AvailableAddressingPlans(str, Enum):
+    CHECKERBOARD_WALKER_DELTA = CheckerboardWalkerDeltaStaticAddressingPlan.name
+    CHECKERBOARD_WALKER_STAR = CheckerboardWalkerStarStaticAddressingPlan.name
+    FULL_MESH_WALKER_DELTA = FullMeshWalkerDeltaStaticAddressingPlan.name
+    FULL_MESH_WALKER_STAR = FullMeshWalkerStarStaticAddressingPlan.name
+    LINKED_SSO = SSODawnDuskStaticAddressingPlan.name
+
+    @classmethod
+    def _mapping(cls):
+        return {
+            cls.CHECKERBOARD_WALKER_DELTA: CheckerboardWalkerDeltaStaticAddressingPlan,
+            cls.CHECKERBOARD_WALKER_STAR: CheckerboardWalkerStarStaticAddressingPlan,
+            cls.FULL_MESH_WALKER_DELTA: FullMeshWalkerDeltaStaticAddressingPlan,
+            cls.FULL_MESH_WALKER_STAR: FullMeshWalkerStarStaticAddressingPlan,
+            cls.LINKED_SSO: SSODawnDuskStaticAddressingPlan,
+        }
+
+    def get_class(self):
+        return self._mapping()[self]
+
+    def build(self, **kwargs) -> StaticAddressingPlan:
+        self.validate_kwargs(**kwargs)
+        return self.get_class()(**kwargs)
+
+    def required_parameters(self) -> list[str]:
+        sig = inspect.signature(self.get_class().__init__)
+        return [
+            name
+            for name, param in sig.parameters.items()
+            if name != "self" and param.default == inspect.Parameter.empty
+        ]
+
+    def validate_kwargs(self, **kwargs):
+        required = self.required_parameters()
+        missing = [p for p in required if p not in kwargs]
+
+        if missing:
+            raise ValueError(f"{self.value} missing required parameters: {missing}")
+
+    def get_signature(self) -> str:
+        return str(inspect.signature(self.get_class().__init__))
+
+    @classmethod
+    def from_string(cls, value: str):
+        try:
+            return cls(value)
+        except ValueError:
+            raise ValueError(
+                f"Unknown addressing plan '{value}'. Available: {cls.list()}"
+            )
+
+    @classmethod
+    def list(cls) -> list[str]:
+        return [e.value for e in cls]
+
+    @classmethod
+    def is_valid(cls, value: str) -> bool:
+        return value in cls._value2member_map_
+
+    # ---- Classification helpers ----
+    def is_walker(self) -> bool:
+        return "WALKER" in self.value
+
+    def is_star(self) -> bool:
+        return "STAR" in self.value
+
+    def is_delta(self) -> bool:
+        return "DELTA" in self.value
+
+    def is_checkerboard(self) -> bool:
+        return "CHECKERBOARD" in self.value
+
+    def is_full_mesh(self) -> bool:
+        return "FULL_MESH" in self.value

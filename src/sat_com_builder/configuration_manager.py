@@ -1,4 +1,3 @@
-import time
 from abc import ABC, abstractmethod
 
 import yaml
@@ -23,7 +22,6 @@ from sat_com_builder.ground_objects.generate_point_of_presences import (
 from sat_com_builder.ground_objects.generate_user_terminals import (
     generate_user_terminal_from_file,
 )
-
 from sat_com_builder.models import SimulationProperty
 from sat_com_builder.utils import parse_date
 from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
@@ -32,6 +30,7 @@ from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_
 from sat_com_connectivity.inter_satellite_link_connectivity.addressing_plans import (
     WalkerStaticAddressingPlan,
     SSODawnDuskStaticAddressingPlan,
+    AvailableAddressingPlans,
 )
 from sat_com_connectivity.inter_satellite_link_connectivity.strategies import (
     IntraShellStaticConnectivity,
@@ -98,15 +97,19 @@ class BaseConfigurationManager(ConfigurationManager):
         """
 
         for shell in simulation_manager.get_walker_shells():
-            static_link_addressing_plan = WalkerStaticAddressingPlan(walker_shell=shell)
+            static_link_addressing_plan = AvailableAddressingPlans.from_string(
+                shell.static_addressing_plan
+            ).build(walker_shell=shell)
+
             simulation_manager.shell_addressing_plans.append(
                 (shell, static_link_addressing_plan)
             )
 
         for sso_shell in simulation_manager.get_sso_shells():
-            static_sso_shell_addressing_plan = SSODawnDuskStaticAddressingPlan(
-                sso_shell=sso_shell
-            )
+            static_sso_shell_addressing_plan = AvailableAddressingPlans.from_string(
+                sso_shell.static_addressing_plan
+            ).build(sso_shell=sso_shell)
+
             simulation_manager.shell_addressing_plans.append(
                 (sso_shell, static_sso_shell_addressing_plan)
             )
