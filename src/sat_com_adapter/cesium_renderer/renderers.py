@@ -19,6 +19,7 @@ from sat_com_model.models import (
     UserTerminalLink,
     Satellite,
     GroundObjectLink,
+    InterSatelliteLinkDirection,
 )
 
 
@@ -264,6 +265,18 @@ class CesiumRenderer:
                     inter_satellite_link, maximum_busy_inter_satellite_link
                 )
             )
+        return self
+
+    def add_inter_satellite_filtered_by_direction(
+        self, filtered_directions: list[InterSatelliteLinkDirection]
+    ) -> "CesiumRenderer":
+        for link in self.simulation_manager.get_inter_satellites_links():
+            if link.inter_satellite_direction in filtered_directions:
+                self.append_next(
+                    self.cesium_format.create_inter_satellite_link(
+                        inter_satellite_link=link
+                    )
+                )
         return self
 
     def add_flows(self) -> "CesiumRenderer":

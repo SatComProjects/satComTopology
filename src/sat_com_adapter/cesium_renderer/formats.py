@@ -309,12 +309,15 @@ class CesiumFormat:
             self.cesium_property.cesium_renderer_shell_property,
         )
 
-        display_color = (
-            satellites_property.orbital_inter_satellite_link_color
-            if inter_satellite_link.inter_satellite_direction
-            == InterSatelliteLinkDirection.ORBITAL
-            else satellites_property.adjacent_inter_satellite_link_color
-        )
+        link_color_decision_map = {
+            InterSatelliteLinkDirection.ORBITAL: satellites_property.orbital_inter_satellite_link_color,
+            InterSatelliteLinkDirection.ADJACENT: satellites_property.adjacent_inter_satellite_link_color,
+            InterSatelliteLinkDirection.INTER_SHELL: satellites_property.inter_shell_satellite_link_color,
+        }
+
+        display_color = link_color_decision_map[
+            inter_satellite_link.inter_satellite_direction
+        ]
 
         html_description = HtmlFormatter(inter_satellite_link).format()
 

@@ -9,6 +9,9 @@ class CesiumRendererShellProperty(BaseModel):
     satellites_size: float = Field(default=30000)
     adjacent_inter_satellite_link_color: str = Field(default="PERU")
     orbital_inter_satellite_link_color: str = Field(default="YELLOWGREEN")
+
+    inter_shell_satellite_link_color: str = Field(default="DARKMAGENTA")
+
     inter_satellite_link_width: float = Field(default=1)
 
     link_flow_width: float = Field(default=1)
