@@ -191,6 +191,9 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                                 constraint_b_to_a=None,
                             )
                         )
+                    else:
+                        if not ledger.is_link_obsoleted(terminal.link):
+                            raise RuntimeError("Link was not added tot he obsolete")
 
             ledger.add_new(
                 LinkAssociation(
