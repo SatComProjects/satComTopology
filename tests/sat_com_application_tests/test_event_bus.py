@@ -34,10 +34,6 @@ from sat_com_model.models import (
 )
 from tests.sat_com_connectivity_tests.test_addressing_plans import make_terminal
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 
 def make_simulation_manager(with_event_bus=True, with_time_manager=True):
     simulation = MagicMock(spec=Simulation)
