@@ -336,6 +336,25 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                     constraint_b_to_a=None,
                 )
             )
+        for link_key, existing_link in existing_link_lookup.items():
+            if ledger.is_link_accounted(existing_link):
+                continue
+
+            source = cast(Satellite, existing_link.source)
+            destination = cast(Satellite, existing_link.destination)
+
+            ledger.add_obsolete(
+                LinkAssociation(
+                    satellite_a=source,
+                    terminal_a=existing_link.get_terminal_for_satellite(source),
+                    satellite_b=destination,
+                    terminal_b=existing_link.get_terminal_for_satellite(destination),
+                    direction=existing_link.inter_satellite_direction,
+                    link=existing_link,
+                    constraint_a_to_b=None,
+                    constraint_b_to_a=None,
+                )
+            )
 
     def compute_strategy(self) -> InterSatelliteConnectivityResult:
         ledger = ConnectivityLedger()

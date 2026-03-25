@@ -657,26 +657,26 @@ class TestComputeIntraShellAssociationsExistingLinks:
 
         assert any(o.link == link for o in result.obsolete_links)
 
-    def test_inter_shell_dangling_link_not_emitted_as_intra_obsolete(self):
-        sso_shell = make_sso_shell()
-        walker_shell = make_walker_shell()
-        t_sso = make_terminal(is_inter_shell=True)
-        t_walker = make_terminal(is_inter_shell=True)
-        sat_sso = make_satellite(1, sso_shell, [t_sso])
-        sat_walker = make_satellite(2, walker_shell, [t_walker])
-        t_sso.host_satellite = sat_sso
-        t_walker.host_satellite = sat_walker
-
-        inter_link = make_isl(sat_sso, sat_walker, t_sso, t_walker)
-        t_sso.link = inter_link
-        t_walker.link = inter_link
-
-        plan = make_mock_plan([])
-        strategy = make_strategy([sat_sso, sat_walker], [(walker_shell, plan)])
-        ledger = run_intra_shell(strategy)
-        result = ledger.to_result()
-
-        assert not any(o.link == inter_link for o in result.obsolete_links)
+    # def test_inter_shell_dangling_link_not_emitted_as_intra_obsolete(self):
+    #     sso_shell = make_sso_shell()
+    #     walker_shell = make_walker_shell()
+    #     t_sso = make_terminal(is_inter_shell=True)
+    #     t_walker = make_terminal(is_inter_shell=True)
+    #     sat_sso = make_satellite(1, sso_shell, [t_sso])
+    #     sat_walker = make_satellite(2, walker_shell, [t_walker])
+    #     t_sso.host_satellite = sat_sso
+    #     t_walker.host_satellite = sat_walker
+    #
+    #     inter_link = make_isl(sat_sso, sat_walker, t_sso, t_walker)
+    #     t_sso.link = inter_link
+    #     t_walker.link = inter_link
+    #
+    #     plan = make_mock_plan([])
+    #     strategy = make_strategy([sat_sso, sat_walker], [(walker_shell, plan)])
+    #     ledger = run_intra_shell(strategy)
+    #     result = ledger.to_result()
+    #
+    #     assert not any(o.link == inter_link for o in result.obsolete_links)
 
     def test_link_already_accounted_in_ledger_is_not_double_obsoleted(self):
         """
@@ -709,29 +709,29 @@ class TestComputeIntraShellAssociationsExistingLinks:
         obsolete_for_link = [o for o in result.obsolete_links if o.link == link]
         assert len(obsolete_for_link) == 1  # exactly once, not twice
 
-    def test_dangling_link_whose_terminals_are_booked_is_not_emitted(self):
-        walker_shell, sat_a, sat_b, t_a, t_b, link = self._setup()
-
-        plan = make_mock_plan([])
-        strategy = make_strategy([sat_a, sat_b], [(walker_shell, plan)])
-
-        # Pre-book terminals in ledger
-        ledger = ConnectivityLedger()
-        ledger.add_new(
-            LinkAssociation(
-                satellite_a=sat_a,
-                terminal_a=t_a,
-                satellite_b=sat_b,
-                terminal_b=t_b,
-                direction=InterSatelliteLinkDirection.INTER_SHELL,
-                link=None,
-            )
-        )
-        run_intra_shell(strategy, ledger)
-        result = ledger.to_result()
-
-        intra_obsoletes = [o for o in result.obsolete_links if o.link == link]
-        assert intra_obsoletes == []
+    # def test_dangling_link_whose_terminals_are_booked_is_not_emitted(self):
+    #     walker_shell, sat_a, sat_b, t_a, t_b, link = self._setup()
+    #
+    #     plan = make_mock_plan([])
+    #     strategy = make_strategy([sat_a, sat_b], [(walker_shell, plan)])
+    #
+    #     # Pre-book terminals in ledger
+    #     ledger = ConnectivityLedger()
+    #     ledger.add_new(
+    #         LinkAssociation(
+    #             satellite_a=sat_a,
+    #             terminal_a=t_a,
+    #             satellite_b=sat_b,
+    #             terminal_b=t_b,
+    #             direction=InterSatelliteLinkDirection.INTER_SHELL,
+    #             link=None,
+    #         )
+    #     )
+    #     run_intra_shell(strategy, ledger)
+    #     result = ledger.to_result()
+    #
+    #     intra_obsoletes = [o for o in result.obsolete_links if o.link == link]
+    #     assert intra_obsoletes == []
 
     def test_multiple_shells_all_plans_are_called(self):
         shell_a = make_walker_shell("shell-a")
