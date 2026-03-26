@@ -72,7 +72,7 @@ class ISLUpdatedEvent(Event):
     azimuth_a_deg: float | None = None
     elevation_a_deg: float | None = None
     angular_velocity_a_deg_s: float | None = None
-    range_rate: float = None
+    range_rate: float | None = None
 
     azimuth_b_deg: float | None = None
     elevation_b_deg: float | None = None
