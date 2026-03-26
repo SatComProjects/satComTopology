@@ -347,8 +347,24 @@ def _compute_constraint_matrices(
         np.inf,  # closing link — range constraint not the limiting factor
     )
 
-    # Minimum across all three constraint clocks — first one to fire wins
+    el_margin_21 = np.minimum(el_21 - el_min_2, el_max_2 - el_21)  # (M, N)
+    az_margin_21 = az_max_2 - az_rel_21
+    t_el_21 = np.maximum(el_margin_21, 0.0) / (el_rate_21 + _EPS)
+    t_az_21 = np.maximum(az_margin_21, 0.0) / (az_rate_21 + _EPS)
+
+    t_range_21 = np.where(
+        range_rate_21 > 0,
+        np.maximum(range_max_2 - range_12.T, 0.0) / (range_rate_21 + _EPS),
+        np.inf,
+    )
+
     estimated_duration_12 = np.minimum(np.minimum(t_el_12, t_az_12), t_range_12)
+    estimated_duration_21 = np.minimum(np.minimum(t_el_21, t_az_21), t_range_21)
+
+    estimated_duration = np.minimum(
+        estimated_duration_12,
+        estimated_duration_21.T,
+    )
 
     return (
         el_12,
@@ -367,6 +383,8 @@ def _compute_constraint_matrices(
         bidirectional,
         alignment_score,
         estimated_duration_12,
+        estimated_duration_21,
+        estimated_duration,
     )
 
 
@@ -397,6 +415,7 @@ def _make_possible_link(
     i: int,
     j: int,
     estimated_duration_12: np.ndarray = None,
+    estimated_duration_21: np.ndarray = None,
 ) -> PossibleOpticalLink:
     return PossibleOpticalLink(
         satellite_a=satellite_1,
@@ -429,7 +448,7 @@ def _make_possible_link(
             range_distance_km=float(range_12[i, j]),
             angular_velocity_rate_degree_per_second=float(omega_total_21[j, i]),
             estimated_duration=(
-                float(estimated_duration_12[i, j])
+                float(estimated_duration_21[j, i])
                 if estimated_duration_12 is not None
                 else None
             ),
@@ -712,6 +731,8 @@ def compute_OISL_links_from_terminal_pools_filtered(
         bidirectional,
         alignment_score,
         estimated_duration_12,
+        estimated_duration_21,
+        estimated_duration,
     ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
     t_matrix = time.perf_counter() - t_matrix_start
 
@@ -738,7 +759,7 @@ def compute_OISL_links_from_terminal_pools_filtered(
             omega_total_12
             if selection_strategy == "best_angular_velocity"
             else (
-                -estimated_duration_12  # negative: argmin → longest duration
+                -estimated_duration  # negative: argmin → longest duration
                 if selection_strategy == "estimated_link_duration"
                 else range_12
             )
@@ -801,6 +822,7 @@ def compute_OISL_links_from_terminal_pools_filtered(
                 i,
                 best_j,
                 estimated_duration_12,
+                estimated_duration_21,
             )
         )
         booked_j.add(best_j)
@@ -868,6 +890,8 @@ def compute_OISL_links_from_terminal_pools(
         bidirectional,
         alignment_score,
         estimated_duration_12,
+        estimated_duration_21,
+        estimated_duration,
     ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
 
     score_matrix = (
