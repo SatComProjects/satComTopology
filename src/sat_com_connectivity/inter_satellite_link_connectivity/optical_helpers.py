@@ -149,6 +149,7 @@ class _TerminalRecord:
     max_angular_velocity_deg_s: float
     boresight_az_deg: float
     boresight_el_deg: float
+    min_contact_duration: float
 
 
 def _build_terminal_records(
@@ -180,6 +181,7 @@ def _build_terminal_records(
                     max_angular_velocity_deg_s=cfg.maximum_angular_velocity_degree_per_second,
                     boresight_az_deg=terminal.azimuth_angle_configuration,
                     boresight_el_deg=terminal.elevation_angle_configuration,
+                    min_contact_duration=cfg.minimum_contact_duration_seconds,
                 )
             )
     return records
@@ -212,6 +214,7 @@ def _build_terminal_records_from_pool(
                 max_angular_velocity_deg_s=cfg.maximum_angular_velocity_degree_per_second,
                 boresight_az_deg=terminal.azimuth_angle_configuration,
                 boresight_el_deg=terminal.elevation_angle_configuration,
+                min_contact_duration=cfg.minimum_contact_duration_seconds,
             )
         )
     return records
@@ -366,6 +369,13 @@ def _compute_constraint_matrices(
         estimated_duration_21.T,
     )
 
+    duration_min_1 = np.array([r.min_contact_duration for r in records_1]).reshape(N, 1)
+    duration_min_2 = np.array([r.min_contact_duration for r in records_2]).reshape(M, 1)
+
+    duration_1_ok = estimated_duration >= duration_min_1
+    duration_2_ok = estimated_duration >= duration_min_2.T
+    duration_ok = duration_1_ok & duration_2_ok
+
     return (
         el_12,
         az_12,
@@ -385,6 +395,9 @@ def _compute_constraint_matrices(
         estimated_duration_12,
         estimated_duration_21,
         estimated_duration,
+        duration_ok,
+        duration_1_ok,
+        duration_2_ok,
     )
 
 
@@ -654,6 +667,7 @@ def compute_OISL_feasibility_for_terminal_pair(
         max_angular_velocity_deg_s=cfg_a.maximum_angular_velocity_degree_per_second,
         boresight_az_deg=terminal_a.azimuth_angle_configuration,
         boresight_el_deg=terminal_a.elevation_angle_configuration,
+        min_contact_duration=cfg_a.minimum_contact_duration_seconds,
     )
     rec_b = _TerminalRecord(
         terminal=terminal_b,
@@ -668,6 +682,7 @@ def compute_OISL_feasibility_for_terminal_pair(
         max_angular_velocity_deg_s=cfg_b.maximum_angular_velocity_degree_per_second,
         boresight_az_deg=terminal_b.azimuth_angle_configuration,
         boresight_el_deg=terminal_b.elevation_angle_configuration,
+        min_contact_duration=cfg_b.minimum_contact_duration_seconds,
     )
 
     feasible, score = _check_pair_feasibility(rec_a, rec_b, angular_velocity_dt_seconds)
@@ -733,6 +748,9 @@ def compute_OISL_links_from_terminal_pools_filtered(
         estimated_duration_12,
         estimated_duration_21,
         estimated_duration,
+        duration_ok,
+        duration_1_ok,
+        duration_2_ok,
     ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
     t_matrix = time.perf_counter() - t_matrix_start
 
@@ -750,7 +768,7 @@ def compute_OISL_links_from_terminal_pools_filtered(
         dtype=bool,
     )
 
-    candidate = bidirectional & range_ok & ~same_shell  # (N, M)
+    candidate = bidirectional & range_ok & duration_ok & ~same_shell  # (N, M)
 
     score_matrix = (
         alignment_score
@@ -892,6 +910,9 @@ def compute_OISL_links_from_terminal_pools(
         estimated_duration_12,
         estimated_duration_21,
         estimated_duration,
+        duration_ok,
+        duration_1_ok,
+        duration_2_ok,
     ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
 
     score_matrix = (
