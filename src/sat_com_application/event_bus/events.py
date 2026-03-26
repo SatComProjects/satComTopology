@@ -49,7 +49,8 @@ class ISLCreatedEvent(Event):
     angular_velocity_a_deg_s: float | None = None
     range_rate: float | None = None
 
-    estimated_duration: float | None = None
+    estimated_duration_a: float | None = None
+    estimated_duration_b: float | None = None
 
     azimuth_b_deg: float | None = None
     elevation_b_deg: float | None = None
@@ -100,7 +101,7 @@ class GSLCreatedEvent(Event):
     ground_station_id: int
     distance_km: float | None = None
     elevation_angle: float | None = None
-    estimated_duration: float | None = None
+    estimated_duration_a: float | None = None
 
 
 class GSLUpdatedEvent(Event):
