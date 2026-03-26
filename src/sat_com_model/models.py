@@ -318,9 +318,13 @@ class OpticalTerminalConfiguration(BaseModel):
     min_elevation_degrees: float = Field(default=-25)  # +5°/-25° elev
     max_elevation_degrees: float = Field(default=5)
 
-    los_central_angle_max_degrees: float = Field(default=80)
+    los_central_angle_max_degrees: float = Field(
+        default=80
+    )  # Unused I don't remember what is it
 
-    enable_dynamic_reassignment: bool = Field(default=True)
+    enable_dynamic_reassignment: bool = Field(
+        default=True
+    )  # Not used anymore will be removed
 
 
 class OpticalTerminalInstallationConfiguration(BaseModel):
