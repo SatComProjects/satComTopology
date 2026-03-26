@@ -118,7 +118,7 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
                 link.source_constraint, "estimated_duration"
             ),
             estimated_duration_b=_constraint_field(
-                link.source_constraint, "estimated_duration"
+                link.destination_constraint, "estimated_duration"
             ),
         )
 
