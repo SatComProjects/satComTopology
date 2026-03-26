@@ -101,7 +101,7 @@ class GSLCreatedEvent(Event):
     ground_station_id: int
     distance_km: float | None = None
     elevation_angle: float | None = None
-    estimated_duration_a: float | None = None
+    estimated_duration: float | None = None
 
 
 class GSLUpdatedEvent(Event):
