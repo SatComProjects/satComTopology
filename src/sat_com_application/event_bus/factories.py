@@ -114,7 +114,10 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             ),
             distance_km=_constraint_field(link.source_constraint, "range_distance_km"),
             range_rate=_constraint_field(link.source_constraint, "range_rate"),
-            estimated_duration=_constraint_field(
+            estimated_duration_a=_constraint_field(
+                link.source_constraint, "estimated_duration"
+            ),
+            estimated_duration_b=_constraint_field(
                 link.source_constraint, "estimated_duration"
             ),
         )
