@@ -113,6 +113,10 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
                 link.destination_constraint, "angular_velocity_rate_degree_per_second"
             ),
             distance_km=_constraint_field(link.source_constraint, "range_distance_km"),
+            range_rate=_constraint_field(link.source_constraint, "range_rate"),
+            estimated_duration=_constraint_field(
+                link.source_constraint, "estimated_duration"
+            ),
         )
 
     def updated(self, link: InterSatelliteLink) -> ISLUpdatedEvent:

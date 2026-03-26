@@ -63,6 +63,7 @@ def make_visibility_constraint() -> OpticISLVisibilityConstraintResult:
         flag_angular_velocity=True,
         flag_overall=True,
         flag_bidirectional=True,
+        range_rate=5,
     )
 
 

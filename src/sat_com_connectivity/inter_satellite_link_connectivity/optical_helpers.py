@@ -95,19 +95,32 @@ def _compute_angular_velocity_a_to_b(
     velocities_b: np.ndarray,
     el_t0: np.ndarray,
     az_t0: np.ndarray,
+    range_t0: np.ndarray,
     dt_seconds: float = 1.0,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    First-order finite-difference estimate of az/el angular rates.
-    Returns : az_rate_deg_s (N,M), el_rate_deg_s (N,M)
+    First-order finite-difference estimate of az/el angular rates and range rate.
+
+    Parameters
+    ----------
+    range_t0 : (N, M)  range at t=0 [km], already computed by _compute_angles_a_to_b
+
+    Returns
+    -------
+    az_rate_deg_s : (N, M)  absolute azimuth rate   [deg/s]
+    el_rate_deg_s : (N, M)  absolute elevation rate  [deg/s]
+    range_rate_km_s : (N, M)  signed range rate [km/s]
+                      positive = satellites diverging
+                      negative = satellites closing
     """
     pos_a_dt = positions_a + velocities_a * dt_seconds
     pos_b_dt = positions_b + velocities_b * dt_seconds
     frames_a_dt = _build_lvlh_frames(pos_a_dt, velocities_a)
-    el_dt, az_dt, _ = _compute_angles_a_to_b(pos_a_dt, frames_a_dt, pos_b_dt)
+    el_dt, az_dt, range_dt = _compute_angles_a_to_b(pos_a_dt, frames_a_dt, pos_b_dt)
     d_az = (az_dt - az_t0 + 180.0) % 360.0 - 180.0
     d_el = el_dt - el_t0
-    return np.abs(d_az) / dt_seconds, np.abs(d_el) / dt_seconds
+    range_rate = (range_dt - range_t0) / dt_seconds  # km/s, signed
+    return np.abs(d_az) / dt_seconds, np.abs(d_el) / dt_seconds, range_rate
 
 
 def _az_relative(
@@ -207,6 +220,7 @@ def _build_terminal_records_from_pool(
 # =========================================================================
 # SHARED VECTORISED CORE
 # =========================================================================
+_EPS = 1e-9  # division guard
 
 
 def _compute_constraint_matrices(
@@ -220,14 +234,19 @@ def _compute_constraint_matrices(
 
     Returns
     -------
-    el_12, az_12, range_12      : (N, M) geometry, group 1 → group 2
-    omega_total_12              : (N, M) total LOS rate [deg/s]
-    el_21, az_21                : (M, N) geometry, group 2 → group 1
-    omega_total_21              : (M, N) total LOS rate [deg/s]
-    omega_ok_12, omega_ok_21    : angular velocity constraint flags
-    link_ok_12, link_ok_21      : all constraints combined
-    bidirectional               : (N, M) link_ok_12 & link_ok_21.T
-    alignment_score             : (N, M) combined boresight azimuth deviation
+    el_12, az_12, range_12          : (N, M) geometry,           group 1 → group 2
+    omega_total_12                  : (N, M) total LOS rate [deg/s]
+    range_rate_12                   : (N, M) signed range rate [km/s]
+                                      positive = diverging, useful for Doppler
+    el_21, az_21                    : (M, N) geometry,           group 2 → group 1
+    omega_total_21                  : (M, N) total LOS rate [deg/s]
+    range_rate_21                   : (M, N) signed range rate [km/s]
+    omega_ok_12, omega_ok_21        : angular velocity constraint flags
+    link_ok_12, link_ok_21          : all constraints combined
+    bidirectional                   : (N, M) link_ok_12 & link_ok_21.T
+    alignment_score                 : (N, M) combined boresight az deviation (lower=better)
+    estimated_duration_12           : (N, M) seconds until first constraint violation [s]
+                                      conservative linear extrapolation from current rates
     """
     N, M = len(records_1), len(records_2)
 
@@ -260,31 +279,33 @@ def _compute_constraint_matrices(
     el_12, az_12, range_12 = _compute_angles_a_to_b(pos_1, frames_1, pos_2)
     el_21, az_21, _ = _compute_angles_a_to_b(pos_2, frames_2, pos_1)
 
-    az_rate_12, el_rate_12 = _compute_angular_velocity_a_to_b(
+    az_rate_12, el_rate_12, range_rate_12 = _compute_angular_velocity_a_to_b(
         pos_1,
         vel_1,
         pos_2,
         vel_2,
         el_12,
         az_12,
+        range_12,
         dt_seconds=angular_velocity_dt_seconds,
     )
-    az_rate_21, el_rate_21 = _compute_angular_velocity_a_to_b(
+    az_rate_21, el_rate_21, range_rate_21 = _compute_angular_velocity_a_to_b(
         pos_2,
         vel_2,
         pos_1,
         vel_1,
         el_21,
         az_21,
+        range_12.T,
         dt_seconds=angular_velocity_dt_seconds,
     )
 
     omega_total_12 = np.sqrt(az_rate_12**2 + el_rate_12**2)
     omega_total_21 = np.sqrt(az_rate_21**2 + el_rate_21**2)
 
-    # Azimuth constraint relative to boresight
-    az_rel_12 = np.abs((az_12 - boresight_az_1 + 180.0) % 360.0 - 180.0)
-    az_rel_21 = np.abs((az_21 - boresight_az_2 + 180.0) % 360.0 - 180.0)
+    # Azimuth relative to boresight
+    az_rel_12 = np.abs((az_12 - boresight_az_1 + 180.0) % 360.0 - 180.0)  # (N, M)
+    az_rel_21 = np.abs((az_21 - boresight_az_2 + 180.0) % 360.0 - 180.0)  # (M, N)
 
     el_ok_12 = (el_12 >= el_min_1) & (el_12 <= el_max_1)
     az_ok_12 = az_rel_12 <= az_max_1
@@ -299,22 +320,53 @@ def _compute_constraint_matrices(
     link_ok_21 = el_ok_21 & az_ok_21 & range_ok_21 & omega_ok_21
 
     bidirectional = link_ok_12 & link_ok_21.T
-    alignment_score = az_rel_12 + az_rel_21.T  # lower = better
+    alignment_score = az_rel_12 + az_rel_21.T  # lower = better boresight alignment
+
+    # ── Estimated link duration — conservative linear extrapolation ────────
+    #
+    # For each active constraint we compute the remaining margin and divide by
+    # the current rate of change to get seconds until violation.
+    # Elevation: take the smaller of the two margins (lower/upper bound) —
+    #   conservative because we don't know which direction el is moving.
+    # Azimuth:   margin to the FOV boundary, decreasing at az_rate_12.
+    # Range:     only relevant when satellites are diverging (range_rate > 0).
+    #   If closing, the range constraint will not be hit — set to inf.
+    # We do NOT estimate time for the omega constraint because that would
+    # require the rate-of-rate (jerk), which is not computed here.
+    #
+    # Result is clamped to [0, inf] — negative margin means already violated.
+
+    el_margin_12 = np.minimum(el_12 - el_min_1, el_max_1 - el_12)  # (N, M) deg
+    az_margin_12 = az_max_1 - az_rel_12  # (N, M) deg
+
+    t_el_12 = np.maximum(el_margin_12, 0.0) / (el_rate_12 + _EPS)
+    t_az_12 = np.maximum(az_margin_12, 0.0) / (az_rate_12 + _EPS)
+    t_range_12 = np.where(
+        range_rate_12 > 0,
+        np.maximum(range_max_1 - range_12, 0.0) / (range_rate_12 + _EPS),
+        np.inf,  # closing link — range constraint not the limiting factor
+    )
+
+    # Minimum across all three constraint clocks — first one to fire wins
+    estimated_duration_12 = np.minimum(np.minimum(t_el_12, t_az_12), t_range_12)
 
     return (
         el_12,
         az_12,
         range_12,
         omega_total_12,
+        range_rate_12,
         el_21,
         az_21,
         omega_total_21,
+        range_rate_21,
         omega_ok_12,
         omega_ok_21,
         link_ok_12,
         link_ok_21,
         bidirectional,
         alignment_score,
+        estimated_duration_12,
     )
 
 
@@ -331,6 +383,7 @@ def _make_possible_link(
     el_12: np.ndarray,
     az_12: np.ndarray,
     range_12: np.ndarray,
+    range_rate_12: np.ndarray,
     omega_total_12: np.ndarray,
     el_21: np.ndarray,
     az_21: np.ndarray,
@@ -343,6 +396,7 @@ def _make_possible_link(
     score: float,
     i: int,
     j: int,
+    estimated_duration_12: np.ndarray = None,
 ) -> PossibleOpticalLink:
     return PossibleOpticalLink(
         satellite_a=satellite_1,
@@ -354,6 +408,12 @@ def _make_possible_link(
             azimuth_angle_degree=float(az_12[i, j]),
             range_distance_km=float(range_12[i, j]),
             angular_velocity_rate_degree_per_second=float(omega_total_12[i, j]),
+            range_rate=range_rate_12[i, j],
+            estimated_duration=(
+                float(estimated_duration_12[i, j])
+                if estimated_duration_12 is not None
+                else None
+            ),
             flag_elevation=bool(
                 (el_12[i, j] >= rec_1.el_min_deg) and (el_12[i, j] <= rec_1.el_max_deg)
             ),
@@ -368,6 +428,12 @@ def _make_possible_link(
             azimuth_angle_degree=float(az_21[j, i]),
             range_distance_km=float(range_12[i, j]),
             angular_velocity_rate_degree_per_second=float(omega_total_21[j, i]),
+            estimated_duration=(
+                float(estimated_duration_12[i, j])
+                if estimated_duration_12 is not None
+                else None
+            ),
+            range_rate=range_rate_12[i, j],
             flag_elevation=bool(
                 (el_21[j, i] >= rec_2.el_min_deg) and (el_21[j, i] <= rec_2.el_max_deg)
             ),
@@ -407,22 +473,24 @@ def _check_pair_feasibility(
     el_ab, az_ab, range_ab = _compute_angles_a_to_b(pos_a, frames_a, pos_b)
     el_ba, az_ba, _ = _compute_angles_a_to_b(pos_b, frames_b, pos_a)
 
-    az_rate_ab, el_rate_ab = _compute_angular_velocity_a_to_b(
+    az_rate_ab, el_rate_ab, _ = _compute_angular_velocity_a_to_b(
         pos_a,
         vel_a,
         pos_b,
         vel_b,
         el_ab,
         az_ab,
+        range_ab,
         dt_seconds=angular_velocity_dt_seconds,
     )
-    az_rate_ba, el_rate_ba = _compute_angular_velocity_a_to_b(
+    az_rate_ba, el_rate_ba, _ = _compute_angular_velocity_a_to_b(
         pos_b,
         vel_b,
         pos_a,
         vel_a,
         el_ba,
         az_ba,
+        range_ab.T,
         dt_seconds=angular_velocity_dt_seconds,
     )
 
@@ -469,22 +537,24 @@ def _rec_to_possible_link(
     el_ab, az_ab, range_ab = _compute_angles_a_to_b(pos_a, frames_a, pos_b)
     el_ba, az_ba, _ = _compute_angles_a_to_b(pos_b, frames_b, pos_a)
 
-    az_rate_ab, el_rate_ab = _compute_angular_velocity_a_to_b(
+    az_rate_ab, el_rate_ab, range_rate_ab = _compute_angular_velocity_a_to_b(
         pos_a,
         vel_a,
         pos_b,
         vel_b,
         el_ab,
         az_ab,
+        range_ab,
         dt_seconds=angular_velocity_dt_seconds,
     )
-    az_rate_ba, el_rate_ba = _compute_angular_velocity_a_to_b(
+    az_rate_ba, el_rate_ba, range_rate_ba = _compute_angular_velocity_a_to_b(
         pos_b,
         vel_b,
         pos_a,
         vel_a,
         el_ba,
         az_ba,
+        range_ab.T,
         dt_seconds=angular_velocity_dt_seconds,
     )
 
@@ -500,6 +570,7 @@ def _rec_to_possible_link(
             elevation_angle_degree=float(el_ab[0, 0]),
             azimuth_angle_degree=float(az_ab[0, 0]),
             range_distance_km=float(range_ab[0, 0]),
+            range_rate=float(range_rate_ab),
             angular_velocity_rate_degree_per_second=omega_ab,
             flag_elevation=True,
             flag_azimuth=True,
@@ -512,6 +583,7 @@ def _rec_to_possible_link(
             elevation_angle_degree=float(el_ba[0, 0]),
             azimuth_angle_degree=float(az_ba[0, 0]),
             range_distance_km=float(range_ab[0, 0]),
+            range_rate=float(range_rate_ba[0, 0]),
             angular_velocity_rate_degree_per_second=omega_ba,
             flag_elevation=True,
             flag_azimuth=True,
@@ -526,319 +598,7 @@ def _rec_to_possible_link(
 
 
 # =========================================================================
-# PUBLIC API 1 — raw terminal-level constraint matrix
-# =========================================================================
-
-
-def compute_OISL_constraints_between_satellites(
-    satellites_group_1: list[Satellite],
-    satellites_group_2: list[Satellite],
-    angular_velocity_dt_seconds: float = 1.0,
-) -> list[list[OpticISLVisibilityConstraintResult]]:
-    cache = _EciCache()
-    cache.warm(satellites_group_1 + satellites_group_2)
-
-    records_1 = _build_terminal_records(satellites_group_1, cache)
-    records_2 = _build_terminal_records(satellites_group_2, cache)
-
-    (
-        el_12,
-        az_12,
-        range_12,
-        omega_total_12,
-        el_21,
-        az_21,
-        omega_total_21,
-        omega_ok_12,
-        omega_ok_21,
-        link_ok_12,
-        link_ok_21,
-        bidirectional,
-        _,
-    ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
-
-    results = []
-    for i, rec in enumerate(records_1):
-        row = []
-        for j in range(len(records_2)):
-            row.append(
-                OpticISLVisibilityConstraintResult(
-                    elevation_angle_degree=float(el_12[i, j]),
-                    azimuth_angle_degree=float(az_12[i, j]),
-                    range_distance_km=float(range_12[i, j]),
-                    angular_velocity_rate_degree_per_second=float(omega_total_12[i, j]),
-                    flag_elevation=bool(
-                        (el_12[i, j] >= rec.el_min_deg)
-                        and (el_12[i, j] <= rec.el_max_deg)
-                    ),
-                    flag_azimuth=bool(abs(az_12[i, j]) <= rec.az_max_deg),
-                    flag_range=bool(range_12[i, j] <= rec.range_max_km),
-                    flag_angular_velocity=bool(omega_ok_12[i, j]),
-                    flag_overall=bool(link_ok_12[i, j]),
-                    flag_bidirectional=bool(bidirectional[i, j]),
-                )
-            )
-        results.append(row)
-
-    return results
-
-
-# =========================================================================
-# PUBLIC API 2 — all valid terminal pairs
-# =========================================================================
-
-
-def compute_OISL_possible_links(
-    satellites_group_1: list[Satellite],
-    satellites_group_2: list[Satellite],
-    angular_velocity_dt_seconds: float = 1.0,
-    selection_strategy: Literal[
-        "best_alignment", "best_angular_velocity", "shortest_range"
-    ] = "best_alignment",
-    bidirectional_only: bool = True,
-) -> list[PossibleOpticalLink]:
-    cache = _EciCache()
-    cache.warm(satellites_group_1 + satellites_group_2)
-
-    records_1 = _build_terminal_records(satellites_group_1, cache)
-    records_2 = _build_terminal_records(satellites_group_2, cache)
-
-    if not records_1 or not records_2:
-        return []
-
-    (
-        el_12,
-        az_12,
-        range_12,
-        omega_total_12,
-        el_21,
-        az_21,
-        omega_total_21,
-        omega_ok_12,
-        omega_ok_21,
-        link_ok_12,
-        link_ok_21,
-        bidirectional,
-        alignment_score,
-    ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
-
-    score_matrix = (
-        alignment_score
-        if selection_strategy == "best_alignment"
-        else (
-            omega_total_12
-            if selection_strategy == "best_angular_velocity"
-            else range_12
-        )
-    )
-
-    candidate_mask = bidirectional if bidirectional_only else link_ok_12
-    valid_i, valid_j = np.where(candidate_mask)
-
-    results = [
-        _make_possible_link(
-            records_1[i],
-            records_2[j],
-            satellites_group_1[records_1[i].satellite_index],
-            satellites_group_2[records_2[j].satellite_index],
-            el_12,
-            az_12,
-            range_12,
-            omega_total_12,
-            el_21,
-            az_21,
-            omega_total_21,
-            omega_ok_12,
-            omega_ok_21,
-            link_ok_12,
-            link_ok_21,
-            bidirectional,
-            float(score_matrix[i, j]),
-            i,
-            j,
-        )
-        for i, j in zip(valid_i.tolist(), valid_j.tolist())
-    ]
-
-    results.sort(key=lambda x: x.selection_score)
-    return results
-
-
-# =========================================================================
-# PUBLIC API 3 — best terminal pair per satellite pair
-# =========================================================================
-
-
-def compute_OISL_links(
-    satellites_group_1: list[Satellite],
-    satellites_group_2: list[Satellite],
-    maximum_range_to_filter_in_km: float = 10_000.0,
-    angular_velocity_dt_seconds: float = 1.0,
-    selection_strategy: Literal[
-        "best_alignment", "best_angular_velocity", "shortest_range"
-    ] = "best_alignment",
-) -> list[PossibleOpticalLink]:
-    cache = _EciCache()
-    cache.warm(satellites_group_1 + satellites_group_2)
-
-    records_1 = _build_terminal_records(satellites_group_1, cache)
-    records_2 = _build_terminal_records(satellites_group_2, cache)
-
-    if not records_1 or not records_2:
-        return []
-
-    (
-        el_12,
-        az_12,
-        range_12,
-        omega_total_12,
-        el_21,
-        az_21,
-        omega_total_21,
-        omega_ok_12,
-        omega_ok_21,
-        link_ok_12,
-        link_ok_21,
-        bidirectional,
-        alignment_score,
-    ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
-
-    score_matrix = (
-        alignment_score
-        if selection_strategy == "best_alignment"
-        else (
-            omega_total_12
-            if selection_strategy == "best_angular_velocity"
-            else range_12
-        )
-    )
-
-    sat_terms_1: dict[int, list[int]] = {}
-    for flat_idx, rec in enumerate(records_1):
-        sat_terms_1.setdefault(rec.satellite_index, []).append(flat_idx)
-
-    sat_terms_2: dict[int, list[int]] = {}
-    for flat_idx, rec in enumerate(records_2):
-        sat_terms_2.setdefault(rec.satellite_index, []).append(flat_idx)
-
-    results: list[PossibleOpticalLink] = []
-
-    for sat_idx_1, term_indices_1 in sat_terms_1.items():
-        satellite_1 = satellites_group_1[sat_idx_1]
-        rows = np.array(term_indices_1)
-
-        for sat_idx_2, term_indices_2 in sat_terms_2.items():
-            satellite_2 = satellites_group_2[sat_idx_2]
-            cols = np.array(term_indices_2)
-
-            if (
-                float(range_12[np.ix_(rows, cols)].min())
-                > maximum_range_to_filter_in_km
-            ):
-                continue
-
-            sub_score = score_matrix[np.ix_(rows, cols)]
-            local_i, local_j = np.unravel_index(np.argmin(sub_score), sub_score.shape)
-            i, j = rows[local_i], cols[local_j]
-
-            results.append(
-                _make_possible_link(
-                    records_1[i],
-                    records_2[j],
-                    satellite_1,
-                    satellite_2,
-                    el_12,
-                    az_12,
-                    range_12,
-                    omega_total_12,
-                    el_21,
-                    az_21,
-                    omega_total_21,
-                    omega_ok_12,
-                    omega_ok_21,
-                    link_ok_12,
-                    link_ok_21,
-                    bidirectional,
-                    float(sub_score[local_i, local_j]),
-                    i,
-                    j,
-                )
-            )
-
-    results.sort(key=lambda x: x.selection_score)
-    return results
-
-
-# =========================================================================
-# PUBLIC API 4 — all valid terminal pairs for one satellite pair
-# =========================================================================
-
-
-def compute_OISL_possible_links_for_satellite_pair(
-    satellite_a: Satellite,
-    satellite_b: Satellite,
-    angular_velocity_dt_seconds: float = 1.0,
-    bidirectional_only: bool = True,
-) -> list[PossibleOpticalLink]:
-    cache = _EciCache()
-    cache.warm([satellite_a, satellite_b])
-
-    records_1 = _build_terminal_records([satellite_a], cache)
-    records_2 = _build_terminal_records([satellite_b], cache)
-
-    if not records_1 or not records_2:
-        return []
-
-    (
-        el_12,
-        az_12,
-        range_12,
-        omega_total_12,
-        el_21,
-        az_21,
-        omega_total_21,
-        omega_ok_12,
-        omega_ok_21,
-        link_ok_12,
-        link_ok_21,
-        bidirectional,
-        alignment_score,
-    ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
-
-    candidate_mask = bidirectional if bidirectional_only else link_ok_12
-    valid_i, valid_j = np.where(candidate_mask)
-
-    results = [
-        _make_possible_link(
-            records_1[i],
-            records_2[j],
-            satellite_a,
-            satellite_b,
-            el_12,
-            az_12,
-            range_12,
-            omega_total_12,
-            el_21,
-            az_21,
-            omega_total_21,
-            omega_ok_12,
-            omega_ok_21,
-            link_ok_12,
-            link_ok_21,
-            bidirectional,
-            float(alignment_score[i, j]),
-            i,
-            j,
-        )
-        for i, j in zip(valid_i.tolist(), valid_j.tolist())
-    ]
-
-    results.sort(key=lambda x: x.selection_score)
-    return results
-
-
-# =========================================================================
-# PUBLIC API 5 — feasibility check for one specific terminal pair
+# PUBLIC API - feasibility check for one specific terminal pair
 # =========================================================================
 
 
@@ -899,7 +659,7 @@ def compute_OISL_feasibility_for_terminal_pair(
 
 
 # =========================================================================
-# PUBLIC API 6 — inter-shell assignment from terminal pools
+# PUBLIC API 6 — inter-shell assignment from terminal pools. We filter with a balltree
 # =========================================================================
 
 
@@ -909,8 +669,11 @@ def compute_OISL_links_from_terminal_pools_filtered(
     maximum_range_to_filter_in_km: float = 10_000.0,
     angular_velocity_dt_seconds: float = 1.0,
     selection_strategy: Literal[
-        "best_alignment", "best_angular_velocity", "shortest_range"
-    ] = "best_alignment",
+        "best_alignment",
+        "best_angular_velocity",
+        "shortest_range",
+        "estimated_link_duration",
+    ] = "estimated_link_duration",
     debug: bool = False,
 ) -> list[PossibleOpticalLink]:
     if not terminals_group_1 or not terminals_group_2:
@@ -937,15 +700,18 @@ def compute_OISL_links_from_terminal_pools_filtered(
         az_12,
         range_12,
         omega_total_12,
+        range_rate_12,
         el_21,
         az_21,
         omega_total_21,
+        range_rate_21,
         omega_ok_12,
         omega_ok_21,
         link_ok_12,
         link_ok_21,
         bidirectional,
         alignment_score,
+        estimated_duration_12,
     ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
     t_matrix = time.perf_counter() - t_matrix_start
 
@@ -971,12 +737,25 @@ def compute_OISL_links_from_terminal_pools_filtered(
         else (
             omega_total_12
             if selection_strategy == "best_angular_velocity"
-            else range_12
+            else (
+                -estimated_duration_12  # negative: argmin → longest duration
+                if selection_strategy == "estimated_link_duration"
+                else range_12
+            )
         )
     )
 
     # Replace non-candidates with inf so argmin ignores them
-    score_masked = np.where(candidate, score_matrix, np.inf)  # (N, M)
+    # score_masked = np.where(candidate, score_matrix, np.inf)  # (N, M)
+    score_masked = np.where(
+        candidate,
+        (
+            score_matrix
+            if selection_strategy != "estimated_link_duration"
+            else np.where(estimated_duration_12 > 0, -estimated_duration_12, np.inf)
+        ),
+        np.inf,
+    )
 
     total_candidates = int(candidate.sum())
 
@@ -1008,6 +787,7 @@ def compute_OISL_links_from_terminal_pools_filtered(
                 el_12,
                 az_12,
                 range_12,
+                range_rate_12,
                 omega_total_12,
                 el_21,
                 az_21,
@@ -1020,6 +800,7 @@ def compute_OISL_links_from_terminal_pools_filtered(
                 float(score_matrix[i, best_j]),
                 i,
                 best_j,
+                estimated_duration_12,
             )
         )
         booked_j.add(best_j)
@@ -1041,6 +822,11 @@ def compute_OISL_links_from_terminal_pools_filtered(
 
     results.sort(key=lambda x: x.selection_score)
     return results
+
+
+# =========================================================================
+# PUBLIC API 6 — inter-shell assignment from terminal pools. No filter
+# =========================================================================
 
 
 def compute_OISL_links_from_terminal_pools(
@@ -1070,15 +856,18 @@ def compute_OISL_links_from_terminal_pools(
         az_12,
         range_12,
         omega_total_12,
+        range_rate_12,
         el_21,
         az_21,
         omega_total_21,
+        range_rate_21,
         omega_ok_12,
         omega_ok_21,
         link_ok_12,
         link_ok_21,
         bidirectional,
         alignment_score,
+        estimated_duration_12,
     ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
 
     score_matrix = (
@@ -1114,6 +903,7 @@ def compute_OISL_links_from_terminal_pools(
                 el_12,
                 az_12,
                 range_12,
+                range_rate_12,
                 omega_total_12,
                 el_21,
                 az_21,

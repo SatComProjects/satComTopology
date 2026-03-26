@@ -739,6 +739,8 @@ class OpticalConstraint(BaseModel):
     elevation_angle_degree: float = Field(default=None)
     range_distance_km: float = Field(default=None)
     angular_velocity_rate_degree_per_second: float = Field(default=None)
+    estimated_duration: float | None = Field(default=None)
+    range_rate: float | None = Field(default=None)
 
 
 class InterSatelliteLink(Link):
@@ -756,6 +758,8 @@ class InterSatelliteLink(Link):
     destination_optical_terminal: Optional[OpticalLinkTerminal] = Field(
         default=None, exclude=True
     )
+
+    estimated_duration: float = Field(default=None)
 
     def connect(
         self,
