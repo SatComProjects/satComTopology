@@ -13,6 +13,9 @@ class OpticISLVisibilityConstraintResult(BaseModel):
     azimuth_angle_degree: float
     range_distance_km: float
     angular_velocity_rate_degree_per_second: float
+    range_rate: float
+
+    estimated_duration: float | None = Field(default=None)
 
     flag_elevation: bool
     flag_azimuth: bool
@@ -35,6 +38,8 @@ class PossibleOpticalLink(BaseModel):
 
     bidirectional_possible: bool
     selection_score: float
+
+    estimated_duration: float | None = Field(default=None)
 
     class Config:
         arbitrary_types_allowed = True
