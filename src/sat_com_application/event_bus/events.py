@@ -80,7 +80,7 @@ class ISLUpdatedEvent(Event):
     angular_velocity_b_deg_s: float | None = None
 
     temporary_unavailable: bool | None = None
-    recovery_time: bool | None = None
+    recovery_time: datetime | None = None
 
 
 class ISLRemovedEvent(Event):
