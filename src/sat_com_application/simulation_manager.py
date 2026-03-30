@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import uuid
 from typing import Callable
 
@@ -1186,9 +1187,13 @@ class SimulationManager:
         inter_satellite_link: InterSatelliteLink,
         optical_constraint_a_to_b: OpticalConstraint,
         optical_constraint_b_to_a: OpticalConstraint,
+        temporary_unavailable: bool = False,
+        recovery_time: datetime.datetime | None = None,
     ):
         inter_satellite_link.source_constraint = optical_constraint_a_to_b
         inter_satellite_link.destination_constraint = optical_constraint_b_to_a
+        inter_satellite_link.temporary_unavailable = temporary_unavailable
+        inter_satellite_link.recovery_time = recovery_time
 
         self.__publish_event(
             self.event_factories.isl_event_factory.updated(inter_satellite_link)
@@ -1309,6 +1314,8 @@ class SimulationManager:
                 optical_constraint_b_to_a=OpticalConstraint(
                     **updated_link.constraint_b_to_a.model_dump()
                 ),
+                temporary_unavailable=updated_link.temporary_unavailable,
+                recovery_time=updated_link.recovery_time,
             )
 
         for new_link in update_result.new_links:

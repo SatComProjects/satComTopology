@@ -763,6 +763,10 @@ class InterSatelliteLink(Link):
         default=None, exclude=True
     )
 
+    temporary_unavailable: bool = Field(default=False)
+
+    recovery_time: datetime.datetime | None = Field(default=None)
+
     estimated_duration: float = Field(default=None)
 
     def connect(
