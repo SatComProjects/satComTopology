@@ -855,7 +855,7 @@ def compute_OISL_feasibility_for_terminal_pair(
     )
     if not feasible:
         return _rec_to_possible_link(
-            rec_a, rec_b, score, angular_velocity_dt_seconds, False, recover_time
+            rec_a, rec_b, score, angular_velocity_dt_seconds, True, recover_time
         )
 
     return _rec_to_possible_link(rec_a, rec_b, score, angular_velocity_dt_seconds)
