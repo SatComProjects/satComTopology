@@ -152,7 +152,20 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                 # Safe duration handling
                 estimated_recover_time = result.estimated_recover_time
                 if estimated_recover_time is None:
-                    estimated_recover_time = 0.0
+                    ledger.add_obsolete(
+                        LinkAssociation(
+                            satellite_a=sat,
+                            terminal_a=terminal,
+                            satellite_b=peer_sat,
+                            terminal_b=peer_terminal,
+                            direction=InterSatelliteLinkDirection.INTER_SHELL,
+                            link=terminal.link,
+                            constraint_a_to_b=None,
+                            constraint_b_to_a=None,
+                        )
+                    )
+                    unassigned_pool.append(terminal)
+
                 estimated_recover_time = max(0.0, estimated_recover_time)
 
                 min_duration_a = (
@@ -206,7 +219,8 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                                     constraint_a_to_b=result.constraint_a_to_b,
                                     constraint_b_to_a=result.constraint_b_to_a,
                                     temporary_unavailable=True,
-                                    recovery_time=recovery_time,
+                                    recovery_time=now
+                                    + timedelta(seconds=estimated_recover_time),
                                 )
                             )
 
