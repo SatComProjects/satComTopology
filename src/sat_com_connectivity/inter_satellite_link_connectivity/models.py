@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from sat_com_model.models import (
@@ -41,6 +43,9 @@ class PossibleOpticalLink(BaseModel):
 
     estimated_duration: float | None = Field(default=None)
 
+    temporary_unavailable: bool = Field(default=False)
+    estimated_recover_time: float | None = Field(default=None)
+
     class Config:
         arbitrary_types_allowed = True
 
@@ -64,6 +69,10 @@ class LinkAssociation(BaseModel):
     constraint_a_to_b: OpticISLVisibilityConstraintResult | None = Field(default=None)
 
     constraint_b_to_a: OpticISLVisibilityConstraintResult | None = Field(default=None)
+
+    temporary_unavailable: bool = Field(default=False)
+
+    recovery_time: datetime | None = Field(default=None)
 
     model_config = {"arbitrary_types_allowed": True}
 

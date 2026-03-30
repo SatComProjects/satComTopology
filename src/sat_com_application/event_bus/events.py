@@ -79,6 +79,9 @@ class ISLUpdatedEvent(Event):
     elevation_b_deg: float | None = None
     angular_velocity_b_deg_s: float | None = None
 
+    temporary_unavailable: bool | None = None
+    recovery_time: bool | None = None
+
 
 class ISLRemovedEvent(Event):
     link_id: str

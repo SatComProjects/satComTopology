@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import timedelta
 from typing import cast
 
 from pydantic import Field
@@ -90,29 +91,127 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
         unassigned_pool: list[OpticalLinkTerminal] = []
 
         for sat in self.satellites:
+            now = sat.get_movement_model().get_datetime()
+
             for terminal in sat.optical_link_terminals:
                 if not _is_inter_shell_capable(terminal):
                     continue
 
-                if terminal.link is not None:
-                    peer_terminal = terminal.target_optical_link_terminal
-                    peer_sat = peer_terminal.host_satellite
+                # -------------------------------------------------------------------
+                # CASE 1 — terminal has NO link
+                # -------------------------------------------------------------------
+                if terminal.link is None:
+                    unassigned_pool.append(terminal)
+                    continue
 
-                    if peer_sat.shell.identifier == sat.shell.identifier:
-                        # Intra-shell link — eligible for inter-shell override
-                        unassigned_pool.append(terminal)
-                        continue
+                peer_terminal = terminal.target_optical_link_terminal
+                peer_sat = peer_terminal.host_satellite
 
-                    # Existing inter-shell link — check feasibility
-                    result = compute_OISL_feasibility_for_terminal_pair(
-                        satellite_a=sat,
-                        terminal_a=terminal,
-                        satellite_b=peer_sat,
-                        terminal_b=peer_terminal,
-                        angular_velocity_dt_seconds=1.0,
+                # -------------------------------------------------------------------
+                # CASE 2 — intra-shell link → allow override
+                # -------------------------------------------------------------------
+                if peer_sat.shell.identifier == sat.shell.identifier:
+                    unassigned_pool.append(terminal)
+                    continue
+
+                # -------------------------------------------------------------------
+                # CASE 3 — existing inter-shell link → check feasibility
+                # -------------------------------------------------------------------
+                result = compute_OISL_feasibility_for_terminal_pair(
+                    satellite_a=sat,
+                    terminal_a=terminal,
+                    satellite_b=peer_sat,
+                    terminal_b=peer_terminal,
+                    angular_velocity_dt_seconds=1.0,
+                )
+
+                # -------------------------------------------------------------------
+                # CASE 3.1 — link fully valid
+                # -------------------------------------------------------------------
+                if not result.temporary_unavailable:
+                    ledger.add_updated(
+                        LinkAssociation(
+                            satellite_a=sat,
+                            terminal_a=terminal,
+                            satellite_b=peer_sat,
+                            terminal_b=peer_terminal,
+                            direction=InterSatelliteLinkDirection.INTER_SHELL,
+                            link=terminal.link,
+                            constraint_a_to_b=result.constraint_a_to_b,
+                            constraint_b_to_a=result.constraint_b_to_a,
+                            temporary_unavailable=False,
+                            recovery_time=None,
+                        )
                     )
+                    continue
 
-                    if result is not None:
+                # -------------------------------------------------------------------
+                # CASE 3.2 — link temporarily invalid → evaluate tolerance window
+                # -------------------------------------------------------------------
+
+                # Safe duration handling
+                estimated_recover_time = result.estimated_recover_time
+                if estimated_recover_time is None:
+                    estimated_recover_time = 0.0
+                estimated_recover_time = max(0.0, estimated_recover_time)
+
+                min_duration_a = (
+                    result.terminal_a.terminal_configuration.minimum_contact_duration_seconds
+                )
+                min_duration_b = (
+                    result.terminal_b.terminal_configuration.minimum_contact_duration_seconds
+                )
+
+                # Keep link if violation is SHORT (precision / jitter)
+                try_to_keep_link = (
+                    estimated_recover_time < min_duration_a
+                    or estimated_recover_time < min_duration_b
+                )
+                # -------------------------------------------------------------------
+                # CASE 3.2.A — tolerate temporary violation
+                # -------------------------------------------------------------------
+                if try_to_keep_link:
+
+                    # Already in temporary state
+                    if terminal.link.temporary_unavailable:
+
+                        recovery_time = terminal.link.recovery_time
+
+                        # If recovery time is invalid or passed → kill link
+                        if recovery_time is None or recovery_time <= now:
+                            ledger.add_obsolete(
+                                LinkAssociation(
+                                    satellite_a=sat,
+                                    terminal_a=terminal,
+                                    satellite_b=peer_sat,
+                                    terminal_b=peer_terminal,
+                                    direction=InterSatelliteLinkDirection.INTER_SHELL,
+                                    link=terminal.link,
+                                    constraint_a_to_b=None,
+                                    constraint_b_to_a=None,
+                                )
+                            )
+                            unassigned_pool.append(terminal)
+
+                        else:
+                            # Still inside grace window → keep link
+                            ledger.add_updated(
+                                LinkAssociation(
+                                    satellite_a=sat,
+                                    terminal_a=terminal,
+                                    satellite_b=peer_sat,
+                                    terminal_b=peer_terminal,
+                                    direction=InterSatelliteLinkDirection.INTER_SHELL,
+                                    link=terminal.link,
+                                    constraint_a_to_b=result.constraint_a_to_b,
+                                    constraint_b_to_a=result.constraint_b_to_a,
+                                    temporary_unavailable=True,
+                                    recovery_time=recovery_time,
+                                )
+                            )
+
+                    else:
+                        # Enter temporary unavailable state
                         ledger.add_updated(
                             LinkAssociation(
                                 satellite_a=sat,
@@ -123,23 +222,28 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                                 link=terminal.link,
                                 constraint_a_to_b=result.constraint_a_to_b,
                                 constraint_b_to_a=result.constraint_b_to_a,
+                                temporary_unavailable=True,
+                                recovery_time=now
+                                + timedelta(seconds=estimated_recover_time),
                             )
                         )
-                    else:
-                        ledger.add_obsolete(
-                            LinkAssociation(
-                                satellite_a=sat,
-                                terminal_a=terminal,
-                                satellite_b=peer_sat,
-                                terminal_b=peer_terminal,
-                                direction=InterSatelliteLinkDirection.INTER_SHELL,
-                                link=terminal.link,
-                                constraint_a_to_b=None,
-                                constraint_b_to_a=None,
-                            )
-                        )
-                        unassigned_pool.append(terminal)
+
+                # -------------------------------------------------------------------
+                # CASE 3.2.B — violation too large → remove link
+                # -------------------------------------------------------------------
                 else:
+                    ledger.add_obsolete(
+                        LinkAssociation(
+                            satellite_a=sat,
+                            terminal_a=terminal,
+                            satellite_b=peer_sat,
+                            terminal_b=peer_terminal,
+                            direction=InterSatelliteLinkDirection.INTER_SHELL,
+                            link=terminal.link,
+                            constraint_a_to_b=None,
+                            constraint_b_to_a=None,
+                        )
+                    )
                     unassigned_pool.append(terminal)
 
         # -----------------------------------------------------------------------

@@ -149,6 +149,8 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
                 link.destination_constraint, "angular_velocity_rate_degree_per_second"
             ),
             distance_km=_constraint_field(link.source_constraint, "range_distance_km"),
+            temporary_unavailable=link.temporary_unavailable,
+            recovery_time=link.recovery_time,
         )
 
     def removed(self, link: InterSatelliteLink) -> ISLRemovedEvent:

@@ -1,19 +1,20 @@
+import datetime
+import math
 import uuid
 from unittest.mock import MagicMock, patch
-import pytest
 
 from sat_com_connectivity.inter_satellite_link_connectivity.addressing_plans import (
     _is_inter_shell_capable,
     StaticAddressingPlan,
-)
-from sat_com_connectivity.inter_satellite_link_connectivity.strategies import (
-    InterShellSSOPriorityConnectivity,
 )
 from sat_com_connectivity.inter_satellite_link_connectivity.models import (
     InterSatelliteConnectivityResult,
     LinkAssociation,
     OpticISLVisibilityConstraintResult,
     ConnectivityLedger,
+)
+from sat_com_connectivity.inter_satellite_link_connectivity.strategies import (
+    InterShellSSOPriorityConnectivity,
 )
 from sat_com_model.models import (
     InterSatelliteLinkDirection,
@@ -51,6 +52,7 @@ def make_terminal(
     terminal.terminal_configuration.max_azimuth_degrees = 175.0
     terminal.terminal_configuration.maximum_range_distance_km = 7800.0
     terminal.terminal_configuration.maximum_angular_velocity_degree_per_second = 1.0
+    terminal.terminal_configuration.minimum_contact_duration_seconds = 30
     terminal.azimuth_angle_configuration = 0.0
     terminal.elevation_angle_configuration = -180.0
     terminal.orientation_possibilities = (
@@ -82,14 +84,17 @@ def make_satellite(
     shell,
     terminals: list[OpticalLinkTerminal] = None,
     object_id: int = None,
+    local_date: datetime.datetime | None = None,
 ) -> Satellite:
     sat = MagicMock(spec=Satellite)
     sat.topology_uniq_id = topology_id
     sat.object_id = object_id if object_id is not None else topology_id
     sat.shell = shell
     sat.optical_link_terminals = terminals or []
+    sat.get_movement_model().get_datetime.return_value = local_date
     for t in sat.optical_link_terminals:
         t.host_satellite = sat
+        t.terminal_configuration.minimum_contact_duration_seconds = 30
     return sat
 
 
@@ -99,6 +104,8 @@ def make_isl(
     source_terminal: OpticalLinkTerminal = None,
     dest_terminal: OpticalLinkTerminal = None,
     direction: InterSatelliteLinkDirection = InterSatelliteLinkDirection.ORBITAL,
+    temporary_unavailable: bool = False,
+    recovery_time: datetime.datetime | None = None,
 ) -> InterSatelliteLink:
     link = MagicMock(spec=InterSatelliteLink)
     link.link_id = uuid.uuid4()
@@ -107,6 +114,8 @@ def make_isl(
     link.source_optical_terminal = source_terminal
     link.destination_optical_terminal = dest_terminal
     link.inter_satellite_direction = direction
+    link.temporary_unavailable = temporary_unavailable
+    link.recovery_time = recovery_time
     link.__hash__ = lambda self: hash(self.link_id)
     link.__eq__ = lambda self, other: (
         isinstance(other, type(self)) and self.link_id == other.link_id
@@ -159,6 +168,8 @@ def make_possible_link(
     terminal_a: OpticalLinkTerminal,
     terminal_b: OpticalLinkTerminal,
     score: float = 0.0,
+    temporary_unavailable: bool = None,
+    estimated_recover_time: float = math.inf,
 ) -> MagicMock:
     possible = MagicMock()
     possible.terminal_a = terminal_a
@@ -167,6 +178,8 @@ def make_possible_link(
     possible.bidirectional_possible = True
     possible.constraint_a_to_b = make_constraint()
     possible.constraint_b_to_a = make_constraint()
+    possible.temporary_unavailable = temporary_unavailable
+    possible.estimated_recover_time = estimated_recover_time
     return possible
 
 
@@ -353,8 +366,13 @@ class TestComputeInterShellAssociationsExistingInterShellLinks:
         sat_sso = make_satellite(1, sso_shell, [t_sso])
         t_sso.host_satellite = sat_sso
 
+        not_feasible_impossible_to_recover = make_possible_link(
+            t_sso, t_walker, temporary_unavailable=True, estimated_recover_time=6000
+        )
+
         with patch(
-            f"{MODULE}.compute_OISL_feasibility_for_terminal_pair", return_value=None
+            f"{MODULE}.compute_OISL_feasibility_for_terminal_pair",
+            return_value=not_feasible_impossible_to_recover,
         ), patch(
             f"{MODULE}.compute_OISL_links_from_terminal_pools_filtered", return_value=[]
         ):
@@ -366,6 +384,100 @@ class TestComputeInterShellAssociationsExistingInterShellLinks:
         assert result.obsolete_links[0].link == link
         assert len(result.updated_links) == 0
         assert not ledger.is_terminal_booked(t_sso)
+
+    def test_infeasible_but_maintainable_inter_shell_link_goes_to_updated(self):
+        sso_shell = make_sso_shell()
+        walker_shell = make_walker_shell()
+        t_sso = make_terminal(is_inter_shell=True)
+        t_walker = make_terminal(is_inter_shell=True)
+        t_walker.host_satellite = make_satellite(
+            2, walker_shell, local_date=datetime.datetime(2018, 1, 1)
+        )
+
+        link = make_isl(
+            make_satellite(1, sso_shell), t_walker.host_satellite, t_sso, t_walker
+        )
+        t_sso.link = link
+        t_sso.target_optical_link_terminal = t_walker
+
+        sat_sso = make_satellite(
+            1, sso_shell, [t_sso], local_date=datetime.datetime(2018, 1, 1)
+        )
+        t_sso.host_satellite = sat_sso
+
+        not_feasible_possible_to_recover = make_possible_link(
+            t_sso, t_walker, temporary_unavailable=True, estimated_recover_time=29
+        )
+
+        with patch(
+            f"{MODULE}.compute_OISL_feasibility_for_terminal_pair",
+            return_value=not_feasible_possible_to_recover,
+        ), patch(
+            f"{MODULE}.compute_OISL_links_from_terminal_pools_filtered", return_value=[]
+        ):
+            strategy = make_strategy([sat_sso])
+            ledger = run_inter_shell(strategy)
+
+        result = ledger.to_result()
+        assert len(result.updated_links) == 1
+        assert result.updated_links[0].link == link
+        assert result.updated_links[0].temporary_unavailable == True
+        assert result.updated_links[0].recovery_time == datetime.datetime(
+            2018, 1, 1
+        ) + datetime.timedelta(seconds=29)
+        assert len(result.obsolete_links) == 0
+        assert ledger.is_terminal_booked(t_sso)
+        assert ledger.is_terminal_booked(t_walker)
+
+    def test_infeasible_but_maintainable_but_maintainability_promise_broken_inter_shell_link_goes_to_obsolete(
+        self,
+    ):
+        sso_shell = make_sso_shell()
+        walker_shell = make_walker_shell()
+        t_sso = make_terminal(is_inter_shell=True)
+        t_walker = make_terminal(is_inter_shell=True)
+        t_walker.host_satellite = make_satellite(
+            2, walker_shell, local_date=datetime.datetime(2018, 1, 1)
+        )
+
+        link = make_isl(
+            make_satellite(1, sso_shell),
+            t_walker.host_satellite,
+            t_sso,
+            t_walker,
+            temporary_unavailable=True,
+            recovery_time=datetime.datetime(
+                2017, 2, 1
+            ),  # A recovery time promised long time ago
+        )
+        t_sso.link = link
+        t_sso.target_optical_link_terminal = t_walker
+
+        sat_sso = make_satellite(
+            1, sso_shell, [t_sso], local_date=datetime.datetime(2018, 1, 1)
+        )
+        t_sso.host_satellite = sat_sso
+
+        not_feasible_possible_to_recover_but_long_time_ago = make_possible_link(
+            t_sso, t_walker, temporary_unavailable=True, estimated_recover_time=29
+        )
+
+        with patch(
+            f"{MODULE}.compute_OISL_feasibility_for_terminal_pair",
+            return_value=not_feasible_possible_to_recover_but_long_time_ago,
+        ), patch(
+            f"{MODULE}.compute_OISL_links_from_terminal_pools_filtered", return_value=[]
+        ):
+            strategy = make_strategy([sat_sso])
+            ledger = run_inter_shell(strategy)
+
+        result = ledger.to_result()
+        assert len(result.updated_links) == 0
+        assert result.obsolete_links[0].link == link
+
+        assert len(result.obsolete_links) == 1
+        assert not ledger.is_terminal_booked(t_sso)
+        assert not ledger.is_terminal_booked(t_walker)
 
 
 class TestComputeInterShellAssociationsDisplacedIntraShellLinks:

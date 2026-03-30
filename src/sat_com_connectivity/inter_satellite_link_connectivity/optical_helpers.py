@@ -485,15 +485,84 @@ def _make_possible_link(
 # =========================================================================
 
 
+#
+# def _check_pair_feasibility(
+#     rec_a: _TerminalRecord,
+#     rec_b: _TerminalRecord,
+#     angular_velocity_dt_seconds: float = 1.0,
+# ) -> tuple[bool, float]:
+#     """
+#     Bidirectional feasibility check from pre-computed _TerminalRecord objects.
+#     Returns (feasible, alignment_score). Zero SGP4 calls.
+#     """
+#     pos_a = rec_a.position_km.reshape(1, 3)
+#     vel_a = rec_a.velocity_km_s.reshape(1, 3)
+#     pos_b = rec_b.position_km.reshape(1, 3)
+#     vel_b = rec_b.velocity_km_s.reshape(1, 3)
+#
+#     frames_a = _build_lvlh_frames(pos_a, vel_a)
+#     frames_b = _build_lvlh_frames(pos_b, vel_b)
+#
+#     el_ab, az_ab, range_ab = _compute_angles_a_to_b(pos_a, frames_a, pos_b)
+#     el_ba, az_ba, _ = _compute_angles_a_to_b(pos_b, frames_b, pos_a)
+#
+#     az_rate_ab, el_rate_ab, _ = _compute_angular_velocity_a_to_b(
+#         pos_a,
+#         vel_a,
+#         pos_b,
+#         vel_b,
+#         el_ab,
+#         az_ab,
+#         range_ab,
+#         dt_seconds=angular_velocity_dt_seconds,
+#     )
+#     az_rate_ba, el_rate_ba, _ = _compute_angular_velocity_a_to_b(
+#         pos_b,
+#         vel_b,
+#         pos_a,
+#         vel_a,
+#         el_ba,
+#         az_ba,
+#         range_ab.T,
+#         dt_seconds=angular_velocity_dt_seconds,
+#     )
+#
+#     omega_ab = float(np.sqrt(az_rate_ab[0, 0] ** 2 + el_rate_ab[0, 0] ** 2))
+#     omega_ba = float(np.sqrt(az_rate_ba[0, 0] ** 2 + el_rate_ba[0, 0] ** 2))
+#
+#     az_rel_ab = abs(_az_relative(float(az_ab[0, 0]), rec_a.boresight_az_deg))
+#     az_rel_ba = abs(_az_relative(float(az_ba[0, 0]), rec_b.boresight_az_deg))
+#
+#     ok_ab = (
+#         rec_a.el_min_deg <= float(el_ab[0, 0]) <= rec_a.el_max_deg
+#         and az_rel_ab <= rec_a.az_max_deg
+#         and float(range_ab[0, 0]) <= rec_a.range_max_km
+#         and omega_ab <= rec_a.max_angular_velocity_deg_s
+#     )
+#     ok_ba = (
+#         rec_b.el_min_deg <= float(el_ba[0, 0]) <= rec_b.el_max_deg
+#         and az_rel_ba <= rec_b.az_max_deg
+#         and float(range_ab[0, 0]) <= rec_b.range_max_km
+#         and omega_ba <= rec_b.max_angular_velocity_deg_s
+#     )
+#
+#     if not (ok_ab and ok_ba):
+#         return False, float("inf")
+#
+#     return True, az_rel_ab + az_rel_ba
 def _check_pair_feasibility(
     rec_a: _TerminalRecord,
     rec_b: _TerminalRecord,
     angular_velocity_dt_seconds: float = 1.0,
-) -> tuple[bool, float]:
+) -> tuple[bool, float, float]:
     """
-    Bidirectional feasibility check from pre-computed _TerminalRecord objects.
-    Returns (feasible, alignment_score). Zero SGP4 calls.
+    Returns:
+        feasible: bool
+        alignment_score: float
+        next_availability_time: float (seconds until link becomes feasible again, 0 if already feasible)
     """
+    EPS = 1e-6
+
     pos_a = rec_a.position_km.reshape(1, 3)
     vel_a = rec_a.velocity_km_s.reshape(1, 3)
     pos_b = rec_b.position_km.reshape(1, 3)
@@ -505,7 +574,7 @@ def _check_pair_feasibility(
     el_ab, az_ab, range_ab = _compute_angles_a_to_b(pos_a, frames_a, pos_b)
     el_ba, az_ba, _ = _compute_angles_a_to_b(pos_b, frames_b, pos_a)
 
-    az_rate_ab, el_rate_ab, _ = _compute_angular_velocity_a_to_b(
+    az_rate_ab, el_rate_ab, range_rate_ab = _compute_angular_velocity_a_to_b(
         pos_a,
         vel_a,
         pos_b,
@@ -515,7 +584,7 @@ def _check_pair_feasibility(
         range_ab,
         dt_seconds=angular_velocity_dt_seconds,
     )
-    az_rate_ba, el_rate_ba, _ = _compute_angular_velocity_a_to_b(
+    az_rate_ba, el_rate_ba, range_rate_ba = _compute_angular_velocity_a_to_b(
         pos_b,
         vel_b,
         pos_a,
@@ -526,29 +595,121 @@ def _check_pair_feasibility(
         dt_seconds=angular_velocity_dt_seconds,
     )
 
-    omega_ab = float(np.sqrt(az_rate_ab[0, 0] ** 2 + el_rate_ab[0, 0] ** 2))
-    omega_ba = float(np.sqrt(az_rate_ba[0, 0] ** 2 + el_rate_ba[0, 0] ** 2))
+    # Scalars
+    el_ab = float(el_ab[0, 0])
+    az_ab = float(az_ab[0, 0])
+    range_ab_val = float(range_ab[0, 0])
+    el_rate_ab = float(el_rate_ab[0, 0])
+    az_rate_ab = float(az_rate_ab[0, 0])
+    range_rate_ab = float(range_rate_ab[0, 0])
 
-    az_rel_ab = abs(_az_relative(float(az_ab[0, 0]), rec_a.boresight_az_deg))
-    az_rel_ba = abs(_az_relative(float(az_ba[0, 0]), rec_b.boresight_az_deg))
+    el_ba = float(el_ba[0, 0])
+    az_ba = float(az_ba[0, 0])
+    el_rate_ba = float(el_rate_ba[0, 0])
+    az_rate_ba = float(az_rate_ba[0, 0])
+    range_rate_ba = float(range_rate_ba[0, 0])
+
+    omega_ab = float(np.sqrt(az_rate_ab**2 + el_rate_ab**2))
+    omega_ba = float(np.sqrt(az_rate_ba**2 + el_rate_ba**2))
+
+    az_rel_ab = abs(_az_relative(az_ab, rec_a.boresight_az_deg))
+    az_rel_ba = abs(_az_relative(az_ba, rec_b.boresight_az_deg))
+
+    # ─────────────────────────────────────────────────────────────
+    # Constraint checks
+    # ─────────────────────────────────────────────────────────────
 
     ok_ab = (
-        rec_a.el_min_deg <= float(el_ab[0, 0]) <= rec_a.el_max_deg
+        rec_a.el_min_deg <= el_ab <= rec_a.el_max_deg
         and az_rel_ab <= rec_a.az_max_deg
-        and float(range_ab[0, 0]) <= rec_a.range_max_km
+        and range_ab_val <= rec_a.range_max_km
         and omega_ab <= rec_a.max_angular_velocity_deg_s
     )
+
     ok_ba = (
-        rec_b.el_min_deg <= float(el_ba[0, 0]) <= rec_b.el_max_deg
+        rec_b.el_min_deg <= el_ba <= rec_b.el_max_deg
         and az_rel_ba <= rec_b.az_max_deg
-        and float(range_ab[0, 0]) <= rec_b.range_max_km
+        and range_ab_val <= rec_b.range_max_km
         and omega_ba <= rec_b.max_angular_velocity_deg_s
     )
 
-    if not (ok_ab and ok_ba):
-        return False, float("inf")
+    # ─────────────────────────────────────────────────────────────
+    # Helper: compute recovery time for one direction
+    # ─────────────────────────────────────────────────────────────
 
-    return True, az_rel_ab + az_rel_ba
+    def compute_recovery_time(
+        el,
+        el_rate,
+        el_min,
+        el_max,
+        az_rel,
+        az_rate,
+        az_max,
+        range_val,
+        range_rate,
+        range_max,
+    ):
+
+        # Elevation
+        if el < el_min:
+            t_el = (el_min - el) / (el_rate + EPS) if el_rate > 0 else np.inf
+        elif el > el_max:
+            t_el = (el - el_max) / (-el_rate + EPS) if el_rate < 0 else np.inf
+        else:
+            t_el = 0.0
+
+        # Azimuth
+        if az_rel > az_max:
+            t_az = (az_rel - az_max) / (-az_rate + EPS) if az_rate < 0 else np.inf
+        else:
+            t_az = 0.0
+
+        # Range
+        if range_val > range_max:
+            t_range = (
+                (range_val - range_max) / (-range_rate + EPS)
+                if range_rate < 0
+                else np.inf
+            )
+        else:
+            t_range = 0.0
+
+        # Must satisfy ALL → take worst (max)
+        return max(t_el, t_az, t_range)
+
+    if not (ok_ab and ok_ba):
+        t_rec_ab = compute_recovery_time(
+            el_ab,
+            el_rate_ab,
+            rec_a.el_min_deg,
+            rec_a.el_max_deg,
+            az_rel_ab,
+            az_rate_ab,
+            rec_a.az_max_deg,
+            range_ab_val,
+            range_rate_ab,
+            rec_a.range_max_km,
+        )
+
+        t_rec_ba = compute_recovery_time(
+            el_ba,
+            el_rate_ba,
+            rec_b.el_min_deg,
+            rec_b.el_max_deg,
+            az_rel_ba,
+            az_rate_ba,
+            rec_b.az_max_deg,
+            range_ab_val,
+            range_rate_ba,
+            rec_b.range_max_km,
+        )
+
+        t_recover = max(t_rec_ab, t_rec_ba)
+
+        return False, float("inf"), float(t_recover)
+
+    # Already feasible
+    return True, az_rel_ab + az_rel_ba, 0.0
 
 
 def _rec_to_possible_link(
@@ -556,6 +717,8 @@ def _rec_to_possible_link(
     rec_b: _TerminalRecord,
     score: float,
     angular_velocity_dt_seconds: float = 1.0,
+    temporary_unavailable: bool = False,
+    estimated_recover_time: float | None = None,
 ) -> PossibleOpticalLink:
     """Build a full PossibleOpticalLink from two records. Called only for winners."""
     pos_a = rec_a.position_km.reshape(1, 3)
@@ -626,6 +789,8 @@ def _rec_to_possible_link(
         ),
         bidirectional_possible=True,
         selection_score=score,
+        temporary_unavailable=temporary_unavailable,
+        estimated_recover_time=estimated_recover_time,
     )
 
 
@@ -685,9 +850,13 @@ def compute_OISL_feasibility_for_terminal_pair(
         min_contact_duration=cfg_b.minimum_contact_duration_seconds,
     )
 
-    feasible, score = _check_pair_feasibility(rec_a, rec_b, angular_velocity_dt_seconds)
+    feasible, score, recover_time = _check_pair_feasibility(
+        rec_a, rec_b, angular_velocity_dt_seconds
+    )
     if not feasible:
-        return None
+        return _rec_to_possible_link(
+            rec_a, rec_b, score, angular_velocity_dt_seconds, False
+        )
 
     return _rec_to_possible_link(rec_a, rec_b, score, angular_velocity_dt_seconds)
 
@@ -713,13 +882,11 @@ def compute_OISL_links_from_terminal_pools_filtered(
     if not terminals_group_1 or not terminals_group_2:
         return []
 
-    t_start = time.perf_counter()
     n1, n2 = len(terminals_group_1), len(terminals_group_2)
 
     # Single ECI cache
     cache = _EciCache()
     cache.warm([t.host_satellite for t in terminals_group_1 + terminals_group_2])
-    t_eci = time.perf_counter() - t_start
 
     # Build flat records
     records_1 = _build_terminal_records_from_pool(terminals_group_1, cache)
@@ -728,7 +895,6 @@ def compute_OISL_links_from_terminal_pools_filtered(
     # -----------------------------------------------------------------------
     # Full vectorised constraint computation — ONE batch, no Python loop
     # -----------------------------------------------------------------------
-    t_matrix_start = time.perf_counter()
     (
         el_12,
         az_12,
@@ -752,7 +918,6 @@ def compute_OISL_links_from_terminal_pools_filtered(
         duration_1_ok,
         duration_2_ok,
     ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
-    t_matrix = time.perf_counter() - t_matrix_start
 
     # Apply range pre-filter and cross-shell mask as numpy arrays
     range_ok = range_12 <= maximum_range_to_filter_in_km  # (N, M)
@@ -844,21 +1009,6 @@ def compute_OISL_links_from_terminal_pools_filtered(
             )
         )
         booked_j.add(best_j)
-
-    t_assign = time.perf_counter() - t_assign_start
-    t_total = time.perf_counter() - t_start
-
-    if debug:
-        print(
-            f"[pool] group_1={n1}, group_2={n2}, max_pairs={n1 * n2}\n"
-            f"  candidates after filter  : {total_candidates} / {n1 * n2} "
-            f"({100 * total_candidates / max(n1 * n2, 1):.1f}%)\n"
-            f"  links assigned           : {len(results)}\n"
-            f"  eci warm                 : {t_eci*1000:.1f}ms\n"
-            f"  matrix computation       : {t_matrix*1000:.1f}ms\n"
-            f"  greedy assignment        : {t_assign*1000:.1f}ms\n"
-            f"  total                    : {t_total*1000:.1f}ms"
-        )
 
     results.sort(key=lambda x: x.selection_score)
     return results
