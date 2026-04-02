@@ -161,6 +161,8 @@ def make_constraint() -> OpticISLVisibilityConstraintResult:
         flag_overall=True,
         flag_bidirectional=True,
         range_rate=5,
+        los_min_altitude_km=5000,
+        los_clear=True,
     )
 
 

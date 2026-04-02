@@ -16,9 +16,11 @@ class OpticISLVisibilityConstraintResult(BaseModel):
     range_distance_km: float
     angular_velocity_rate_degree_per_second: float
     range_rate: float
+    los_min_altitude_km: float
 
     estimated_duration: float | None = Field(default=None)
 
+    los_clear: bool
     flag_elevation: bool
     flag_azimuth: bool
     flag_range: bool
