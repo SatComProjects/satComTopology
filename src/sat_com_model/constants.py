@@ -58,3 +58,6 @@ SECONDS_PER_DAY = 86400.0
 # Do NOT use in geodetic conversions; use WGS72 ellipsoid constants instead.
 # Ref: Moritz, H., "Geodetic Reference System 1980", J. Geodesy, 2000
 EARTH_MEAN_RADIUS_KM = 6371.009
+
+
+ATMOSPHERE_EXCLUSION_ZONE_KM = 80.0

@@ -68,7 +68,7 @@ def make_small_walker_shell_property():
             identifier="Walker Test",
             amount_of_orbit_plane=10,
             amount_of_satellite_per_orbit_plane=10,
-            mean_revolution_per_day=15,
+            mean_revolution_per_day=13,
             phase_difference_between_satellites=True,
         ),
         orbital_connectivity_property=OrbitalConnectivityProperty(),
@@ -730,6 +730,8 @@ def assert_basic_walker_shell_four_intra_shell_simulation_is_valid(
     )
     for satellite in simulation_manager.get_satellites():
         isl = [isl for isl in satellite.links if isinstance(isl, InterSatelliteLink)]
+        if len(isl) != 4:
+            print(f"Satellite {satellite.object_id} has {len(isl)} ISLs, expected 4")
         assert len(isl) == 4
 
     isls_copy = simulation_manager.get_inter_satellites_links().copy()

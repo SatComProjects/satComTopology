@@ -10,6 +10,7 @@ from sat_com_connectivity.inter_satellite_link_connectivity.models import (
     OpticISLVisibilityConstraintResult,
     PossibleOpticalLink,
 )
+from sat_com_model.constants import WGS84_A, ATMOSPHERE_EXCLUSION_ZONE_KM
 from sat_com_model.models import Satellite, OpticalLinkTerminal
 
 # =========================================================================
@@ -52,6 +53,43 @@ class _EciCache:
 # =========================================================================
 # GEOMETRY HELPERS
 # =========================================================================
+
+
+def _compute_los_min_altitude(
+    pos_1: np.ndarray,  # (N, 3) [km]
+    pos_2: np.ndarray,  # (M, 3) [km]
+) -> np.ndarray:
+    """
+    Minimum altitude of the LOS chord above Earth's surface for every (i,j) pair.
+
+    Computed as: distance from Earth's centre to the closest point on the
+    chord segment, minus R_earth.
+
+    Returns : (N, M) minimum altitude [km]. Negative means occulted by Earth.
+
+    References
+    ----------
+    Chaudhry & Yanikomeroglu (2021) — 80 km atmospheric exclusion threshold
+    https://arxiv.org/pdf/2103.00056
+    """
+    # d[i,j] = pos_2[j] - pos_1[i]  →  (N, M, 3)
+    d = pos_2[np.newaxis, :, :] - pos_1[:, np.newaxis, :]  # (N, M, 3)
+
+    # Parameter t of the closest point on the infinite line to the origin
+    # t = -dot(pos_1, d) / dot(d, d)   →  (N, M)
+    d2 = np.einsum("ijk,ijk->ij", d, d)  # |d|²  (N, M)
+    t = -np.einsum("ik,ijk->ij", pos_1, d) / np.where(d2 > 0, d2, 1.0)
+
+    # Clamp t to [0, 1] — closest point must lie ON the segment
+    t = np.clip(t, 0.0, 1.0)  # (N, M)
+
+    # Closest point on segment to Earth's centre
+    closest = pos_1[:, np.newaxis, :] + t[:, :, np.newaxis] * d  # (N, M, 3)
+
+    # Distance from Earth's centre to that point
+    min_radius = np.linalg.norm(closest, axis=2)  # (N, M)
+
+    return min_radius - WGS84_A  # altitude [km]
 
 
 def _build_lvlh_frames(positions: np.ndarray, velocities: np.ndarray) -> np.ndarray:
@@ -314,13 +352,18 @@ def _compute_constraint_matrices(
     az_ok_12 = az_rel_12 <= az_max_1
     range_ok_12 = range_12 <= range_max_1
     omega_ok_12 = omega_total_12 <= omega_max_1
-    link_ok_12 = el_ok_12 & az_ok_12 & range_ok_12 & omega_ok_12
+
+    los_min_altitude = _compute_los_min_altitude(pos_1, pos_2)  # (N, M)
+    los_clear = los_min_altitude >= ATMOSPHERE_EXCLUSION_ZONE_KM  # (N, M)
+
+    link_ok_12 = el_ok_12 & az_ok_12 & range_ok_12 & omega_ok_12 & los_clear
 
     el_ok_21 = (el_21 >= el_min_2) & (el_21 <= el_max_2)
     az_ok_21 = az_rel_21 <= az_max_2
     range_ok_21 = range_12.T <= range_max_2
     omega_ok_21 = omega_total_21 <= omega_max_2
-    link_ok_21 = el_ok_21 & az_ok_21 & range_ok_21 & omega_ok_21
+
+    link_ok_21 = el_ok_21 & az_ok_21 & range_ok_21 & omega_ok_21 & los_clear.T
 
     bidirectional = link_ok_12 & link_ok_21.T
     alignment_score = az_rel_12 + az_rel_21.T  # lower = better boresight alignment
@@ -388,6 +431,8 @@ def _compute_constraint_matrices(
         range_rate_21,
         omega_ok_12,
         omega_ok_21,
+        los_clear,
+        los_min_altitude,
         link_ok_12,
         link_ok_21,
         bidirectional,
@@ -421,6 +466,8 @@ def _make_possible_link(
     omega_total_21: np.ndarray,
     omega_ok_12: np.ndarray,
     omega_ok_21: np.ndarray,
+    los_clear: np.ndarray,
+    los_min_altitude: np.ndarray,
     link_ok_12: np.ndarray,
     link_ok_21: np.ndarray,
     bidirectional: np.ndarray,
@@ -436,6 +483,8 @@ def _make_possible_link(
         terminal_a=rec_1.terminal,
         terminal_b=rec_2.terminal,
         constraint_a_to_b=OpticISLVisibilityConstraintResult(
+            los_clear=bool(los_clear[i, j]),
+            los_min_altitude_km=float(los_min_altitude[i, j]),
             elevation_angle_degree=float(el_12[i, j]),
             azimuth_angle_degree=float(az_12[i, j]),
             range_distance_km=float(range_12[i, j]),
@@ -456,6 +505,8 @@ def _make_possible_link(
             flag_bidirectional=bool(bidirectional[i, j]),
         ),
         constraint_b_to_a=OpticISLVisibilityConstraintResult(
+            los_clear=bool(los_clear[i, j]),
+            los_min_altitude_km=float(los_min_altitude[i, j]),
             elevation_angle_degree=float(el_21[j, i]),
             azimuth_angle_degree=float(az_21[j, i]),
             range_distance_km=float(range_12[i, j]),
@@ -480,76 +531,6 @@ def _make_possible_link(
     )
 
 
-# =========================================================================
-# INTERNAL PAIR FEASIBILITY — pure numpy, no SGP4, uses cached ECI
-# =========================================================================
-
-
-#
-# def _check_pair_feasibility(
-#     rec_a: _TerminalRecord,
-#     rec_b: _TerminalRecord,
-#     angular_velocity_dt_seconds: float = 1.0,
-# ) -> tuple[bool, float]:
-#     """
-#     Bidirectional feasibility check from pre-computed _TerminalRecord objects.
-#     Returns (feasible, alignment_score). Zero SGP4 calls.
-#     """
-#     pos_a = rec_a.position_km.reshape(1, 3)
-#     vel_a = rec_a.velocity_km_s.reshape(1, 3)
-#     pos_b = rec_b.position_km.reshape(1, 3)
-#     vel_b = rec_b.velocity_km_s.reshape(1, 3)
-#
-#     frames_a = _build_lvlh_frames(pos_a, vel_a)
-#     frames_b = _build_lvlh_frames(pos_b, vel_b)
-#
-#     el_ab, az_ab, range_ab = _compute_angles_a_to_b(pos_a, frames_a, pos_b)
-#     el_ba, az_ba, _ = _compute_angles_a_to_b(pos_b, frames_b, pos_a)
-#
-#     az_rate_ab, el_rate_ab, _ = _compute_angular_velocity_a_to_b(
-#         pos_a,
-#         vel_a,
-#         pos_b,
-#         vel_b,
-#         el_ab,
-#         az_ab,
-#         range_ab,
-#         dt_seconds=angular_velocity_dt_seconds,
-#     )
-#     az_rate_ba, el_rate_ba, _ = _compute_angular_velocity_a_to_b(
-#         pos_b,
-#         vel_b,
-#         pos_a,
-#         vel_a,
-#         el_ba,
-#         az_ba,
-#         range_ab.T,
-#         dt_seconds=angular_velocity_dt_seconds,
-#     )
-#
-#     omega_ab = float(np.sqrt(az_rate_ab[0, 0] ** 2 + el_rate_ab[0, 0] ** 2))
-#     omega_ba = float(np.sqrt(az_rate_ba[0, 0] ** 2 + el_rate_ba[0, 0] ** 2))
-#
-#     az_rel_ab = abs(_az_relative(float(az_ab[0, 0]), rec_a.boresight_az_deg))
-#     az_rel_ba = abs(_az_relative(float(az_ba[0, 0]), rec_b.boresight_az_deg))
-#
-#     ok_ab = (
-#         rec_a.el_min_deg <= float(el_ab[0, 0]) <= rec_a.el_max_deg
-#         and az_rel_ab <= rec_a.az_max_deg
-#         and float(range_ab[0, 0]) <= rec_a.range_max_km
-#         and omega_ab <= rec_a.max_angular_velocity_deg_s
-#     )
-#     ok_ba = (
-#         rec_b.el_min_deg <= float(el_ba[0, 0]) <= rec_b.el_max_deg
-#         and az_rel_ba <= rec_b.az_max_deg
-#         and float(range_ab[0, 0]) <= rec_b.range_max_km
-#         and omega_ba <= rec_b.max_angular_velocity_deg_s
-#     )
-#
-#     if not (ok_ab and ok_ba):
-#         return False, float("inf")
-#
-#     return True, az_rel_ab + az_rel_ba
 def _check_pair_feasibility(
     rec_a: _TerminalRecord,
     rec_b: _TerminalRecord,
@@ -574,6 +555,7 @@ def _check_pair_feasibility(
     el_ab, az_ab, range_ab = _compute_angles_a_to_b(pos_a, frames_a, pos_b)
     el_ba, az_ba, _ = _compute_angles_a_to_b(pos_b, frames_b, pos_a)
 
+    # Angular rates
     az_rate_ab, el_rate_ab, range_rate_ab = _compute_angular_velocity_a_to_b(
         pos_a,
         vel_a,
@@ -595,6 +577,19 @@ def _check_pair_feasibility(
         dt_seconds=angular_velocity_dt_seconds,
     )
 
+    # ─────────────────────────────────────────────
+    # LoS finite-difference rate
+    # ─────────────────────────────────────────────
+    dt = angular_velocity_dt_seconds
+
+    pos_a_dt = pos_a + vel_a * dt
+    pos_b_dt = pos_b + vel_b * dt
+
+    los_alt_t0 = _compute_los_min_altitude(pos_a, pos_b)
+    los_alt_t1 = _compute_los_min_altitude(pos_a_dt, pos_b_dt)
+
+    los_rate = (los_alt_t1 - los_alt_t0) / dt  # km/s
+
     # Scalars
     el_ab = float(el_ab[0, 0])
     az_ab = float(az_ab[0, 0])
@@ -609,21 +604,27 @@ def _check_pair_feasibility(
     az_rate_ba = float(az_rate_ba[0, 0])
     range_rate_ba = float(range_rate_ba[0, 0])
 
+    los_alt = float(los_alt_t0[0, 0])
+    los_rate = float(los_rate[0, 0])
+
     omega_ab = float(np.sqrt(az_rate_ab**2 + el_rate_ab**2))
     omega_ba = float(np.sqrt(az_rate_ba**2 + el_rate_ba**2))
 
     az_rel_ab = abs(_az_relative(az_ab, rec_a.boresight_az_deg))
     az_rel_ba = abs(_az_relative(az_ba, rec_b.boresight_az_deg))
 
-    # ─────────────────────────────────────────────────────────────
+    los_clear = los_alt >= ATMOSPHERE_EXCLUSION_ZONE_KM
+
+    # ─────────────────────────────────────────────
     # Constraint checks
-    # ─────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────
 
     ok_ab = (
         rec_a.el_min_deg <= el_ab <= rec_a.el_max_deg
         and az_rel_ab <= rec_a.az_max_deg
         and range_ab_val <= rec_a.range_max_km
         and omega_ab <= rec_a.max_angular_velocity_deg_s
+        and los_clear
     )
 
     ok_ba = (
@@ -631,11 +632,12 @@ def _check_pair_feasibility(
         and az_rel_ba <= rec_b.az_max_deg
         and range_ab_val <= rec_b.range_max_km
         and omega_ba <= rec_b.max_angular_velocity_deg_s
+        and los_clear
     )
 
-    # ─────────────────────────────────────────────────────────────
-    # Helper: compute recovery time for one direction
-    # ─────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────
+    # Recovery time
+    # ─────────────────────────────────────────────
 
     def compute_recovery_time(
         el,
@@ -648,8 +650,10 @@ def _check_pair_feasibility(
         range_val,
         range_rate,
         range_max,
+        los_alt,
+        los_rate,
+        los_threshold,
     ):
-
         # Elevation
         if el < el_min:
             t_el = (el_min - el) / (el_rate + EPS) if el_rate > 0 else np.inf
@@ -674,8 +678,16 @@ def _check_pair_feasibility(
         else:
             t_range = 0.0
 
-        # Must satisfy ALL → take worst (max)
-        return max(t_el, t_az, t_range)
+        # LoS
+        if los_alt < los_threshold:
+            if los_rate > 0:
+                t_los = (los_threshold - los_alt) / (los_rate + EPS)
+            else:
+                t_los = np.inf
+        else:
+            t_los = 0.0
+
+        return max(t_el, t_az, t_range, t_los)
 
     if not (ok_ab and ok_ba):
         t_rec_ab = compute_recovery_time(
@@ -689,6 +701,9 @@ def _check_pair_feasibility(
             range_ab_val,
             range_rate_ab,
             rec_a.range_max_km,
+            los_alt,
+            los_rate,
+            ATMOSPHERE_EXCLUSION_ZONE_KM,
         )
 
         t_rec_ba = compute_recovery_time(
@@ -702,13 +717,15 @@ def _check_pair_feasibility(
             range_ab_val,
             range_rate_ba,
             rec_b.range_max_km,
+            los_alt,
+            los_rate,
+            ATMOSPHERE_EXCLUSION_ZONE_KM,
         )
 
         t_recover = max(t_rec_ab, t_rec_ba)
 
         return False, float("inf"), float(t_recover)
 
-    # Already feasible
     return True, az_rel_ab + az_rel_ba, 0.0
 
 
@@ -756,6 +773,9 @@ def _rec_to_possible_link(
     omega_ab = float(np.sqrt(az_rate_ab[0, 0] ** 2 + el_rate_ab[0, 0] ** 2))
     omega_ba = float(np.sqrt(az_rate_ba[0, 0] ** 2 + el_rate_ba[0, 0] ** 2))
 
+    los_min_altitude = _compute_los_min_altitude(pos_a, pos_b)
+    los_clear = los_min_altitude >= ATMOSPHERE_EXCLUSION_ZONE_KM
+
     return PossibleOpticalLink(
         satellite_a=rec_a.terminal.host_satellite,
         satellite_b=rec_b.terminal.host_satellite,
@@ -773,6 +793,8 @@ def _rec_to_possible_link(
             flag_angular_velocity=True,
             flag_overall=True,
             flag_bidirectional=True,
+            los_min_altitude_km=float(los_min_altitude),
+            los_clear=bool(los_clear),
         ),
         constraint_b_to_a=OpticISLVisibilityConstraintResult(
             elevation_angle_degree=float(el_ba[0, 0]),
@@ -786,6 +808,8 @@ def _rec_to_possible_link(
             flag_angular_velocity=True,
             flag_overall=True,
             flag_bidirectional=True,
+            los_min_altitude_km=float(los_min_altitude),
+            los_clear=bool(los_clear),
         ),
         bidirectional_possible=True,
         selection_score=score,
@@ -907,6 +931,8 @@ def compute_OISL_links_from_terminal_pools_filtered(
         range_rate_21,
         omega_ok_12,
         omega_ok_21,
+        los_clear,
+        los_min_altitude,
         link_ok_12,
         link_ok_21,
         bidirectional,
@@ -998,6 +1024,8 @@ def compute_OISL_links_from_terminal_pools_filtered(
                 omega_total_21,
                 omega_ok_12,
                 omega_ok_21,
+                los_clear,
+                los_min_altitude,
                 link_ok_12,
                 link_ok_21,
                 bidirectional,
@@ -1053,6 +1081,8 @@ def compute_OISL_links_from_terminal_pools(
         range_rate_21,
         omega_ok_12,
         omega_ok_21,
+        los_clear,
+        los_min_altitude,
         link_ok_12,
         link_ok_21,
         bidirectional,
@@ -1105,6 +1135,8 @@ def compute_OISL_links_from_terminal_pools(
                 omega_total_21,
                 omega_ok_12,
                 omega_ok_21,
+                los_clear,
+                los_min_altitude,
                 link_ok_12,
                 link_ok_21,
                 bidirectional,
