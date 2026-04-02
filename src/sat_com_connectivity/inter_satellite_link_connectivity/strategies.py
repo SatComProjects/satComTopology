@@ -108,6 +108,12 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                 peer_sat = peer_terminal.host_satellite
 
                 # -------------------------------------------------------------------
+                # CASE 1.b — Terminal has a link that is already accounted in the ledger
+                # -------------------------------------------------------------------
+                if ledger.is_link_accounted(terminal.link):
+                    continue
+
+                # -------------------------------------------------------------------
                 # CASE 2 — intra-shell link → allow override
                 # -------------------------------------------------------------------
                 if peer_sat.shell.identifier == sat.shell.identifier:
