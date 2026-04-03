@@ -52,6 +52,8 @@ class ISLCreatedEvent(Event):
     estimated_duration_a: float | None = None
     estimated_duration_b: float | None = None
 
+    los_min_altitude_km: float | None = None
+
     azimuth_b_deg: float | None = None
     elevation_b_deg: float | None = None
     angular_velocity_b_deg_s: float | None = None
@@ -74,6 +76,8 @@ class ISLUpdatedEvent(Event):
     elevation_a_deg: float | None = None
     angular_velocity_a_deg_s: float | None = None
     range_rate: float | None = None
+
+    los_min_altitude_km: float | None = None
 
     azimuth_b_deg: float | None = None
     elevation_b_deg: float | None = None

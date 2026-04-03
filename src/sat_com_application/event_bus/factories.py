@@ -114,6 +114,9 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             ),
             distance_km=_constraint_field(link.source_constraint, "range_distance_km"),
             range_rate=_constraint_field(link.source_constraint, "range_rate"),
+            los_min_altitude_km=_constraint_field(
+                link.source_constraint, "los_min_altitude_km"
+            ),
             estimated_duration_a=_constraint_field(
                 link.source_constraint, "estimated_duration"
             ),
@@ -149,6 +152,9 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
                 link.destination_constraint, "angular_velocity_rate_degree_per_second"
             ),
             distance_km=_constraint_field(link.source_constraint, "range_distance_km"),
+            los_min_altitude_km=_constraint_field(
+                link.source_constraint, "los_min_altitude_km"
+            ),
             temporary_unavailable=link.temporary_unavailable,
             recovery_time=link.recovery_time,
         )

@@ -743,6 +743,7 @@ class OpticalConstraint(BaseModel):
     elevation_angle_degree: float = Field(default=None)
     range_distance_km: float = Field(default=None)
     angular_velocity_rate_degree_per_second: float = Field(default=None)
+    los_min_altitude_km: float = Field(default=None)
     estimated_duration: float | None = Field(default=None)
     range_rate: float | None = Field(default=None)
 
