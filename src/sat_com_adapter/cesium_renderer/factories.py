@@ -356,7 +356,7 @@ class CesiumJavaScriptElementFactory(CesiumElementFactory):
             + f"              {position_b.latitude},\n"
             + f"              {position_b.altitude},\n"
             + "            ]),\n"
-            + "          width: 1,\n"
+            + f"          width: {width},\n"
             + f"          arcType: Cesium.ArcType.{arc_type},\n"
             + f"         material: {get_color_js(color)},\n"
             + "          },\n"
