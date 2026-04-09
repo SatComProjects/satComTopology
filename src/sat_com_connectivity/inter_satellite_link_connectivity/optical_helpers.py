@@ -987,13 +987,10 @@ def compute_OISL_links_from_terminal_pools_filtered(
         np.inf,
     )
 
-    total_candidates = int(candidate.sum())
-
     # -----------------------------------------------------------------------
     # Greedy assignment — group 1 priority, one terminal → one connection
     # Pure numpy indexing, no Python feasibility loop
     # -----------------------------------------------------------------------
-    t_assign_start = time.perf_counter()
     booked_j: set[int] = set()
     results: list[PossibleOpticalLink] = []
 

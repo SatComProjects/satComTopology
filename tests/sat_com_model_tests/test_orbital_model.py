@@ -11,7 +11,7 @@ from tests.sat_com_model_tests.model_helper import (
 class TestOrbitalModel:
     @pytest.fixture
     def satellite(self):
-        return create_fake_satellite_with_object_id(1)
+        return create_fake_satellite_with_object_id(1, movement_model=False)
 
     def test_assert_orbital_model_disabled_if_not_exists(self, satellite):
         with pytest.raises(OrbitalObjectMovementModelUndefinedError):

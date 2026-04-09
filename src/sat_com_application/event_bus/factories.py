@@ -11,12 +11,16 @@ from sat_com_application.event_bus.events import (
     UTLCreatedEvent,
     UTLUpdatedEvent,
     UTLRemovedEvent,
+    TopologyObjectCreatedEvent,
+    TopologyObjectUpdatedEvent,
+    TopologyObjectRemovedEvent,
 )
 from sat_com_model.models import (
     InterSatelliteLink,
     GroundStationLink,
     UserTerminalLink,
     OpticalConstraint,
+    TopologyObject,
 )
 
 
@@ -82,6 +86,20 @@ def _constraint_field(constraint: OpticalConstraint | None, field: str) -> float
     if constraint is None:
         return None
     return getattr(constraint, field, None)
+
+
+class AbstractTopologyObjectEventFactory(ABC):
+    @abstractmethod
+    def created(self, topology_object: TopologyObject) -> TopologyObjectCreatedEvent:
+        pass
+
+    @abstractmethod
+    def updated(self, topology_object: TopologyObject) -> TopologyObjectUpdatedEvent:
+        pass
+
+    @abstractmethod
+    def removed(self, topology_object: TopologyObject) -> TopologyObjectRemovedEvent:
+        pass
 
 
 class DefaultISLEventFactory(AbstractISLEventFactory):
@@ -229,6 +247,28 @@ class DefaultUTLEventFactory(AbstractUTLEventFactory):
         )
 
 
+class DefaultTopologyObjectEventFactory(AbstractTopologyObjectEventFactory):
+
+    def created(self, topology_object: TopologyObject) -> TopologyObjectCreatedEvent:
+        return TopologyObjectCreatedEvent(
+            topology_object_uniq_id=topology_object.topology_uniq_id,
+            topology_object_type=topology_object.get_type(),
+            position=topology_object.get_coordinates().to_longitude_latitude_altitude(),
+        )
+
+    def updated(self, topology_object: TopologyObject) -> TopologyObjectUpdatedEvent:
+        return TopologyObjectUpdatedEvent(
+            topology_object_uniq_id=topology_object.topology_uniq_id,
+            position=topology_object.get_coordinates().to_longitude_latitude_altitude(),
+        )
+
+    def removed(self, topology_object: TopologyObject) -> TopologyObjectRemovedEvent:
+        return TopologyObjectRemovedEvent(
+            topology_object_uniq_id=topology_object.topology_uniq_id,
+            position=topology_object.get_coordinates().to_longitude_latitude_altitude(),
+        )
+
+
 @dataclass
 class EventFactories:
     isl_event_factory: AbstractISLEventFactory = field(
@@ -239,4 +279,7 @@ class EventFactories:
     )
     utl_event_factory: AbstractUTLEventFactory = field(
         default_factory=DefaultUTLEventFactory
+    )
+    topology_object_event_factory: AbstractTopologyObjectEventFactory = field(
+        default_factory=DefaultTopologyObjectEventFactory
     )
