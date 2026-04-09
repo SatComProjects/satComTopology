@@ -199,6 +199,10 @@ class SimulationManager:
         satellite.topology_uniq_id = self.simulation.request_an_id()
         self.simulation.satellites.append(satellite)
 
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.created(satellite)
+        )
+
     def add_ground_station(self, ground_station: GroundStation):
         """
         Add ground station to the simulation. Automatically attribute an uniq topology id.
@@ -207,6 +211,10 @@ class SimulationManager:
         """
         ground_station.topology_uniq_id = self.simulation.request_an_id()
         self.simulation.ground_stations.append(ground_station)
+
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.created(ground_station)
+        )
 
     def add_user_terminals(self, user_terminal: UserTerminal):
         """
@@ -217,6 +225,10 @@ class SimulationManager:
         user_terminal.topology_uniq_id = self.simulation.request_an_id()
         self.simulation.user_terminals.append(user_terminal)
 
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.created(user_terminal)
+        )
+
     def add_point_of_presence(self, point_of_presence: PointOfPresence):
         """
         Add point of presence to the simulation. Automatically attribute an uniq topology id
@@ -225,6 +237,12 @@ class SimulationManager:
         """
         point_of_presence.topology_uniq_id = self.simulation.request_an_id()
         self.simulation.point_of_presences.append(point_of_presence)
+
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.created(
+                point_of_presence
+            )
+        )
 
     def get_all_topology_objects(self) -> list[TopologyObject]:
         """
@@ -1055,6 +1073,10 @@ class SimulationManager:
         else:
             raise ValueError("Topology object type unknown: " + topology_object.type)
 
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.removed(topology_object)
+        )
+
         return topology_object
 
     def remove_cascade_topology_object(self, topology_object: TopologyObject):
@@ -1072,6 +1094,9 @@ class SimulationManager:
             self.simulation.point_of_presences.remove(topology_object)
         else:
             raise ValueError("Topology object type unknown: " + topology_object.type)
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.removed(topology_object)
+        )
 
     def remove_cascade_topology_object_by_id(
         self, topology_object_id: int
@@ -1187,11 +1212,38 @@ class SimulationManager:
         inter_satellite_link: InterSatelliteLink,
         optical_constraint_a_to_b: OpticalConstraint,
         optical_constraint_b_to_a: OpticalConstraint,
+        satellite_a: Satellite,
+        satellite_b: Satellite,
         temporary_unavailable: bool = False,
         recovery_time: datetime.datetime | None = None,
     ):
-        inter_satellite_link.source_constraint = optical_constraint_a_to_b
-        inter_satellite_link.destination_constraint = optical_constraint_b_to_a
+        """
+
+        :param inter_satellite_link:
+        :param optical_constraint_a_to_b:
+        :param optical_constraint_b_to_a:
+        :param satellite_a:
+        :param satellite_b:
+        :param temporary_unavailable:
+        :param recovery_time:
+        :return:
+        """
+
+        # This check is very important as the order might have been changed during the verification
+        source_constraint = (
+            optical_constraint_a_to_b
+            if satellite_a == inter_satellite_link.get_satellite_source()
+            else optical_constraint_b_to_a
+        )
+        destination_constraint = (
+            optical_constraint_b_to_a
+            if satellite_b == inter_satellite_link.get_satellite_destination()
+            else optical_constraint_a_to_b
+        )
+
+        inter_satellite_link.source_constraint = source_constraint
+        inter_satellite_link.destination_constraint = destination_constraint
+
         inter_satellite_link.temporary_unavailable = temporary_unavailable
         inter_satellite_link.recovery_time = recovery_time
 
@@ -1314,6 +1366,8 @@ class SimulationManager:
                 optical_constraint_b_to_a=OpticalConstraint(
                     **updated_link.constraint_b_to_a.model_dump()
                 ),
+                satellite_a=updated_link.satellite_a,
+                satellite_b=updated_link.satellite_b,
                 temporary_unavailable=updated_link.temporary_unavailable,
                 recovery_time=updated_link.recovery_time,
             )

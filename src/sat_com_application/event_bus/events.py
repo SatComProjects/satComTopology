@@ -20,6 +20,10 @@ class EventType(Enum):
     GOL_UPDATED = auto()
     GOL_REMOVED = auto()
 
+    TO_CREATED = auto()
+    TO_UPDATED = auto()
+    TO_REMOVED = auto()
+
 
 class Event(BaseModel):
     sim_time: datetime | None = None
@@ -182,3 +186,29 @@ class GOLRemovedEvent(Event):
     type: EventType = EventType.GOL_REMOVED
     ground_object_a_id: int
     ground_object_b_id: int
+
+
+class TopologyObjectCreatedEvent(Event):
+    topology_object_uniq_id: int
+    type: EventType = EventType.TO_CREATED
+    position: tuple[float, float, float] | None
+
+    topology_object_type: str
+
+    properties: dict = None
+
+
+class TopologyObjectUpdatedEvent(Event):
+    topology_object_uniq_id: int
+    type: EventType = EventType.TO_UPDATED
+    position: tuple[float, float, float] | None
+
+    properties: dict = None
+
+
+class TopologyObjectRemovedEvent(Event):
+    topology_object_uniq_id: int
+    type: EventType = EventType.TO_REMOVED
+    position: tuple[float, float, float] | None
+
+    properties: dict = None
