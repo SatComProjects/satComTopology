@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Literal
 
@@ -355,20 +356,54 @@ def _compute_constraint_matrices(
 
     # ── Estimated link duration — conservative linear extrapolation ────────
     #
-    # For each active constraint we compute the remaining margin and divide by
-    # the current rate of change to get seconds until violation.
+    # For each active constraint compute the remaining margin and divide by
+    # the current rate of change → seconds until violation.
     #
-    # Bug fix #3: angular-velocity time-to-violation is now included.
-    # Derivation: ω ≈ v_⊥ / r where v_⊥ ≈ ω · r is approximately constant
-    # over the short flyby timescale.  For a closing pair (range_rate < 0),
-    # r decreases → ω increases.  The range at which ω hits ω_max is:
-    #   r_crit = r · (ω / ω_max)
-    # Time to reach it:
-    #   t_ω = (r - r_crit) / (-range_rate) = r · (1 - ω/ω_max) / (-range_rate)
-    # This is finite only when ω < ω_max (constraint not yet violated) and
-    # range_rate < 0 (still closing).  Otherwise inf (already violated or
-    # separating, so constraint will not be hit by this geometry).
+    # Fix A (new): LOS time-to-violation.
+    #   LOS minimum altitude is not static. We compute its finite-difference
+    #   rate using the same dt as for angular velocity.  When the altitude is
+    #   falling toward the exclusion-zone threshold the t_los term caps the
+    #   estimated duration correctly (link 1 failure mode: LOS collapsed from
+    #   84.6 → 80.1 km in 10 s while all other margins were wide open).
+    #
+    # Fix B (revised ω): CPA-guarded geometric estimate.
+    #   Previous formula: t_ω = r · (1 − ω/ω_max) / (−ṙ)
+    #   assumed constant range_rate, which over-predicts how quickly ω grows
+    #   for crossing-orbit pairs.  For two satellites on different orbital
+    #   planes their closest approach distance r_cpa is fixed by the geometry:
+    #       r_cpa = |Δr × Δv| / |Δv|
+    #   If r_cpa > r_crit = ω · r / ω_max, the satellites will never get
+    #   close enough for ω to reach ω_max → t_ω = inf.  Only when r_cpa <
+    #   r_crit (a genuine flyby threat) do we emit a finite estimate.
 
+    dt = angular_velocity_dt_seconds
+
+    # ── LOS rate (N, M) ────────────────────────────────────────────────────
+    pos_1_dt = pos_1 + vel_1 * dt  # (N, 3)
+    pos_2_dt = pos_2 + vel_2 * dt  # (M, 3)
+    los_min_altitude_dt = _compute_los_min_altitude(pos_1_dt, pos_2_dt)  # (N, M)
+    los_rate = (los_min_altitude_dt - los_min_altitude) / dt  # (N, M) km/s, signed
+
+    # t_los: only finite when LOS altitude is dropping
+    t_los = np.where(
+        los_rate < 0,
+        np.maximum(los_min_altitude - ATMOSPHERE_EXCLUSION_ZONE_KM, 0.0)
+        / (-los_rate + _EPS),
+        np.inf,
+    )  # (N, M); symmetric — same chord for both directions
+
+    # ── CPA distance (N, M) — shared by both ω estimates ──────────────────
+    # Relative position / velocity in ECI
+    rel_pos = pos_2[np.newaxis, :, :] - pos_1[:, np.newaxis, :]  # (N, M, 3)
+    rel_vel = vel_2[np.newaxis, :, :] - vel_1[:, np.newaxis, :]  # (N, M, 3)
+
+    rel_vel_mag = np.linalg.norm(rel_vel, axis=2)  # (N, M)
+    cross_rv = np.cross(rel_pos, rel_vel)  # (N, M, 3)
+    r_cpa = np.linalg.norm(cross_rv, axis=2) / np.where(
+        rel_vel_mag > 0, rel_vel_mag, 1.0
+    )  # (N, M) km — closest approach for linear motion
+
+    # ── Margins ─────────────────────────────────────────────────────────────
     el_margin_12 = np.minimum(el_12 - el_min_1, el_max_1 - el_12)  # (N, M) deg
     az_margin_12 = az_max_1 - az_rel_12  # (N, M) deg
 
@@ -380,10 +415,13 @@ def _compute_constraint_matrices(
         np.inf,  # closing link — range constraint will not be hit
     )
 
-    # Bug fix #3 — geometric ω estimate for closing pairs, direction 1→2
+    # Fix B direction 1→2: finite t_ω only when CPA will actually breach r_crit
     safe_omega_max_1 = np.where(omega_max_1 > 0, omega_max_1, 1.0)
+    r_crit_12 = omega_total_12 * range_12 / safe_omega_max_1  # (N, M) km
     t_omega_12 = np.where(
-        (range_rate_12 < 0) & (omega_total_12 < omega_max_1),
+        (range_rate_12 < 0)
+        & (omega_total_12 < omega_max_1)
+        & (r_cpa < r_crit_12),  # CPA guard — skip if never close enough
         np.maximum(
             range_12
             * (1.0 - omega_total_12 / safe_omega_max_1)
@@ -404,10 +442,13 @@ def _compute_constraint_matrices(
         np.inf,
     )
 
-    # Bug fix #3 — geometric ω estimate for closing pairs, direction 2→1
+    # Fix B direction 2→1
     safe_omega_max_2 = np.where(omega_max_2 > 0, omega_max_2, 1.0)
+    r_crit_21 = omega_total_21 * range_12.T / safe_omega_max_2  # (M, N) km
     t_omega_21 = np.where(
-        (range_rate_21 < 0) & (omega_total_21 < omega_max_2),
+        (range_rate_21 < 0)
+        & (omega_total_21 < omega_max_2)
+        & (r_cpa.T < r_crit_21),  # CPA guard (r_cpa is symmetric)
         np.maximum(
             range_12.T
             * (1.0 - omega_total_21 / safe_omega_max_2)
@@ -417,13 +458,14 @@ def _compute_constraint_matrices(
         np.inf,
     )
 
+    # Combine — t_los is direction-agnostic (same chord), use for both
     estimated_duration_12 = np.minimum(
-        np.minimum(np.minimum(t_el_12, t_az_12), t_range_12),
-        t_omega_12,
+        np.minimum(np.minimum(np.minimum(t_el_12, t_az_12), t_range_12), t_omega_12),
+        t_los,
     )
     estimated_duration_21 = np.minimum(
-        np.minimum(np.minimum(t_el_21, t_az_21), t_range_21),
-        t_omega_21,
+        np.minimum(np.minimum(np.minimum(t_el_21, t_az_21), t_range_21), t_omega_21),
+        t_los.T,
     )
 
     estimated_duration = np.minimum(
