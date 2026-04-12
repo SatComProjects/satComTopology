@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 from typing import Literal
 
@@ -72,23 +71,12 @@ def _compute_los_min_altitude(
     Chaudhry & Yanikomeroglu (2021) — 80 km atmospheric exclusion threshold
     https://arxiv.org/pdf/2103.00056
     """
-    # d[i,j] = pos_2[j] - pos_1[i]  →  (N, M, 3)
     d = pos_2[np.newaxis, :, :] - pos_1[:, np.newaxis, :]  # (N, M, 3)
-
-    # Parameter t of the closest point on the infinite line to the origin
-    # t = -dot(pos_1, d) / dot(d, d)   →  (N, M)
     d2 = np.einsum("ijk,ijk->ij", d, d)  # |d|²  (N, M)
     t = -np.einsum("ik,ijk->ij", pos_1, d) / np.where(d2 > 0, d2, 1.0)
-
-    # Clamp t to [0, 1] — closest point must lie ON the segment
     t = np.clip(t, 0.0, 1.0)  # (N, M)
-
-    # Closest point on segment to Earth's centre
     closest = pos_1[:, np.newaxis, :] + t[:, :, np.newaxis] * d  # (N, M, 3)
-
-    # Distance from Earth's centre to that point
     min_radius = np.linalg.norm(closest, axis=2)  # (N, M)
-
     return min_radius - WGS84_A  # altitude [km]
 
 
@@ -139,17 +127,17 @@ def _compute_angular_velocity_a_to_b(
     """
     First-order finite-difference estimate of az/el angular rates and range rate.
 
-    Parameters
-    ----------
-    range_t0 : (N, M)  range at t=0 [km], already computed by _compute_angles_a_to_b
-
     Returns
     -------
-    az_rate_deg_s : (N, M)  absolute azimuth rate   [deg/s]
-    el_rate_deg_s : (N, M)  absolute elevation rate  [deg/s]
+    az_rate_deg_s : (N, M)  absolute azimuth rate   [deg/s]  — always ≥ 0
+    el_rate_deg_s : (N, M)  absolute elevation rate  [deg/s] — always ≥ 0
     range_rate_km_s : (N, M)  signed range rate [km/s]
                       positive = satellites diverging
                       negative = satellites closing
+
+    Note: az/el rates are returned as magnitudes (abs). When signed rates are
+    required for recovery-time estimation use the dedicated signed path in
+    _check_pair_feasibility instead.
     """
     pos_a_dt = positions_a + velocities_a * dt_seconds
     pos_b_dt = positions_b + velocities_b * dt_seconds
@@ -175,9 +163,9 @@ def _az_relative(
 
 @dataclass(frozen=True)
 class _TerminalRecord:
-    terminal: OpticalLinkTerminal  # hashable via terminal_id UUID
-    satellite_index: int  # index into the source satellite list
-    terminal_index: int  # index in satellite.optical_link_terminals
+    terminal: OpticalLinkTerminal
+    satellite_index: int
+    terminal_index: int
     position_km: np.ndarray
     velocity_km_s: np.ndarray
     el_min_deg: float
@@ -194,10 +182,6 @@ def _build_terminal_records(
     satellites: list[Satellite],
     cache: _EciCache,
 ) -> list[_TerminalRecord]:
-    """
-    Flatten all terminals from a satellite list into _TerminalRecord objects.
-    ECI is read from the cache — no redundant SGP4 calls.
-    """
     records: list[_TerminalRecord] = []
     for sat_idx, sat in enumerate(satellites):
         if not sat.optical_link_terminals:
@@ -229,10 +213,6 @@ def _build_terminal_records_from_pool(
     terminals: list[OpticalLinkTerminal],
     cache: _EciCache,
 ) -> list[_TerminalRecord]:
-    """
-    Build records directly from a terminal pool.
-    terminal.host_satellite is used — satellite list is not required.
-    """
     records: list[_TerminalRecord] = []
     for term_idx, terminal in enumerate(terminals):
         sat = terminal.host_satellite
@@ -287,7 +267,12 @@ def _compute_constraint_matrices(
     bidirectional                   : (N, M) link_ok_12 & link_ok_21.T
     alignment_score                 : (N, M) combined boresight az deviation (lower=better)
     estimated_duration_12           : (N, M) seconds until first constraint violation [s]
-                                      conservative linear extrapolation from current rates
+                                      conservative linear extrapolation from current rates.
+                                      Bug fix #3: now includes geometric ω-limit estimate
+                                      for closing satellite pairs.
+    estimated_duration_21           : (M, N) same for 2→1 direction
+    estimated_duration              : (N, M) element-wise minimum of _12 and _21.T
+    duration_ok, duration_1_ok, duration_2_ok : minimum-contact-duration gate flags
     """
     N, M = len(records_1), len(records_2)
 
@@ -344,9 +329,9 @@ def _compute_constraint_matrices(
     omega_total_12 = np.sqrt(az_rate_12**2 + el_rate_12**2)
     omega_total_21 = np.sqrt(az_rate_21**2 + el_rate_21**2)
 
-    # Azimuth relative to boresight
-    az_rel_12 = np.abs((az_12 - boresight_az_1 + 180.0) % 360.0 - 180.0)  # (N, M)
-    az_rel_21 = np.abs((az_21 - boresight_az_2 + 180.0) % 360.0 - 180.0)  # (M, N)
+    # Azimuth relative to boresight — (N, M) and (M, N)
+    az_rel_12 = np.abs((az_12 - boresight_az_1 + 180.0) % 360.0 - 180.0)
+    az_rel_21 = np.abs((az_21 - boresight_az_2 + 180.0) % 360.0 - 180.0)
 
     el_ok_12 = (el_12 >= el_min_1) & (el_12 <= el_max_1)
     az_ok_12 = az_rel_12 <= az_max_1
@@ -372,15 +357,17 @@ def _compute_constraint_matrices(
     #
     # For each active constraint we compute the remaining margin and divide by
     # the current rate of change to get seconds until violation.
-    # Elevation: take the smaller of the two margins (lower/upper bound) —
-    #   conservative because we don't know which direction el is moving.
-    # Azimuth:   margin to the FOV boundary, decreasing at az_rate_12.
-    # Range:     only relevant when satellites are diverging (range_rate > 0).
-    #   If closing, the range constraint will not be hit — set to inf.
-    # We do NOT estimate time for the omega constraint because that would
-    # require the rate-of-rate (jerk), which is not computed here.
     #
-    # Result is clamped to [0, inf] — negative margin means already violated.
+    # Bug fix #3: angular-velocity time-to-violation is now included.
+    # Derivation: ω ≈ v_⊥ / r where v_⊥ ≈ ω · r is approximately constant
+    # over the short flyby timescale.  For a closing pair (range_rate < 0),
+    # r decreases → ω increases.  The range at which ω hits ω_max is:
+    #   r_crit = r · (ω / ω_max)
+    # Time to reach it:
+    #   t_ω = (r - r_crit) / (-range_rate) = r · (1 - ω/ω_max) / (-range_rate)
+    # This is finite only when ω < ω_max (constraint not yet violated) and
+    # range_rate < 0 (still closing).  Otherwise inf (already violated or
+    # separating, so constraint will not be hit by this geometry).
 
     el_margin_12 = np.minimum(el_12 - el_min_1, el_max_1 - el_12)  # (N, M) deg
     az_margin_12 = az_max_1 - az_rel_12  # (N, M) deg
@@ -390,22 +377,54 @@ def _compute_constraint_matrices(
     t_range_12 = np.where(
         range_rate_12 > 0,
         np.maximum(range_max_1 - range_12, 0.0) / (range_rate_12 + _EPS),
-        np.inf,  # closing link — range constraint not the limiting factor
+        np.inf,  # closing link — range constraint will not be hit
+    )
+
+    # Bug fix #3 — geometric ω estimate for closing pairs, direction 1→2
+    safe_omega_max_1 = np.where(omega_max_1 > 0, omega_max_1, 1.0)
+    t_omega_12 = np.where(
+        (range_rate_12 < 0) & (omega_total_12 < omega_max_1),
+        np.maximum(
+            range_12
+            * (1.0 - omega_total_12 / safe_omega_max_1)
+            / (-range_rate_12 + _EPS),
+            0.0,
+        ),
+        np.inf,
     )
 
     el_margin_21 = np.minimum(el_21 - el_min_2, el_max_2 - el_21)  # (M, N)
     az_margin_21 = az_max_2 - az_rel_21
+
     t_el_21 = np.maximum(el_margin_21, 0.0) / (el_rate_21 + _EPS)
     t_az_21 = np.maximum(az_margin_21, 0.0) / (az_rate_21 + _EPS)
-
     t_range_21 = np.where(
         range_rate_21 > 0,
         np.maximum(range_max_2 - range_12.T, 0.0) / (range_rate_21 + _EPS),
         np.inf,
     )
 
-    estimated_duration_12 = np.minimum(np.minimum(t_el_12, t_az_12), t_range_12)
-    estimated_duration_21 = np.minimum(np.minimum(t_el_21, t_az_21), t_range_21)
+    # Bug fix #3 — geometric ω estimate for closing pairs, direction 2→1
+    safe_omega_max_2 = np.where(omega_max_2 > 0, omega_max_2, 1.0)
+    t_omega_21 = np.where(
+        (range_rate_21 < 0) & (omega_total_21 < omega_max_2),
+        np.maximum(
+            range_12.T
+            * (1.0 - omega_total_21 / safe_omega_max_2)
+            / (-range_rate_21 + _EPS),
+            0.0,
+        ),
+        np.inf,
+    )
+
+    estimated_duration_12 = np.minimum(
+        np.minimum(np.minimum(t_el_12, t_az_12), t_range_12),
+        t_omega_12,
+    )
+    estimated_duration_21 = np.minimum(
+        np.minimum(np.minimum(t_el_21, t_az_21), t_range_21),
+        t_omega_21,
+    )
 
     estimated_duration = np.minimum(
         estimated_duration_12,
@@ -477,6 +496,14 @@ def _make_possible_link(
     estimated_duration_12: np.ndarray = None,
     estimated_duration_21: np.ndarray = None,
 ) -> PossibleOpticalLink:
+    # Bug fix #4: compute boresight-relative azimuth for the flag, not raw LVLH azimuth.
+    az_rel_12_ij = float(
+        abs((az_12[i, j] - rec_1.boresight_az_deg + 180.0) % 360.0 - 180.0)
+    )
+    az_rel_21_ji = float(
+        abs((az_21[j, i] - rec_2.boresight_az_deg + 180.0) % 360.0 - 180.0)
+    )
+
     return PossibleOpticalLink(
         satellite_a=satellite_1,
         satellite_b=satellite_2,
@@ -489,16 +516,14 @@ def _make_possible_link(
             azimuth_angle_degree=float(az_12[i, j]),
             range_distance_km=float(range_12[i, j]),
             angular_velocity_rate_degree_per_second=float(omega_total_12[i, j]),
-            range_rate=range_rate_12[i, j],
+            range_rate=float(range_rate_12[i, j]),
             estimated_duration=(
                 float(estimated_duration_12[i, j])
                 if estimated_duration_12 is not None
                 else None
             ),
-            flag_elevation=bool(
-                (el_12[i, j] >= rec_1.el_min_deg) and (el_12[i, j] <= rec_1.el_max_deg)
-            ),
-            flag_azimuth=bool(abs(az_12[i, j]) <= rec_1.az_max_deg),
+            flag_elevation=bool(rec_1.el_min_deg <= el_12[i, j] <= rec_1.el_max_deg),
+            flag_azimuth=bool(az_rel_12_ij <= rec_1.az_max_deg),  # Bug fix #4
             flag_range=bool(range_12[i, j] <= rec_1.range_max_km),
             flag_angular_velocity=bool(omega_ok_12[i, j]),
             flag_overall=bool(link_ok_12[i, j]),
@@ -516,11 +541,9 @@ def _make_possible_link(
                 if estimated_duration_12 is not None
                 else None
             ),
-            range_rate=range_rate_12[i, j],
-            flag_elevation=bool(
-                (el_21[j, i] >= rec_2.el_min_deg) and (el_21[j, i] <= rec_2.el_max_deg)
-            ),
-            flag_azimuth=bool(abs(az_21[j, i]) <= rec_2.az_max_deg),
+            range_rate=float(range_rate_12[i, j]),
+            flag_elevation=bool(rec_2.el_min_deg <= el_21[j, i] <= rec_2.el_max_deg),
+            flag_azimuth=bool(az_rel_21_ji <= rec_2.az_max_deg),  # Bug fix #4
             flag_range=bool(range_12[i, j] <= rec_2.range_max_km),
             flag_angular_velocity=bool(omega_ok_21[j, i]),
             flag_overall=bool(link_ok_21[j, i]),
@@ -537,92 +560,111 @@ def _check_pair_feasibility(
     angular_velocity_dt_seconds: float = 1.0,
 ) -> tuple[bool, float, float]:
     """
-    Returns:
-        feasible: bool
-        alignment_score: float
-        next_availability_time: float (seconds until link becomes feasible again, 0 if already feasible)
+    Check bidirectional feasibility for one specific terminal pair and estimate
+    how long until a currently-infeasible link becomes feasible again.
+
+    Returns
+    -------
+    feasible         : bool
+    alignment_score  : float  — az_rel_ab + az_rel_ba when feasible, inf otherwise
+    recover_time_s   : float  — seconds until feasibility recovers (0 if already feasible)
+
+    Fixes applied
+    -------------
+    Bug fix #1 — angular-velocity term added to compute_recovery_time so that a
+                 pure-ω violation no longer yields recovery_time = 0.
+    Bug fix #2 — signed rates used throughout compute_recovery_time so that
+                 upper-elevation and azimuth-overshoot violations no longer
+                 spuriously return inf.
     """
-    EPS = 1e-6
+    EPS = 1e-9
+    dt = angular_velocity_dt_seconds
 
     pos_a = rec_a.position_km.reshape(1, 3)
     vel_a = rec_a.velocity_km_s.reshape(1, 3)
     pos_b = rec_b.position_km.reshape(1, 3)
     vel_b = rec_b.velocity_km_s.reshape(1, 3)
 
-    frames_a = _build_lvlh_frames(pos_a, vel_a)
-    frames_b = _build_lvlh_frames(pos_b, vel_b)
-
-    el_ab, az_ab, range_ab = _compute_angles_a_to_b(pos_a, frames_a, pos_b)
-    el_ba, az_ba, _ = _compute_angles_a_to_b(pos_b, frames_b, pos_a)
-
-    # Angular rates
-    az_rate_ab, el_rate_ab, range_rate_ab = _compute_angular_velocity_a_to_b(
-        pos_a,
-        vel_a,
-        pos_b,
-        vel_b,
-        el_ab,
-        az_ab,
-        range_ab,
-        dt_seconds=angular_velocity_dt_seconds,
-    )
-    az_rate_ba, el_rate_ba, range_rate_ba = _compute_angular_velocity_a_to_b(
-        pos_b,
-        vel_b,
-        pos_a,
-        vel_a,
-        el_ba,
-        az_ba,
-        range_ab.T,
-        dt_seconds=angular_velocity_dt_seconds,
-    )
-
     # ─────────────────────────────────────────────
-    # LoS finite-difference rate
+    # Geometry at t0 and t0+dt — one finite-difference step.
+    # We build both explicitly so we can extract signed rates for every
+    # quantity needed by the recovery estimator.
     # ─────────────────────────────────────────────
-    dt = angular_velocity_dt_seconds
-
     pos_a_dt = pos_a + vel_a * dt
     pos_b_dt = pos_b + vel_b * dt
 
-    los_alt_t0 = _compute_los_min_altitude(pos_a, pos_b)
-    los_alt_t1 = _compute_los_min_altitude(pos_a_dt, pos_b_dt)
+    frames_a_t0 = _build_lvlh_frames(pos_a, vel_a)
+    frames_b_t0 = _build_lvlh_frames(pos_b, vel_b)
+    frames_a_dt = _build_lvlh_frames(pos_a_dt, vel_a)
+    frames_b_dt = _build_lvlh_frames(pos_b_dt, vel_b)
 
-    los_rate = (los_alt_t1 - los_alt_t0) / dt  # km/s
+    el_ab_arr, az_ab_arr, range_arr = _compute_angles_a_to_b(pos_a, frames_a_t0, pos_b)
+    el_ba_arr, az_ba_arr, _ = _compute_angles_a_to_b(pos_b, frames_b_t0, pos_a)
+    el_ab_dt_arr, az_ab_dt_arr, range_dt_arr = _compute_angles_a_to_b(
+        pos_a_dt, frames_a_dt, pos_b_dt
+    )
+    el_ba_dt_arr, az_ba_dt_arr, _ = _compute_angles_a_to_b(
+        pos_b_dt, frames_b_dt, pos_a_dt
+    )
 
-    # Scalars
-    el_ab = float(el_ab[0, 0])
-    az_ab = float(az_ab[0, 0])
-    range_ab_val = float(range_ab[0, 0])
-    el_rate_ab = float(el_rate_ab[0, 0])
-    az_rate_ab = float(az_rate_ab[0, 0])
-    range_rate_ab = float(range_rate_ab[0, 0])
+    # ─────────────────────────────────────────────
+    # Scalars at t0
+    # ─────────────────────────────────────────────
+    el_ab = float(el_ab_arr[0, 0])
+    az_ab = float(az_ab_arr[0, 0])
+    range_val = float(range_arr[0, 0])
+    el_ba = float(el_ba_arr[0, 0])
+    az_ba = float(az_ba_arr[0, 0])
 
-    el_ba = float(el_ba[0, 0])
-    az_ba = float(az_ba[0, 0])
-    el_rate_ba = float(el_rate_ba[0, 0])
-    az_rate_ba = float(az_rate_ba[0, 0])
-    range_rate_ba = float(range_rate_ba[0, 0])
-
-    los_alt = float(los_alt_t0[0, 0])
-    los_rate = float(los_rate[0, 0])
-
-    omega_ab = float(np.sqrt(az_rate_ab**2 + el_rate_ab**2))
-    omega_ba = float(np.sqrt(az_rate_ba**2 + el_rate_ba**2))
-
+    # ─────────────────────────────────────────────
+    # Boresight-relative azimuth deviations at t0 and t0+dt
+    # ─────────────────────────────────────────────
     az_rel_ab = abs(_az_relative(az_ab, rec_a.boresight_az_deg))
     az_rel_ba = abs(_az_relative(az_ba, rec_b.boresight_az_deg))
+    az_rel_ab_dt = abs(_az_relative(float(az_ab_dt_arr[0, 0]), rec_a.boresight_az_deg))
+    az_rel_ba_dt = abs(_az_relative(float(az_ba_dt_arr[0, 0]), rec_b.boresight_az_deg))
+
+    # ─────────────────────────────────────────────
+    # Signed rates (Bug fix #2)
+    # All rates carry sign so compute_recovery_time can reason about direction.
+    # ─────────────────────────────────────────────
+    el_rate_ab = (float(el_ab_dt_arr[0, 0]) - el_ab) / dt  # deg/s signed
+    el_rate_ba = (float(el_ba_dt_arr[0, 0]) - el_ba) / dt
+    az_rel_rate_ab = (
+        az_rel_ab_dt - az_rel_ab
+    ) / dt  # positive = moving away from boresight
+    az_rel_rate_ba = (az_rel_ba_dt - az_rel_ba) / dt
+    range_rate = (
+        float(range_dt_arr[0, 0]) - range_val
+    ) / dt  # km/s signed, positive = separating
+
+    # ─────────────────────────────────────────────
+    # Angular velocity (magnitude) — used for constraint check and recovery
+    # ─────────────────────────────────────────────
+    d_az_ab = (float(az_ab_dt_arr[0, 0]) - az_ab + 180.0) % 360.0 - 180.0
+    d_el_ab = float(el_ab_dt_arr[0, 0]) - el_ab
+    omega_ab = float(np.sqrt((d_az_ab / dt) ** 2 + (d_el_ab / dt) ** 2))
+
+    d_az_ba = (float(az_ba_dt_arr[0, 0]) - az_ba + 180.0) % 360.0 - 180.0
+    d_el_ba = float(el_ba_dt_arr[0, 0]) - el_ba
+    omega_ba = float(np.sqrt((d_az_ba / dt) ** 2 + (d_el_ba / dt) ** 2))
+
+    # ─────────────────────────────────────────────
+    # LoS altitude and its signed rate
+    # ─────────────────────────────────────────────
+    los_alt = float(_compute_los_min_altitude(pos_a, pos_b)[0, 0])
+    los_alt_dt = float(_compute_los_min_altitude(pos_a_dt, pos_b_dt)[0, 0])
+    los_rate = (los_alt_dt - los_alt) / dt  # km/s, positive = LoS clearing
 
     los_clear = los_alt >= ATMOSPHERE_EXCLUSION_ZONE_KM
 
     # ─────────────────────────────────────────────
     # Constraint checks
     # ─────────────────────────────────────────────
-
     ok_ab = (
         rec_a.el_min_deg <= el_ab <= rec_a.el_max_deg
         and az_rel_ab <= rec_a.az_max_deg
-        and range_ab_val <= rec_a.range_max_km
+        and range_val <= rec_a.range_max_km
         and omega_ab <= rec_a.max_angular_velocity_deg_s
         and los_clear
     )
@@ -630,64 +672,104 @@ def _check_pair_feasibility(
     ok_ba = (
         rec_b.el_min_deg <= el_ba <= rec_b.el_max_deg
         and az_rel_ba <= rec_b.az_max_deg
-        and range_ab_val <= rec_b.range_max_km
+        and range_val <= rec_b.range_max_km
         and omega_ba <= rec_b.max_angular_velocity_deg_s
         and los_clear
     )
 
     # ─────────────────────────────────────────────
-    # Recovery time
+    # Recovery time helper (defined locally, uses closure EPS)
+    #
+    # Bug fix #1: omega term added.
+    # Bug fix #2: signed rates used for el, az_rel, range, los.
     # ─────────────────────────────────────────────
-
     def compute_recovery_time(
-        el,
-        el_rate,
-        el_min,
-        el_max,
-        az_rel,
-        az_rate,
-        az_max,
-        range_val,
-        range_rate,
-        range_max,
-        los_alt,
-        los_rate,
-        los_threshold,
-    ):
-        # Elevation
-        if el < el_min:
-            t_el = (el_min - el) / (el_rate + EPS) if el_rate > 0 else np.inf
-        elif el > el_max:
-            t_el = (el - el_max) / (-el_rate + EPS) if el_rate < 0 else np.inf
+        el_: float,
+        el_rate_signed: float,
+        el_min: float,
+        el_max: float,
+        az_rel_: float,
+        az_rel_rate_signed: float,
+        az_max: float,
+        rng: float,
+        rng_rate_signed: float,
+        rng_max: float,
+        los_alt_: float,
+        los_rate_signed: float,
+        los_threshold: float,
+        omega_: float,
+        omega_max: float,
+    ) -> float:
+        # --- Elevation -------------------------------------------------------
+        # Need el to move back inside [el_min, el_max].
+        if el_ < el_min:
+            # Elevation must increase (el_rate > 0).
+            t_el = (
+                (el_min - el_) / (el_rate_signed + EPS)
+                if el_rate_signed > 0
+                else np.inf
+            )
+        elif el_ > el_max:
+            # Elevation must decrease (el_rate < 0).
+            t_el = (
+                (el_ - el_max) / (-el_rate_signed + EPS)
+                if el_rate_signed < 0
+                else np.inf
+            )
         else:
             t_el = 0.0
 
-        # Azimuth
-        if az_rel > az_max:
-            t_az = (az_rel - az_max) / (-az_rate + EPS) if az_rate < 0 else np.inf
+        # --- Azimuth deviation -----------------------------------------------
+        # Need az_rel to decrease toward az_max (az_rel_rate must be negative).
+        if az_rel_ > az_max:
+            t_az = (
+                (az_rel_ - az_max) / (-az_rel_rate_signed + EPS)
+                if az_rel_rate_signed < 0
+                else np.inf
+            )
         else:
             t_az = 0.0
 
-        # Range
-        if range_val > range_max:
+        # --- Range -----------------------------------------------------------
+        # Need range to decrease back inside rng_max (rng_rate must be negative).
+        if rng > rng_max:
             t_range = (
-                (range_val - range_max) / (-range_rate + EPS)
-                if range_rate < 0
+                (rng - rng_max) / (-rng_rate_signed + EPS)
+                if rng_rate_signed < 0
                 else np.inf
             )
         else:
             t_range = 0.0
 
-        # LoS
-        if los_alt < los_threshold:
-            if los_rate > 0:
-                t_los = (los_threshold - los_alt) / (los_rate + EPS)
-            else:
-                t_los = np.inf
+        # --- Line-of-sight ---------------------------------------------------
+        # Need los_alt to rise above threshold (los_rate must be positive).
+        if los_alt_ < los_threshold:
+            t_los = (
+                (los_threshold - los_alt_) / (los_rate_signed + EPS)
+                if los_rate_signed > 0
+                else np.inf
+            )
         else:
             t_los = 0.0
 
-        return max(t_el, t_az, t_range, t_los)
+        # --- Angular velocity (Bug fix #1) -----------------------------------
+        # ω ≈ v_⊥ / r where v_⊥ ≈ ω · r is approximately constant at flyby
+        # scale.  Recovery range: r_rec = r · (ω / ω_max).
+        # Time to reach it:  t_ω = r · (ω/ω_max - 1) / range_rate
+        # Only valid when satellites are SEPARATING (rng_rate > 0); if they
+        # are still closing, ω will only get worse → inf is honest.
+        if omega_ > omega_max:
+            if rng_rate_signed > 0:
+                t_omega = max(
+                    rng * (omega_ / (omega_max + EPS) - 1.0) / (rng_rate_signed + EPS),
+                    0.0,
+                )
+            else:
+                t_omega = np.inf
+        else:
+            t_omega = 0.0
+
+        return max(t_el, t_az, t_range, t_los, t_omega)
 
     if not (ok_ab and ok_ba):
         t_rec_ab = compute_recovery_time(
@@ -696,14 +778,16 @@ def _check_pair_feasibility(
             rec_a.el_min_deg,
             rec_a.el_max_deg,
             az_rel_ab,
-            az_rate_ab,
+            az_rel_rate_ab,
             rec_a.az_max_deg,
-            range_ab_val,
-            range_rate_ab,
+            range_val,
+            range_rate,
             rec_a.range_max_km,
             los_alt,
             los_rate,
             ATMOSPHERE_EXCLUSION_ZONE_KM,
+            omega_ab,
+            rec_a.max_angular_velocity_deg_s,
         )
 
         t_rec_ba = compute_recovery_time(
@@ -712,18 +796,19 @@ def _check_pair_feasibility(
             rec_b.el_min_deg,
             rec_b.el_max_deg,
             az_rel_ba,
-            az_rate_ba,
+            az_rel_rate_ba,
             rec_b.az_max_deg,
-            range_ab_val,
-            range_rate_ba,
+            range_val,
+            range_rate,
             rec_b.range_max_km,
             los_alt,
             los_rate,
             ATMOSPHERE_EXCLUSION_ZONE_KM,
+            omega_ba,
+            rec_b.max_angular_velocity_deg_s,
         )
 
         t_recover = max(t_rec_ab, t_rec_ba)
-
         return False, float("inf"), float(t_recover)
 
     return True, az_rel_ab + az_rel_ba, 0.0
@@ -737,7 +822,14 @@ def _rec_to_possible_link(
     temporary_unavailable: bool = False,
     estimated_recover_time: float | None = None,
 ) -> PossibleOpticalLink:
-    """Build a full PossibleOpticalLink from two records. Called only for winners."""
+    """
+    Build a full PossibleOpticalLink from two records.
+    Called only from compute_OISL_feasibility_for_terminal_pair (single-pair path).
+
+    Flags reflect actual constraint state in both the feasible and infeasible
+    (temporary_unavailable) cases.  Bug fix #4 applied: flag_azimuth uses the
+    boresight-relative deviation, not the raw LVLH azimuth.
+    """
     pos_a = rec_a.position_km.reshape(1, 3)
     vel_a = rec_a.velocity_km_s.reshape(1, 3)
     pos_b = rec_b.position_km.reshape(1, 3)
@@ -774,7 +866,30 @@ def _rec_to_possible_link(
     omega_ba = float(np.sqrt(az_rate_ba[0, 0] ** 2 + el_rate_ba[0, 0] ** 2))
 
     los_min_altitude = _compute_los_min_altitude(pos_a, pos_b)
-    los_clear = los_min_altitude >= ATMOSPHERE_EXCLUSION_ZONE_KM
+    los_clear = bool(los_min_altitude[0, 0] >= ATMOSPHERE_EXCLUSION_ZONE_KM)
+
+    # Bug fix #4: boresight-relative azimuth for flags
+    az_rel_ab_val = abs(_az_relative(float(az_ab[0, 0]), rec_a.boresight_az_deg))
+    az_rel_ba_val = abs(_az_relative(float(az_ba[0, 0]), rec_b.boresight_az_deg))
+
+    # Compute actual per-constraint flags (correct for both feasible and infeasible cases)
+    flag_el_ab = bool(rec_a.el_min_deg <= float(el_ab[0, 0]) <= rec_a.el_max_deg)
+    flag_az_ab = bool(az_rel_ab_val <= rec_a.az_max_deg)
+    flag_range_ab = bool(float(range_ab[0, 0]) <= rec_a.range_max_km)
+    flag_omega_ab = bool(omega_ab <= rec_a.max_angular_velocity_deg_s)
+
+    flag_el_ba = bool(rec_b.el_min_deg <= float(el_ba[0, 0]) <= rec_b.el_max_deg)
+    flag_az_ba = bool(az_rel_ba_val <= rec_b.az_max_deg)
+    flag_range_ba = bool(float(range_ab[0, 0]) <= rec_b.range_max_km)
+    flag_omega_ba = bool(omega_ba <= rec_b.max_angular_velocity_deg_s)
+
+    flag_overall_ab = (
+        flag_el_ab and flag_az_ab and flag_range_ab and flag_omega_ab and los_clear
+    )
+    flag_overall_ba = (
+        flag_el_ba and flag_az_ba and flag_range_ba and flag_omega_ba and los_clear
+    )
+    flag_bidir = flag_overall_ab and flag_overall_ba
 
     return PossibleOpticalLink(
         satellite_a=rec_a.terminal.host_satellite,
@@ -785,16 +900,16 @@ def _rec_to_possible_link(
             elevation_angle_degree=float(el_ab[0, 0]),
             azimuth_angle_degree=float(az_ab[0, 0]),
             range_distance_km=float(range_ab[0, 0]),
-            range_rate=float(range_rate_ab),
+            range_rate=float(range_rate_ab[0, 0]),
             angular_velocity_rate_degree_per_second=omega_ab,
-            flag_elevation=True,
-            flag_azimuth=True,
-            flag_range=True,
-            flag_angular_velocity=True,
-            flag_overall=True,
-            flag_bidirectional=True,
-            los_min_altitude_km=float(los_min_altitude),
-            los_clear=bool(los_clear),
+            flag_elevation=flag_el_ab,
+            flag_azimuth=flag_az_ab,
+            flag_range=flag_range_ab,
+            flag_angular_velocity=flag_omega_ab,
+            flag_overall=flag_overall_ab,
+            flag_bidirectional=flag_bidir,
+            los_min_altitude_km=float(los_min_altitude[0, 0]),
+            los_clear=los_clear,
         ),
         constraint_b_to_a=OpticISLVisibilityConstraintResult(
             elevation_angle_degree=float(el_ba[0, 0]),
@@ -802,16 +917,16 @@ def _rec_to_possible_link(
             range_distance_km=float(range_ab[0, 0]),
             range_rate=float(range_rate_ba[0, 0]),
             angular_velocity_rate_degree_per_second=omega_ba,
-            flag_elevation=True,
-            flag_azimuth=True,
-            flag_range=True,
-            flag_angular_velocity=True,
-            flag_overall=True,
-            flag_bidirectional=True,
-            los_min_altitude_km=float(los_min_altitude),
-            los_clear=bool(los_clear),
+            flag_elevation=flag_el_ba,
+            flag_azimuth=flag_az_ba,
+            flag_range=flag_range_ba,
+            flag_angular_velocity=flag_omega_ba,
+            flag_overall=flag_overall_ba,
+            flag_bidirectional=flag_bidir,
+            los_min_altitude_km=float(los_min_altitude[0, 0]),
+            los_clear=los_clear,
         ),
-        bidirectional_possible=True,
+        bidirectional_possible=flag_bidir,
         selection_score=score,
         temporary_unavailable=temporary_unavailable,
         estimated_recover_time=estimated_recover_time,
@@ -819,7 +934,7 @@ def _rec_to_possible_link(
 
 
 # =========================================================================
-# PUBLIC API - feasibility check for one specific terminal pair
+# PUBLIC API — feasibility check for one specific terminal pair
 # =========================================================================
 
 
@@ -886,7 +1001,7 @@ def compute_OISL_feasibility_for_terminal_pair(
 
 
 # =========================================================================
-# PUBLIC API 6 — inter-shell assignment from terminal pools. We filter with a balltree
+# PUBLIC API — inter-shell assignment from terminal pools (with range filter)
 # =========================================================================
 
 
@@ -908,17 +1023,12 @@ def compute_OISL_links_from_terminal_pools_filtered(
 
     n1, n2 = len(terminals_group_1), len(terminals_group_2)
 
-    # Single ECI cache
     cache = _EciCache()
     cache.warm([t.host_satellite for t in terminals_group_1 + terminals_group_2])
 
-    # Build flat records
     records_1 = _build_terminal_records_from_pool(terminals_group_1, cache)
     records_2 = _build_terminal_records_from_pool(terminals_group_2, cache)
 
-    # -----------------------------------------------------------------------
-    # Full vectorised constraint computation — ONE batch, no Python loop
-    # -----------------------------------------------------------------------
     (
         el_12,
         az_12,
@@ -945,7 +1055,7 @@ def compute_OISL_links_from_terminal_pools_filtered(
         duration_2_ok,
     ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
 
-    # Apply range pre-filter and cross-shell mask as numpy arrays
+    # Range pre-filter and cross-shell mask
     range_ok = range_12 <= maximum_range_to_filter_in_km  # (N, M)
     same_shell = np.array(
         [
@@ -961,49 +1071,43 @@ def compute_OISL_links_from_terminal_pools_filtered(
 
     candidate = bidirectional & range_ok & duration_ok & ~same_shell  # (N, M)
 
-    score_matrix = (
-        alignment_score
-        if selection_strategy == "best_alignment"
-        else (
-            omega_total_12
-            if selection_strategy == "best_angular_velocity"
-            else (
-                -estimated_duration  # negative: argmin → longest duration
-                if selection_strategy == "estimated_link_duration"
-                else range_12
-            )
-        )
-    )
+    # Build raw score matrix (lower = better for all strategies)
+    if selection_strategy == "best_alignment":
+        score_matrix = alignment_score
+    elif selection_strategy == "best_angular_velocity":
+        score_matrix = omega_total_12
+    elif selection_strategy == "shortest_range":
+        score_matrix = range_12
+    else:  # "estimated_link_duration"
+        score_matrix = -estimated_duration  # negate: argmin → longest duration
 
-    # Replace non-candidates with inf so argmin ignores them
-    # score_masked = np.where(candidate, score_matrix, np.inf)  # (N, M)
-    score_masked = np.where(
-        candidate,
-        (
-            score_matrix
-            if selection_strategy != "estimated_link_duration"
-            else np.where(estimated_duration_12 > 0, -estimated_duration_12, np.inf)
-        ),
-        np.inf,
-    )
+    # Bug fix #5: use combined estimated_duration (min of both directions),
+    # not estimated_duration_12 alone, so that tighter constraints on the
+    # group-2 terminal are fully reflected in the selection score.
+    if selection_strategy == "estimated_link_duration":
+        score_masked = np.where(
+            candidate,
+            np.where(estimated_duration > 0, -estimated_duration, np.inf),
+            np.inf,
+        )
+    else:
+        score_masked = np.where(candidate, score_matrix, np.inf)
 
     # -----------------------------------------------------------------------
-    # Greedy assignment — group 1 priority, one terminal → one connection
-    # Pure numpy indexing, no Python feasibility loop
+    # Greedy assignment — group 1 priority, one terminal → one connection.
+    # Pure numpy indexing, no Python feasibility loop.
     # -----------------------------------------------------------------------
     booked_j: set[int] = set()
     results: list[PossibleOpticalLink] = []
 
     for i in range(n1):
         row = score_masked[i].copy()
-
-        # Mask already booked group-2 terminals
         for j in booked_j:
             row[j] = np.inf
 
         best_j = int(np.argmin(row))
         if row[best_j] == np.inf:
-            continue  # no feasible candidate for this terminal
+            continue
 
         results.append(
             _make_possible_link(
@@ -1040,7 +1144,7 @@ def compute_OISL_links_from_terminal_pools_filtered(
 
 
 # =========================================================================
-# PUBLIC API 6 — inter-shell assignment from terminal pools. No filter
+# PUBLIC API — inter-shell assignment from terminal pools (no range filter)
 # =========================================================================
 
 
@@ -1140,10 +1244,11 @@ def compute_OISL_links_from_terminal_pools(
                 float(score_matrix[i, best_j]),
                 i,
                 best_j,
+                estimated_duration_12,
+                estimated_duration_21,
             )
         )
         booked_j.add(best_j)
 
     results.sort(key=lambda x: x.selection_score)
-
     return results
