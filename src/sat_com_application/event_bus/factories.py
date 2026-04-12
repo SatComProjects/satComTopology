@@ -170,6 +170,7 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
                 link.destination_constraint, "angular_velocity_rate_degree_per_second"
             ),
             distance_km=_constraint_field(link.source_constraint, "range_distance_km"),
+            range_rate=_constraint_field(link.source_constraint, "range_rate"),
             los_min_altitude_km=_constraint_field(
                 link.source_constraint, "los_min_altitude_km"
             ),
