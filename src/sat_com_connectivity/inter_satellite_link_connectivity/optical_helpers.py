@@ -370,11 +370,28 @@ def _compute_constraint_matrices(
     #   Previous formula: t_ω = r · (1 − ω/ω_max) / (−ṙ)
     #   assumed constant range_rate, which over-predicts how quickly ω grows
     #   for crossing-orbit pairs.  For two satellites on different orbital
-    #   planes their closest approach distance r_cpa is fixed by the geometry:
-    #       r_cpa = |Δr × Δv| / |Δv|
-    #   If r_cpa > r_crit = ω · r / ω_max, the satellites will never get
-    #   close enough for ω to reach ω_max → t_ω = inf.  Only when r_cpa <
-    #   r_crit (a genuine flyby threat) do we emit a finite estimate.
+    #   NOTE on the CPA guard (removed in fix #7):
+    #   A previous version added a linear-motion CPA guard here to avoid
+    #   emitting finite t_ω for pairs that never get close enough to spike ω.
+    #   That guard used r_cpa = |Δr×Δv|/|Δv|, which is only valid for
+    #   straight-line motion over short timescales.  When satellites are
+    #   thousands of km apart, the orbital curvature over the next
+    #   several hundred seconds makes the linear r_cpa wildly wrong —
+    #   typically 10–15× larger than the true CPA (see link 7d061f61:
+    #   linear r_cpa=2070 km vs actual CPA ≈150 km, r_crit=209 km).
+    #   The guard therefore incorrectly sets t_ω=inf for pairs that
+    #   genuinely will spike ω, which is far more harmful to terminal
+    #   selection than a conservative underestimate.
+    #
+    #   The simple formula t_ω = (r − r_crit) / (−ṙ) is used instead.
+    #   It overestimates by ≤~50% because |ṙ| grows as satellites
+    #   approach (conservative), but it is always finite for a truly
+    #   converging pair and never produces the 4–6× over-estimate
+    #   that the broken CPA guard caused.
+    #
+    #   The CPA-aware formula (fix #6) is KEPT in _check_pair_feasibility
+    #   because that function is called at update ticks when satellites
+    #   are already close and the linear approximation is valid.
 
     dt = angular_velocity_dt_seconds
 
@@ -392,17 +409,6 @@ def _compute_constraint_matrices(
         np.inf,
     )  # (N, M); symmetric — same chord for both directions
 
-    # ── CPA distance (N, M) — shared by both ω estimates ──────────────────
-    # Relative position / velocity in ECI
-    rel_pos = pos_2[np.newaxis, :, :] - pos_1[:, np.newaxis, :]  # (N, M, 3)
-    rel_vel = vel_2[np.newaxis, :, :] - vel_1[:, np.newaxis, :]  # (N, M, 3)
-
-    rel_vel_mag = np.linalg.norm(rel_vel, axis=2)  # (N, M)
-    cross_rv = np.cross(rel_pos, rel_vel)  # (N, M, 3)
-    r_cpa = np.linalg.norm(cross_rv, axis=2) / np.where(
-        rel_vel_mag > 0, rel_vel_mag, 1.0
-    )  # (N, M) km — closest approach for linear motion
-
     # ── Margins ─────────────────────────────────────────────────────────────
     el_margin_12 = np.minimum(el_12 - el_min_1, el_max_1 - el_12)  # (N, M) deg
     az_margin_12 = az_max_1 - az_rel_12  # (N, M) deg
@@ -415,19 +421,14 @@ def _compute_constraint_matrices(
         np.inf,  # closing link — range constraint will not be hit
     )
 
-    # Fix B direction 1→2: finite t_ω only when CPA will actually breach r_crit
+    # Fix #7 direction 1→2: simple conservative t_ω, no CPA guard.
+    # r_crit = ω·r/ω_max (range where ω = ω_max, assuming v_⊥ ≈ const).
+    # t_ω = (r − r_crit) / (−ṙ) — always finite for a closing pair.
     safe_omega_max_1 = np.where(omega_max_1 > 0, omega_max_1, 1.0)
     r_crit_12 = omega_total_12 * range_12 / safe_omega_max_1  # (N, M) km
     t_omega_12 = np.where(
-        (range_rate_12 < 0)
-        & (omega_total_12 < omega_max_1)
-        & (r_cpa < r_crit_12),  # CPA guard — skip if never close enough
-        np.maximum(
-            range_12
-            * (1.0 - omega_total_12 / safe_omega_max_1)
-            / (-range_rate_12 + _EPS),
-            0.0,
-        ),
+        (range_rate_12 < 0) & (omega_total_12 < omega_max_1),
+        np.maximum(range_12 - r_crit_12, 0.0) / (-range_rate_12 + _EPS),
         np.inf,
     )
 
@@ -442,19 +443,12 @@ def _compute_constraint_matrices(
         np.inf,
     )
 
-    # Fix B direction 2→1
+    # Fix #7 direction 2→1
     safe_omega_max_2 = np.where(omega_max_2 > 0, omega_max_2, 1.0)
     r_crit_21 = omega_total_21 * range_12.T / safe_omega_max_2  # (M, N) km
     t_omega_21 = np.where(
-        (range_rate_21 < 0)
-        & (omega_total_21 < omega_max_2)
-        & (r_cpa.T < r_crit_21),  # CPA guard (r_cpa is symmetric)
-        np.maximum(
-            range_12.T
-            * (1.0 - omega_total_21 / safe_omega_max_2)
-            / (-range_rate_21 + _EPS),
-            0.0,
-        ),
+        (range_rate_21 < 0) & (omega_total_21 < omega_max_2),
+        np.maximum(range_12.T - r_crit_21, 0.0) / (-range_rate_21 + _EPS),
         np.inf,
     )
 
