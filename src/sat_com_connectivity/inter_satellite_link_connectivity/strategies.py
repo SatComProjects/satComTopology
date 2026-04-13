@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import timedelta
+from math import isfinite
 from typing import cast
 
 from pydantic import Field
@@ -266,8 +267,12 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                             link=terminal.link,
                             constraint_a_to_b=result.constraint_a_to_b,
                             constraint_b_to_a=result.constraint_b_to_a,
-                            recovery_time=now
-                            + timedelta(seconds=estimated_recover_time),
+                            recovery_time=(
+                                now + timedelta(seconds=estimated_recover_time)
+                                if estimated_recover_time is not None
+                                and isfinite(estimated_recover_time)
+                                else None
+                            ),
                             temporary_unavailable=True,
                         )
                     )
