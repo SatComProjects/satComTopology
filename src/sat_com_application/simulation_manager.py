@@ -1376,7 +1376,7 @@ class SimulationManager:
 
         for obsolete_link in update_result.obsolete_links:
             self.remove_inter_satellite_link(
-                obsolete_link.link, AssociationState(**update_result.model_dump())
+                obsolete_link.link, AssociationState(**obsolete_link.model_dump())
             )
 
         for updated_link in update_result.updated_links:
