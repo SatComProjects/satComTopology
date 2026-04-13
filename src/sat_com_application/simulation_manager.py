@@ -1376,7 +1376,19 @@ class SimulationManager:
 
         for obsolete_link in update_result.obsolete_links:
             self.remove_inter_satellite_link(
-                obsolete_link.link, AssociationState(**obsolete_link.model_dump())
+                obsolete_link.link,
+                AssociationState(
+                    optical_constraint_a_to_b=OpticalConstraint(
+                        **obsolete_link.constraint_a_to_b.model_dump()
+                    ),
+                    optical_constraint_b_to_a=OpticalConstraint(
+                        **obsolete_link.constraint_b_to_a.model_dump()
+                    ),
+                    satellite_a=obsolete_link.satellite_a,
+                    satellite_b=obsolete_link.satellite_b,
+                    temporary_unavailable=obsolete_link.temporary_unavailable,
+                    recovery_time=obsolete_link.recovery_time,
+                ),
             )
 
         for updated_link in update_result.updated_links:
