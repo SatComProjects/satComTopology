@@ -210,6 +210,8 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                                     constraint_a_to_b=result.constraint_a_to_b,
                                     constraint_b_to_a=result.constraint_b_to_a,
                                     temporary_unavailable=True,
+                                    recovery_time=now
+                                    + timedelta(seconds=estimated_recover_time),
                                 )
                             )
                             unassigned_pool.append(terminal)
@@ -264,6 +266,9 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                             link=terminal.link,
                             constraint_a_to_b=result.constraint_a_to_b,
                             constraint_b_to_a=result.constraint_b_to_a,
+                            recovery_time=now
+                            + timedelta(seconds=estimated_recover_time),
+                            temporary_unavailable=True,
                         )
                     )
                     unassigned_pool.append(terminal)
