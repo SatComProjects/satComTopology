@@ -269,8 +269,11 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                             constraint_b_to_a=result.constraint_b_to_a,
                             recovery_time=(
                                 now + timedelta(seconds=estimated_recover_time)
-                                if estimated_recover_time is not None
-                                and isfinite(estimated_recover_time)
+                                if (
+                                    now is not None
+                                    and estimated_recover_time is not None
+                                    and isfinite(estimated_recover_time)
+                                )
                                 else None
                             ),
                             temporary_unavailable=True,
