@@ -11,7 +11,7 @@ class AssociationState(BaseModel):
     satellite_a: Satellite | None = Field(default=None)
     satellite_b: Satellite | None = Field(default=None)
     temporary_unavailable: bool | None = Field(default=None)
-    recovery_time: datetime.datetime = Field(default=None)
+    recovery_time: datetime.datetime | None = Field(default=None)
 
     def __has_optical_constraints(self) -> bool:
         return (
