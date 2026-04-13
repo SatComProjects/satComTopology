@@ -10,6 +10,7 @@ from sat_com_application.event_bus.events import (
     Event,
 )
 from sat_com_application.event_bus.factories import EventFactories
+from sat_com_application.models import AssociationState
 from sat_com_application.time_managers import SimulationTimeManager
 from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
     GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
@@ -653,9 +654,14 @@ class SimulationManager:
             self.event_factories.gsl_event_factory.removed(ground_station_link)
         )
 
-    def remove_inter_satellite_link(self, inter_satellite_link: InterSatelliteLink):
+    def remove_inter_satellite_link(
+        self,
+        inter_satellite_link: InterSatelliteLink,
+        association_state: AssociationState = None,
+    ):
         """
         Remove an Inter satellite  link
+        :param association_state:
         :param inter_satellite_link: Inter satellite Link to remove
         :return:
         """
@@ -667,6 +673,20 @@ class SimulationManager:
         inter_satellite_link.destination.links.remove(inter_satellite_link)
 
         self.simulation.inter_satellite_links.remove(inter_satellite_link)
+
+        # Update information to notify the link status
+        if association_state is not None:
+            source_constraint, destination_constraint = (
+                association_state.get_link_source_and_destination_optical_constraint_ordered(
+                    inter_satellite_link
+                )
+            )
+            inter_satellite_link.source_constraint = source_constraint
+            inter_satellite_link.destination_constraint = destination_constraint
+            inter_satellite_link.temporary_unavailable = (
+                association_state.temporary_unavailable
+            )
+            inter_satellite_link.recovery_time = association_state.recovery_time
 
         self.__publish_event(
             self.event_factories.isl_event_factory.removed(inter_satellite_link)
@@ -1355,7 +1375,9 @@ class SimulationManager:
         update_result = self.inter_satellite_link_connection_strategy.compute_strategy()
 
         for obsolete_link in update_result.obsolete_links:
-            self.remove_link(obsolete_link.link)
+            self.remove_inter_satellite_link(
+                obsolete_link.link, AssociationState(**update_result.model_dump())
+            )
 
         for updated_link in update_result.updated_links:
             self.update_inter_satellite_link(
