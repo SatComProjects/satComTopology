@@ -98,8 +98,24 @@ class ISLRemovedEvent(Event):
     satellite_b_id: int
 
     direction: str | None = None
+    distance_km: float | None = None
+
     terminal_a_id: str | None = None
     terminal_b_id: str | None = None
+
+    azimuth_a_deg: float | None = None
+    elevation_a_deg: float | None = None
+    angular_velocity_a_deg_s: float | None = None
+    range_rate: float | None = None
+
+    los_min_altitude_km: float | None = None
+
+    azimuth_b_deg: float | None = None
+    elevation_b_deg: float | None = None
+    angular_velocity_b_deg_s: float | None = None
+
+    temporary_unavailable: bool | None = None
+    recovery_time: datetime | None = None
 
 
 # -------------------------

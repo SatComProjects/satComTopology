@@ -166,8 +166,9 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                             terminal_b=peer_terminal,
                             direction=InterSatelliteLinkDirection.INTER_SHELL,
                             link=terminal.link,
-                            constraint_a_to_b=None,
-                            constraint_b_to_a=None,
+                            constraint_a_to_b=result.constraint_a_to_b,
+                            constraint_b_to_a=result.constraint_b_to_a,
+                            temporary_unavailable=True,
                         )
                     )
                     unassigned_pool.append(terminal)
@@ -206,8 +207,9 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                                     terminal_b=peer_terminal,
                                     direction=InterSatelliteLinkDirection.INTER_SHELL,
                                     link=terminal.link,
-                                    constraint_a_to_b=None,
-                                    constraint_b_to_a=None,
+                                    constraint_a_to_b=result.constraint_a_to_b,
+                                    constraint_b_to_a=result.constraint_b_to_a,
+                                    temporary_unavailable=True,
                                 )
                             )
                             unassigned_pool.append(terminal)
@@ -260,8 +262,8 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                             terminal_b=peer_terminal,
                             direction=InterSatelliteLinkDirection.INTER_SHELL,
                             link=terminal.link,
-                            constraint_a_to_b=None,
-                            constraint_b_to_a=None,
+                            constraint_a_to_b=result.constraint_a_to_b,
+                            constraint_b_to_a=result.constraint_b_to_a,
                         )
                     )
                     unassigned_pool.append(terminal)
@@ -399,8 +401,8 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                                 terminal_b=existing_terminal_b,
                                 direction=existing_link.inter_satellite_direction,
                                 link=existing_link,
-                                constraint_a_to_b=None,
-                                constraint_b_to_a=None,
+                                constraint_a_to_b=association.constraint_a_to_b,
+                                constraint_b_to_a=association.constraint_b_to_a,
                             )
                         )
                         ledger.add_new(
