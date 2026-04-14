@@ -62,7 +62,6 @@ def test_that_the_computed_windows_duration_match():
     time_until_disconnection_s = estimate_time_until_disconnection(
         ground_object=ground_station_link.get_ground_station(),
         satellite=ground_station_link.get_satellite(),
-        minimum_elevation=ground_station.ground_object_domain.elevation_above_horizon,
     )
 
     t = simulation_manager.time_manager.current_time
@@ -180,7 +179,6 @@ def test_that_ten_consecutive_handovers_match_predicted_disconnection_times():
         time_until_disconnection_s = estimate_time_until_disconnection(
             ground_object=ground_station_link.get_ground_station(),
             satellite=current_satellite,
-            minimum_elevation=ground_station.ground_object_domain.elevation_above_horizon,
         )
         print(f"Predicted disconnection in: {time_until_disconnection_s:.3f}s")
 
