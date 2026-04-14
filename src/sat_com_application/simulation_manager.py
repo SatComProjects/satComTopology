@@ -1294,12 +1294,12 @@ class SimulationManager:
         This method will delete all user terminals links and will create new ones according to the current strategy
         :return:
         """
-        walker_satellites = self.get_walker_shell_satellites()
+        satellites = self.get_satellites()
 
         for terminal in self.get_user_terminals():
             update_response = self.ground_to_space_connection_strategies.get(
                 terminal.ground_object_domain.ground_to_space_connections_strategy
-            ).compute_ground_object_connection_strategy(terminal, walker_satellites)
+            ).compute_ground_object_connection_strategy(terminal, satellites)
 
             for link in update_response.obsolete_links:
                 self.remove_link(link)
@@ -1329,15 +1329,13 @@ class SimulationManager:
         This method will delete all ground station links and will create new ones according to the current strategy
         :return:
         """
-        walker_satellites = self.get_walker_shell_satellites()
+        satellites = self.get_satellites()
 
         for ground_station in self.get_ground_stations():
-            update_response: (
-                ComputedGroundObjectConnectionsResult
-            ) = self.ground_to_space_connection_strategies.get(
-                ground_station.ground_object_domain.ground_to_space_connections_strategy
-            ).compute_ground_object_connection_strategy(
-                ground_station, walker_satellites
+            update_response: ComputedGroundObjectConnectionsResult = (
+                self.ground_to_space_connection_strategies.get(
+                    ground_station.ground_object_domain.ground_to_space_connections_strategy
+                ).compute_ground_object_connection_strategy(ground_station, satellites)
             )
 
             for link in update_response.obsolete_links:
