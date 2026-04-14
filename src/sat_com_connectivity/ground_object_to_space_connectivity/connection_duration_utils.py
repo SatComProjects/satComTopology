@@ -95,7 +95,6 @@ def _elevation_rate(
 def estimate_time_until_disconnection(
     ground_object: GroundObject,
     satellite: Satellite,
-    minimum_elevation: float = 10.0,
     tol: float = 0.1,
     max_time: float = 3600.0,
 ) -> float:
@@ -122,6 +121,8 @@ def estimate_time_until_disconnection(
         :param satellite:
         :param ground_object:
     """
+    minimum_elevation = ground_object.ground_object_domain.elevation_above_horizon
+
     now = satellite.get_movement_model().get_datetime()
 
     gnd_lat, gnd_lon, gnd_alt = (
