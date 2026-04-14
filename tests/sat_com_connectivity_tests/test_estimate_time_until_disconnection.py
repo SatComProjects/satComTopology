@@ -14,6 +14,7 @@ MODULE = (
 
 def make_fake_ground_object(lat=48.8566, lon=2.3522, alt=0.0):
     gnd = MagicMock()
+    gnd.ground_object_domain.elevation_above_horizon = 10
     gnd.get_coordinates().to_latitude_longitude_altitude.return_value = (lat, lon, alt)
     return gnd
 
@@ -82,7 +83,6 @@ class TestEstimateTimeUntilDisconnectionRaisesErrors:
                 estimate_time_until_disconnection(
                     ground_object=gnd,
                     satellite=sat,
-                    minimum_elevation=10.0,
                 )
 
     def test_error_message_includes_satellite_name_and_current_elevation(self):
@@ -99,7 +99,6 @@ class TestEstimateTimeUntilDisconnectionRaisesErrors:
                 estimate_time_until_disconnection(
                     ground_object=gnd,
                     satellite=sat,
-                    minimum_elevation=10.0,
                 )
             assert "3.50" in str(exc_info.value)
 
@@ -120,7 +119,6 @@ class TestEstimateTimeUntilDisconnectionReturnsMaxTime:
             result = estimate_time_until_disconnection(
                 ground_object=gnd,
                 satellite=sat,
-                minimum_elevation=10.0,
                 max_time=600.0,
             )
 
@@ -141,7 +139,6 @@ class TestEstimateTimeUntilDisconnectionReturnsMaxTime:
             result = estimate_time_until_disconnection(
                 ground_object=gnd,
                 satellite=sat,
-                minimum_elevation=10.0,
                 max_time=600.0,
             )
 
@@ -184,7 +181,6 @@ class TestEstimateTimeUntilDisconnectionDescending:
             result = estimate_time_until_disconnection(
                 ground_object=gnd,
                 satellite=sat,
-                minimum_elevation=10.0,
                 max_time=3600.0,
                 tol=0.1,
             )
@@ -215,7 +211,6 @@ class TestEstimateTimeUntilDisconnectionDescending:
             estimate_time_until_disconnection(
                 ground_object=gnd,
                 satellite=sat,
-                minimum_elevation=10.0,
                 max_time=3600.0,
             )
 
@@ -250,7 +245,6 @@ class TestEstimateTimeUntilDisconnectionAscending:
             result = estimate_time_until_disconnection(
                 ground_object=gnd,
                 satellite=sat,
-                minimum_elevation=10.0,
                 max_time=600.0,
             )
 
@@ -276,7 +270,6 @@ class TestEstimateTimeUntilDisconnectionTolerance:
             result = estimate_time_until_disconnection(
                 ground_object=gnd,
                 satellite=sat,
-                minimum_elevation=10.0,
                 max_time=3600.0,
                 tol=10.0,
             )
@@ -300,6 +293,7 @@ class TestEstimateTimeUntilDisconnectionEdgeCases:
         """minimum_elevation=0 should not raise even at low elevations."""
         sat = make_fake_satellite()
         gnd = make_fake_ground_object()
+        gnd.ground_object_domain.elevation_above_horizon = 0
         sat.get_movement_model().get_longitude_latitude_altitude.return_value = (
             make_fake_spatial_position()
         )
@@ -310,7 +304,6 @@ class TestEstimateTimeUntilDisconnectionEdgeCases:
             result = estimate_time_until_disconnection(
                 ground_object=gnd,
                 satellite=sat,
-                minimum_elevation=0.0,
                 max_time=3600.0,
             )
 
@@ -329,7 +322,6 @@ class TestEstimateTimeUntilDisconnectionEdgeCases:
             result = estimate_time_until_disconnection(
                 ground_object=gnd,
                 satellite=sat,
-                minimum_elevation=10.0,
                 max_time=3600.0,
             )
 
@@ -348,7 +340,6 @@ class TestEstimateTimeUntilDisconnectionEdgeCases:
             result = estimate_time_until_disconnection(
                 ground_object=gnd,
                 satellite=sat,
-                minimum_elevation=10.0,
                 max_time=1800.0,
             )
 

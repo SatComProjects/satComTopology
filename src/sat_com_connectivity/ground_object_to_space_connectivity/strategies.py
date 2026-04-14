@@ -88,7 +88,6 @@ class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
                     "estimated_link_duration": estimate_time_until_disconnection(
                         ground_object=ground_object,
                         satellite=best_visible_satellite.satellite,
-                        minimum_elevation=ground_object.ground_object_domain.elevation_above_horizon,
                         tol=0.100,
                     ),
                 },
@@ -143,7 +142,6 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                             "estimated_link_duration": estimate_time_until_disconnection(
                                 ground_object=ground_object,
                                 satellite=vs.satellite,
-                                minimum_elevation=ground_object.ground_object_domain.elevation_above_horizon,
                                 tol=0.100,
                             ),
                         },
@@ -165,7 +163,6 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                             "estimated_link_duration": estimate_time_until_disconnection(
                                 ground_object=ground_object,
                                 satellite=vs.satellite,
-                                minimum_elevation=ground_object.ground_object_domain.elevation_above_horizon,
                                 tol=0.100,
                             ),
                         },
