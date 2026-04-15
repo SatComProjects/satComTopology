@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import time
 import uuid
 from typing import Callable
 
@@ -165,7 +166,17 @@ class SimulationManager:
 
     def __update(self):
         for update_function in self.update_protocol:
+            t0 = time.perf_counter()
+
             update_function()
+
+            t1 = time.perf_counter()
+            elapsed_ms = (t1 - t0) * 1000
+
+            if self.time_manager and self.time_manager.verbose:
+                print(
+                    f"[Simulation Update Protocol] {update_function.__name__}: {elapsed_ms:.2f} ms"
+                )
 
     def __publish_event(self, event: Event):
         if self.event_bus is None:
