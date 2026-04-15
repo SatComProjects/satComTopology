@@ -124,9 +124,13 @@ class NetworkxBuilder:
         data.update(type=link.type)
 
         if self.enable_export_link_length:
-            distance = self.simulation_manager.simulation.get_distance_model().get_3d_distance_meters(
-                source.spatial_position, destination.spatial_position
-            )
+            if link.distance_km is not None and link.distance_km >= 0:
+                distance = link.distance_km
+            else:
+                distance = self.simulation_manager.simulation.get_distance_model().get_3d_distance_meters(
+                    source.spatial_position, destination.spatial_position
+                )
+
             data.update(distance=distance)
 
         if self.enable_export_flows_data:
