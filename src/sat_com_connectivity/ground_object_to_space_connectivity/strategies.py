@@ -21,8 +21,13 @@ from sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_u
     check_and_update_elevation_if_satellite_is_visible,
     get_best_satellites_among_visible_satellites,
 )
-from sat_com_model.models import Satellite, GroundObject, GroundToSpaceLink
+from sat_com_model.models import (
+    Satellite,
+    GroundObject,
+    GroundToSpaceLink,
+)
 from sat_com_trajectopy.angle_utils import get_elevation_angle
+from sat_com_trajectopy.distance_models import SkLearningDistanceModel
 
 
 class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrategy):
@@ -84,6 +89,10 @@ class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
                 ground_object=ground_object,
                 satellite=best_visible_satellite.satellite,
                 connection_info={
+                    "distance_km": SkLearningDistanceModel().get_3d_distance_meters(
+                        spatial_position_1=ground_object.get_coordinates(),
+                        spatial_position_2=best_visible_satellite.satellite.get_coordinates(),
+                    ),
                     "elevation_above_horizon": best_visible_satellite.elevation_above_horizon,
                     "estimated_link_duration": estimate_time_until_disconnection(
                         ground_object=ground_object,
@@ -100,6 +109,15 @@ class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
 class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
     strategy_name = "everything-visible"
     description = "Connect to all visible satellites. Do not maintain connectivity, recomputed each timestep."
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        try:
+            self.distance_model = kwargs.get("distance_model", None)
+            if self.distance_model is None:
+                self.distance_model = SkLearningDistanceModel()
+        except KeyError:
+            raise ValueError("Missing required parameter: distance_model")
 
     def compute_ground_object_connection_strategy(
         self,
@@ -138,6 +156,10 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                 computed_ground_object_connections_result.updated_links.append(
                     GroundToSpaceUpdate(
                         connection_info={
+                            "distance_km": self.distance_model.get_3d_distance_meters(
+                                spatial_position_1=ground_object.get_coordinates(),
+                                spatial_position_2=vs.satellite.get_coordinates(),
+                            ),
                             "elevation_above_horizon": vs.elevation_above_horizon,
                             "estimated_link_duration": estimate_time_until_disconnection(
                                 ground_object=ground_object,
@@ -159,6 +181,10 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                         ground_object=ground_object,
                         satellite=vs.satellite,
                         connection_info={
+                            "distance_km": self.distance_model.get_3d_distance_meters(
+                                spatial_position_1=ground_object.get_coordinates(),
+                                spatial_position_2=vs.satellite.get_coordinates(),
+                            ),
                             "elevation_above_horizon": vs.elevation_above_horizon,
                             "estimated_link_duration": estimate_time_until_disconnection(
                                 ground_object=ground_object,
@@ -179,7 +205,9 @@ class ConnectToEverythingInRangeStrategy(GroundToSpaceConnectionStrategy):
     def __init__(self, **kwargs):
         super().__init__()
         try:
-            self.distance_model = kwargs["distance_model"]
+            self.distance_model = kwargs.get("distance_model", None)
+            if self.distance_model is None:
+                self.distance_model = SkLearningDistanceModel()
         except KeyError:
             raise ValueError("Missing required parameter: distance_model")
 
