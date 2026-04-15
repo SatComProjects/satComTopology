@@ -147,10 +147,12 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                 and isinstance(satellite, Satellite)
             ):
                 vs = visible_satellite_map[satellite.topology_uniq_id]
-                link.estimated_link_duration = estimate_time_until_disconnection(
+                # Calculate duration once and reuse it
+                duration = estimate_time_until_disconnection(
                     ground_object=link.get_ground_object(),
                     satellite=satellite,
                 )
+                link.estimated_link_duration = duration
                 link.elevation_above_horizon_angle = vs.elevation_above_horizon
 
                 computed_ground_object_connections_result.updated_links.append(
@@ -161,11 +163,7 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                                 spatial_position_2=vs.satellite.get_coordinates(),
                             ),
                             "elevation_above_horizon": vs.elevation_above_horizon,
-                            "estimated_link_duration": estimate_time_until_disconnection(
-                                ground_object=ground_object,
-                                satellite=vs.satellite,
-                                tol=0.100,
-                            ),
+                            "estimated_link_duration": duration,
                         },
                         ground_to_space_link=link,
                     )
@@ -173,9 +171,14 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
             else:
                 computed_ground_object_connections_result.obsolete_links.append(link)
 
-        existing_satellites = [link.get_space_object() for link in existing_links]
+        # Use set for O(1) lookup instead of list O(n) lookup
+        existing_satellite_ids = {
+            link.get_space_object().topology_uniq_id
+            for link in existing_links
+            if link.get_space_object() is not None
+        }
         for vs in visible_satellites:
-            if vs.satellite.topology_uniq_id not in existing_satellites:
+            if vs.satellite.topology_uniq_id not in existing_satellite_ids:
                 computed_ground_object_connections_result.new_ground_object_connections.append(
                     GroundToSpaceConnection(
                         ground_object=ground_object,
