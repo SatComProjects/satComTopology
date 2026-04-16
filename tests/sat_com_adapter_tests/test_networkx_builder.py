@@ -61,6 +61,7 @@ class TestNetworkxBuilder:
         mock_link.source = topology_object
         mock_link.destination = topology_object_2
         mock_link.type = "inter_satellite"
+        mock_link.distance_km = 1000
         mock_link.get_used_capacity_between_hops_unidirectional.side_effect = [100, 200]
         mock_link.total_capacity_between_hops_bidirectional.return_value = 300
         mock_link.link_maximum_capacity = 500
