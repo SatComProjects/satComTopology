@@ -21,6 +21,9 @@ from sat_com_connectivity.inter_satellite_link_connectivity.models import (
     InterSatelliteConnectivityResult,
     OpticISLVisibilityConstraintResult,
 )
+from sat_com_connectivity.ground_object_to_space_connectivity.models import (
+    GroundToSpaceConstraints,
+)
 from sat_com_model.models import (
     Satellite,
     GroundStation,
@@ -490,11 +493,11 @@ class TestGSLUpdatedEvent:
         with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
                 ground_to_space_link=link,
-                connection_info={
-                    "elevation_above_horizon_angle": 40.0,
-                    "estimated_link_duration": 500.0,
-                    "distance_km": 800.0,
-                },
+                ground_to_space_constraints=GroundToSpaceConstraints(
+                    elevation_angle_above_horizon=40.0,
+                    estimated_connection_time=500.0,
+                    distance_km=800.0,
+                ),
             )
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -510,7 +513,9 @@ class TestGSLUpdatedEvent:
         with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
                 ground_to_space_link=link,
-                connection_info={"elevation_above_horizon_angle": 55.0},
+                ground_to_space_constraints=GroundToSpaceConstraints(
+                    elevation_angle_above_horizon=55.0
+                ),
             )
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -526,7 +531,9 @@ class TestGSLUpdatedEvent:
         with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
                 ground_to_space_link=link,
-                connection_info={"distance_km": 1200.0},
+                ground_to_space_constraints=GroundToSpaceConstraints(
+                    distance_km=1200.0
+                ),
             )
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -542,7 +549,9 @@ class TestGSLUpdatedEvent:
         with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
                 ground_to_space_link=link,
-                connection_info={"estimated_link_duration": 250.0},
+                ground_to_space_constraints=GroundToSpaceConstraints(
+                    estimated_connection_time=250.0
+                ),
             )
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -558,7 +567,7 @@ class TestGSLUpdatedEvent:
         with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
                 ground_to_space_link=link,
-                connection_info={},
+                ground_to_space_constraints=GroundToSpaceConstraints(),
             )
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -575,7 +584,8 @@ class TestGSLUpdatedEvent:
 
         with patch("asyncio.run", side_effect=capture_run):
             manager.update_ground_station_link(
-                ground_to_space_link=link, connection_info={}
+                ground_to_space_link=link,
+                ground_to_space_constraints=GroundToSpaceConstraints(),
             )
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -606,11 +616,11 @@ class TestUTLUpdatedEvent:
         with patch("asyncio.run", side_effect=capture_run):
             manager.update_user_terminal_link(
                 user_terminal_link=link,
-                connection_info={
-                    "elevation_above_horizon_angle": 30.0,
-                    "estimated_link_duration": 400.0,
-                    "distance_km": 600.0,
-                },
+                ground_to_space_constraints=GroundToSpaceConstraints(
+                    elevation_angle_above_horizon=30.0,
+                    estimated_connection_time=400.0,
+                    distance_km=600.0,
+                ),
             )
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -625,7 +635,8 @@ class TestUTLUpdatedEvent:
 
         with patch("asyncio.run", side_effect=capture_run):
             manager.update_user_terminal_link(
-                user_terminal_link=link, connection_info={}
+                user_terminal_link=link,
+                ground_to_space_constraints=GroundToSpaceConstraints(),
             )
 
         event = manager.event_bus.publish.call_args[0][0]
@@ -641,7 +652,8 @@ class TestUTLUpdatedEvent:
 
         with patch("asyncio.run", side_effect=capture_run):
             manager.update_user_terminal_link(
-                user_terminal_link=link, connection_info={}
+                user_terminal_link=link,
+                ground_to_space_constraints=GroundToSpaceConstraints(),
             )
 
         event = manager.event_bus.publish.call_args[0][0]

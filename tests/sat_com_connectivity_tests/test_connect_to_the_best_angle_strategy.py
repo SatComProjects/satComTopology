@@ -74,7 +74,9 @@ def test_connect_to_the_best_angle_strategy(
     # Check elevation is correctly passed
     for conn in added_connections:
         if conn.satellite.topology_uniq_id == 103:
-            assert conn.connection_info["elevation_above_horizon"] == 60.0
+            assert (
+                conn.ground_to_space_constraints.elevation_angle_above_horizon == 60.0
+            )
 
 
 @patch(
@@ -132,7 +134,7 @@ def test_that_new_satellite_is_picked_even_if_the_former_one_is_still_visible(
     assert len(result.new_ground_object_connections) == 1
     conn = result.new_ground_object_connections[0]
     assert conn.satellite == sat_new2
-    assert conn.connection_info["elevation_above_horizon"] == 50
+    assert conn.ground_to_space_constraints.elevation_angle_above_horizon == 50
 
 
 @patch(
@@ -191,4 +193,4 @@ def test_that_old_satellite_is_picked_even_if_the_former_one_is_still_visible_an
     assert len(result.new_ground_object_connections) == 1
     conn = result.new_ground_object_connections[0]
     assert conn.satellite == sat_old
-    assert conn.connection_info["elevation_above_horizon"] == 60
+    assert conn.ground_to_space_constraints.elevation_angle_above_horizon == 60
