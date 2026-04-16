@@ -140,6 +140,9 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
             link for link in ground_object.links if isinstance(link, GroundToSpaceLink)
         ]
 
+        # Track satellite IDs as we iterate to avoid a second pass through existing_links
+        existing_satellite_ids = set()
+
         for link in existing_links:
             if (
                 (satellite := link.get_space_object())
@@ -168,15 +171,11 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                         ground_to_space_link=link,
                     )
                 )
+                # Track satellite ID during first iteration instead of second pass
+                existing_satellite_ids.add(satellite.topology_uniq_id)
             else:
                 computed_ground_object_connections_result.obsolete_links.append(link)
 
-        # Use set for O(1) lookup instead of list O(n) lookup
-        existing_satellite_ids = {
-            link.get_space_object().topology_uniq_id
-            for link in existing_links
-            if link.get_space_object() is not None
-        }
         for vs in visible_satellites:
             if vs.satellite.topology_uniq_id not in existing_satellite_ids:
                 computed_ground_object_connections_result.new_ground_object_connections.append(
@@ -239,6 +238,9 @@ class ConnectToEverythingInRangeStrategy(GroundToSpaceConnectionStrategy):
             link for link in ground_object.links if isinstance(link, GroundToSpaceLink)
         ]
 
+        # Track satellite IDs as we iterate to avoid a second pass through existing_links
+        existing_satellite_ids = set()
+
         for link in existing_links:
             if (
                 (satellite := link.get_space_object())
@@ -265,14 +267,10 @@ class ConnectToEverythingInRangeStrategy(GroundToSpaceConnectionStrategy):
                         ground_to_space_link=link,
                     )
                 )
+                # Track satellite ID during first iteration instead of second pass
+                existing_satellite_ids.add(satellite.topology_uniq_id)
             else:
                 computed_ground_object_connections_result.obsolete_links.append(link)
-
-        existing_satellite_ids = {
-            link.get_space_object().topology_uniq_id
-            for link in existing_links
-            if link.get_space_object() is not None
-        }
 
         for vs in satellites_in_range:
             if vs.satellite.topology_uniq_id not in existing_satellite_ids:
