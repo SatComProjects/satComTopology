@@ -72,6 +72,10 @@ def test_connect_to_everything_visible_strategy(
     # Check elevation is correctly passed
     for conn in added_connections:
         if conn.satellite.topology_uniq_id == 102:
-            assert conn.connection_info["elevation_above_horizon"] == 45.0
+            assert (
+                conn.ground_to_space_constraints.elevation_angle_above_horizon == 45.0
+            )
         if conn.satellite.topology_uniq_id == 103:
-            assert conn.connection_info["elevation_above_horizon"] == 60.0
+            assert (
+                conn.ground_to_space_constraints.elevation_angle_above_horizon == 60.0
+            )

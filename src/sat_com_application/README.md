@@ -131,18 +131,15 @@ manager.remove_inter_satellite_link(link)
 link = manager.create_and_add_ground_station_link_connection(
     satellite=satellite,
     ground_station=ground_station,
-    elevation_above_horizon_angle=25.0,   # degrees, optional
-    estimated_link_duration=300.0,        # seconds, optional
+    elevation_above_horizon_angle=25.0,  # degrees, optional
+    estimated_link_duration=300.0,  # seconds, optional
 )
 
-manager.update_ground_station_link(
-    ground_to_space_link=link,
-    connection_info={
-        "elevation_above_horizon_angle": 28.5,
-        "estimated_link_duration": 280.0,
-        "distance_km": 850.0,
-    },
-)
+manager.update_ground_station_link(ground_to_space_link=link, ground_to_space_constraints={
+    "elevation_above_horizon_angle": 28.5,
+    "estimated_link_duration": 280.0,
+    "distance_km": 850.0,
+})
 
 manager.remove_ground_station_link(link)
 ```
@@ -159,7 +156,7 @@ link = manager.create_and_add_user_terminal_link_connection(
 
 manager.update_user_terminal_link(
     user_terminal_link=link,
-    connection_info={
+    ground_to_space_constraints={
         "elevation_above_horizon_angle": 18.0,
         "estimated_link_duration": 115.0,
         "distance_km": 1200.0,

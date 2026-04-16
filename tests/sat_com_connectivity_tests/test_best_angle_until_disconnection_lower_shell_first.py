@@ -93,7 +93,7 @@ def test_obsolete_link_then_pick_best(
     assert len(result.new_ground_object_connections) == 1
     conn = result.new_ground_object_connections[0]
     assert conn.satellite == sat_new2
-    assert conn.connection_info["elevation_above_horizon"] == 40
+    assert conn.ground_to_space_constraints.elevation_angle_above_horizon == 40
 
 
 @patch(
@@ -168,9 +168,9 @@ def test_best_satellite_has_highest_elevation(
     assert len(result.new_ground_object_connections) == 1
     assert result.new_ground_object_connections[0].satellite == sat2
     assert (
-        result.new_ground_object_connections[0].connection_info[
-            "elevation_above_horizon"
-        ]
+        result.new_ground_object_connections[
+            0
+        ].ground_to_space_constraints.elevation_angle_above_horizon
         == 45
     )
 
@@ -214,9 +214,9 @@ def test_that_if_two_shells_exists_ground_station_selects_lower_shell(
         # Ensure the satellite from the bigger shell is selected despite lower elevation
         assert result.new_ground_object_connections[0].satellite == sat_low_shell
         assert (
-            result.new_ground_object_connections[0].connection_info[
-                "elevation_above_horizon"
-            ]
+            result.new_ground_object_connections[
+                0
+            ].ground_to_space_constraints.elevation_angle_above_horizon
             == 50
         )
 
@@ -260,8 +260,8 @@ def test_that_if_only_higher_shell_is_visible_it_gets_selected(
         # Ensure the only visible satellite is selected
         assert result.new_ground_object_connections[0].satellite == sat_high_shell
         assert (
-            result.new_ground_object_connections[0].connection_info[
-                "elevation_above_horizon"
-            ]
+            result.new_ground_object_connections[
+                0
+            ].ground_to_space_constraints.elevation_angle_above_horizon
             == 50
         )

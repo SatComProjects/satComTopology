@@ -18,6 +18,7 @@ from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_
 )
 from sat_com_connectivity.ground_object_to_space_connectivity.models import (
     ComputedGroundObjectConnectionsResult,
+    GroundToSpaceConstraints,
 )
 from sat_com_connectivity.inter_satellite_link_connectivity.addressing_plans import (
     StaticAddressingPlan,
@@ -1209,30 +1210,34 @@ class SimulationManager:
         ]
 
     def update_ground_station_link(
-        self, ground_to_space_link: GroundStationLink, connection_info: dict
+        self,
+        ground_to_space_link: GroundStationLink,
+        ground_to_space_constraints: GroundToSpaceConstraints,
     ):
-        ground_to_space_link.estimated_link_duration = connection_info.get(
-            "estimated_link_duration", -1
+        ground_to_space_link.estimated_link_duration = (
+            ground_to_space_constraints.estimated_connection_time or -1
         )
-        ground_to_space_link.elevation_above_horizon_angle = connection_info.get(
-            "elevation_above_horizon_angle", -1
+        ground_to_space_link.elevation_above_horizon_angle = (
+            ground_to_space_constraints.elevation_angle_above_horizon or -1
         )
-        ground_to_space_link.distance_km = connection_info.get("distance_km", -1)
+        ground_to_space_link.distance_km = ground_to_space_constraints.distance_km or -1
 
         self.__publish_event(
             self.event_factories.gsl_event_factory.updated(ground_to_space_link)
         )
 
     def update_user_terminal_link(
-        self, user_terminal_link: UserTerminalLink, connection_info: dict
+        self,
+        user_terminal_link: UserTerminalLink,
+        ground_to_space_constraints: GroundToSpaceConstraints,
     ):
-        user_terminal_link.estimated_link_duration = connection_info.get(
-            "estimated_link_duration", -1
+        user_terminal_link.estimated_link_duration = (
+            ground_to_space_constraints.estimated_connection_time or -1
         )
-        user_terminal_link.elevation_above_horizon_angle = connection_info.get(
-            "elevation_above_horizon_angle", -1
+        user_terminal_link.elevation_above_horizon_angle = (
+            ground_to_space_constraints.elevation_angle_above_horizon or -1
         )
-        user_terminal_link.distance_km = connection_info.get("distance_km", -1)
+        user_terminal_link.distance_km = ground_to_space_constraints.distance_km or -1
 
         self.__publish_event(
             self.event_factories.utl_event_factory.updated(user_terminal_link)
@@ -1319,12 +1324,10 @@ class SimulationManager:
                 self.create_and_add_user_terminal_link_connection(
                     satellite=new_connection.satellite,
                     user_terminal=terminal,
-                    elevation_above_horizon_angle=new_connection.connection_info.get(
-                        "elevation_above_horizon", -1
-                    ),
-                    estimated_link_duration=new_connection.connection_info.get(
-                        "estimated_link_duration", -1
-                    ),
+                    elevation_above_horizon_angle=new_connection.ground_to_space_constraints.elevation_angle_above_horizon
+                    or -1,
+                    estimated_link_duration=new_connection.ground_to_space_constraints.estimated_connection_time
+                    or -1,
                 )
             for updates in update_response.updated_links:
                 if not isinstance(updates.ground_to_space_link, UserTerminalLink):
@@ -1332,7 +1335,7 @@ class SimulationManager:
 
                 self.update_user_terminal_link(
                     user_terminal_link=updates.ground_to_space_link,
-                    connection_info=updates.connection_info,
+                    ground_to_space_constraints=updates.ground_to_space_constraints,
                 )
 
     def __update_ground_station_links_default(self):
@@ -1356,12 +1359,10 @@ class SimulationManager:
                 self.create_and_add_ground_station_link_connection(
                     satellite=new_connection.satellite,
                     ground_station=ground_station,
-                    elevation_above_horizon_angle=new_connection.connection_info.get(
-                        "elevation_above_horizon", -1
-                    ),
-                    estimated_link_duration=new_connection.connection_info.get(
-                        "estimated_link_duration", -1
-                    ),
+                    elevation_above_horizon_angle=new_connection.ground_to_space_constraints.elevation_angle_above_horizon
+                    or -1,
+                    estimated_link_duration=new_connection.ground_to_space_constraints.estimated_connection_time
+                    or -1,
                 )
 
             for updates in update_response.updated_links:
@@ -1370,7 +1371,7 @@ class SimulationManager:
 
                 self.update_ground_station_link(
                     ground_to_space_link=updates.ground_to_space_link,
-                    connection_info=updates.connection_info,
+                    ground_to_space_constraints=updates.ground_to_space_constraints,
                 )
 
     def __update_inter_satellite_links_default(self):
