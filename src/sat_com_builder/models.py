@@ -122,12 +122,31 @@ class GroundConnectivityProperty(BaseModel):
     elevation_above_horizon: float = Field(default=20)
     maximum_satellite_range_distance: float = Field(default=1000)
     maximum_satellite_connected_count: Optional[int] = None
+
+    # Deprecated
     shell_white_lists: list[str] = Field(default_factory=list)
+
+    shells_whitelist: list[str] = Field(default_factory=list)
+
     maximum_connected_satellites: Optional[int] = None
 
     ground_to_space_connections_strategy: str = Field(
         default="best-angle-until-disconnection"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_deprecated_shell_whitelist(cls, data):
+        if not isinstance(data, dict):
+            return data
+
+        old = data.get("shell_white_lists")
+        new = data.get("shells_whitelist")
+
+        if (not new) and old:
+            data["shells_whitelist"] = old
+
+        return data
 
 
 class OrbitalConnectivityProperty(BaseModel):

@@ -1560,3 +1560,6 @@ class SimulationManager:
 
     def add_sso_shell(self, sso_shell: DawnDuskSSOShell):
         self.simulation.down_dusk_sso_shells.append(sso_shell)
+
+    def get_shells(self) -> list[Shell]:
+        return self.get_walker_shells() + self.get_sso_shells()
