@@ -383,8 +383,8 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
                     satellite=closest_satellite,
                     ground_to_space_constraints=GroundToSpaceConstraints(
                         distance_km=self.distance_model.get_3d_distance_meters(
-                            spatial_position_1=ground_object.get_coordinates().to_latitude_longitude_altitude(),
-                            spatial_position_2=ground_object.get_coordinates().to_latitude_longitude_altitude(),
+                            spatial_position_1=ground_object.get_coordinates(),
+                            spatial_position_2=ground_object.get_coordinates(),
                         )
                         / 1000,
                         elevation_angle_above_horizon=get_elevation_angle(
@@ -449,8 +449,8 @@ class ConnectToTheBestAngleStrategy(GroundToSpaceConnectionStrategy):
                 ground_to_space_constraints=GroundToSpaceConstraints(
                     distance_km=(
                         self.distance_model.get_3d_distance_meters(
-                            spatial_position_1=ground_object.get_coordinates().to_latitude_longitude_altitude(),
-                            spatial_position_2=ground_object.get_coordinates().to_latitude_longitude_altitude(),
+                            spatial_position_1=ground_object.get_coordinates(),
+                            spatial_position_2=ground_object.get_coordinates(),
                         )
                         / 1000
                         if self.distance_model
@@ -545,8 +545,8 @@ class ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
                 ground_to_space_constraints=GroundToSpaceConstraints(
                     distance_km=(
                         self.distance_model.get_3d_distance_meters(
-                            spatial_position_1=ground_object.get_coordinates().to_latitude_longitude_altitude(),
-                            spatial_position_2=ground_object.get_coordinates().to_latitude_longitude_altitude(),
+                            spatial_position_1=ground_object.get_coordinates(),
+                            spatial_position_2=ground_object.get_coordinates(),
                         )
                         / 1000
                         if self.distance_model
@@ -637,8 +637,8 @@ class ConnectToBestAngleUntilDisconnectionPreferLowerShellStrategy(
                 ground_to_space_constraints=GroundToSpaceConstraints(
                     distance_km=(
                         self.distance_model.get_3d_distance_meters(
-                            spatial_position_1=ground_object.get_coordinates().to_latitude_longitude_altitude(),
-                            spatial_position_2=ground_object.get_coordinates().to_latitude_longitude_altitude(),
+                            spatial_position_1=ground_object.get_coordinates(),
+                            spatial_position_2=ground_object.get_coordinates(),
                         )
                         / 1000
                         if self.distance_model
