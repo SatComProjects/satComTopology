@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 
 import yaml
@@ -207,13 +208,27 @@ class BaseConfigurationManager(ConfigurationManager):
 
         for ground_object in self.simulation_property.ground_objects_properties:
 
+            if ground_object.connectivity_properties.shells_whitelist is not None:
+                shell_identifiers = [
+                    shell.identifier for shell in simulation_manager.get_shells()
+                ]
+                for (
+                    shell_whitelisted_id
+                ) in ground_object.connectivity_properties.shells_whitelist:
+                    if shell_whitelisted_id not in shell_identifiers:
+                        warnings.warn(
+                            f"Whitelisted shell: {shell_whitelisted_id} not present yet in the simulation shells.\n"
+                            "Current shell identifiers in the simulation: "
+                            + str(shell_identifiers)
+                        )
+
             ground_object_domain = GroundObjectDomain(
                 identifier=ground_object.identifier,
                 type=ground_object.type,
                 elevation_above_horizon=ground_object.connectivity_properties.elevation_above_horizon,
                 maximum_satellite_range_distance=ground_object.connectivity_properties.maximum_satellite_range_distance,
                 maximum_satellite_connected_count=ground_object.connectivity_properties.maximum_satellite_connected_count,
-                shell_white_lists=ground_object.connectivity_properties.shell_white_lists,
+                shells_whitelist=ground_object.connectivity_properties.shells_whitelist,
                 maximum_connected_satellites=ground_object.connectivity_properties.maximum_connected_satellites,
                 ground_to_space_connections_strategy=ground_object.connectivity_properties.ground_to_space_connections_strategy,
             )

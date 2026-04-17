@@ -11,7 +11,7 @@ from tests.sat_com_connectivity_tests.utils import (
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_visible_satellites"
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.get_visible_satellites"
 )
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
@@ -80,7 +80,7 @@ def test_connect_to_the_best_angle_strategy(
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_visible_satellites"
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.get_visible_satellites"
 )
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
@@ -138,7 +138,7 @@ def test_that_new_satellite_is_picked_even_if_the_former_one_is_still_visible(
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_visible_satellites"
+    "sat_com_connectivity.ground_object_to_space_connectivity.strategies.get_visible_satellites"
 )
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"

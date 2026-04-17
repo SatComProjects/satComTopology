@@ -445,7 +445,7 @@ class GroundObjectDomain(BaseModel):
     elevation_above_horizon: float = Field(default=20)
     maximum_satellite_range_distance: float = Field(default=1000)
     maximum_satellite_connected_count: Optional[int] = None
-    shell_white_lists: list[str] = Field(default_factory=list)
+    shells_whitelist: list[str] = Field(default_factory=list)
     maximum_connected_satellites: Optional[int] = None
     ground_to_space_connections_strategy: str = Field(
         default="best-angle-until-disconnection"
