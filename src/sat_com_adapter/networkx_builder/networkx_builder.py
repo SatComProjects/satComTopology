@@ -127,7 +127,7 @@ class NetworkxBuilder:
             if link.distance_km is not None and link.distance_km >= 0:
                 distance = link.distance_km
             else:
-                distance = self.simulation_manager.simulation.get_distance_model().get_3d_distance_meters(
+                distance = self.simulation_manager.simulation.get_distance_model().get_3d_distance_km(
                     source.spatial_position, destination.spatial_position
                 )
 

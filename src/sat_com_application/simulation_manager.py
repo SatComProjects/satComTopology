@@ -599,11 +599,8 @@ class SimulationManager:
         :param object_2: Topology object  B
         :return: float: Distance between two topology objects
         """
-        return (
-            self.simulation.get_distance_model().get_3d_distance_meters(
-                object_1.get_coordinates(), object_2.get_coordinates()
-            )
-            / 1000
+        return self.simulation.get_distance_model().get_3d_distance_km(
+            object_1.get_coordinates(), object_2.get_coordinates()
         )
 
     def get_closest_satellite_to_a_ground_station(
