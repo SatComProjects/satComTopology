@@ -170,7 +170,8 @@ class NetworkxBuilder:
             data.update(
                 orbital_phase=(
                     "ascending" if satellite.is_ascending() else "descending"
-                )
+                ),
+                shell_id=satellite.shell.identifier if satellite.shell else None,
             )
             self.add_topology_object(satellite, data)
 
@@ -183,7 +184,14 @@ class NetworkxBuilder:
         """
         for ground_station in self.simulation_manager.get_ground_stations():
             data = dict()
-            data.update(label=ground_station.label)
+            data.update(
+                label=ground_station.label,
+                ground_domain=(
+                    ground_station.ground_object_domain.identifier
+                    if ground_station.ground_object_domain
+                    else None
+                ),
+            )
             self.add_topology_object(ground_station, data)
 
         return self
@@ -195,7 +203,14 @@ class NetworkxBuilder:
         """
         for user_terminal in self.simulation_manager.get_user_terminals():
             data = dict()
-            data.update(label=user_terminal.label)
+            data.update(
+                label=user_terminal.label,
+                ground_domain=(
+                    user_terminal.ground_object_domain.identifier
+                    if user_terminal.ground_object_domain
+                    else None
+                ),
+            )
 
             self.add_topology_object(user_terminal, data)
 
