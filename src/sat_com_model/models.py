@@ -566,6 +566,8 @@ class Satellite(Generic[T_Shell], OrbitalObject):
     satellite_name: str
     shell: Optional[T_Shell] = None
 
+    type: str = Field(default="Satellite", frozen=True)
+
     optical_link_terminals: list[OpticalLinkTerminal] = Field(default_factory=list)
 
     def __init__(self, /, **data: Any):
