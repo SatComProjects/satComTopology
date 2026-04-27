@@ -136,6 +136,7 @@ class TestNetworkxBuilder:
 
     def test_add_satellites(self, network_builder, simulation_manager):
         satellite = Mock()
+        satellite.model_dump.return_value = dict()
         satellite.is_ascending.return_value = True
         satellite.topology_uniq_id = "satellite-1"
         simulation_manager.get_satellites.return_value = [satellite]
@@ -151,6 +152,7 @@ class TestNetworkxBuilder:
         self, network_builder_export_position, simulation_manager
     ):
         satellite = Mock()
+        satellite.model_dump.return_value = dict()
         satellite.is_ascending.return_value = True
         satellite.topology_uniq_id = "satellite-1"
 
@@ -172,6 +174,7 @@ class TestNetworkxBuilder:
 
     def test_add_ground_stations(self, network_builder, simulation_manager):
         ground_station = Mock()
+        ground_station.model_dump.return_value = dict()
         ground_station.label = "CityA"
         ground_station.topology_uniq_id = "ground-1"
         simulation_manager.get_ground_stations.return_value = [ground_station]
@@ -187,6 +190,7 @@ class TestNetworkxBuilder:
         self, network_builder_export_position, simulation_manager
     ):
         ground_station = Mock()
+        ground_station.model_dump.return_value = dict()
         ground_station.label = "CityA"
         ground_station.topology_uniq_id = "ground-1"
         simulation_manager.get_ground_stations.return_value = [ground_station]
@@ -207,6 +211,7 @@ class TestNetworkxBuilder:
 
     def test_add_ground_station_links(self, network_builder, simulation_manager):
         ground_station_link = Mock()
+        ground_station_link.model_dump.return_value = dict({"disabled": False})
         ground_station_link.source.topology_uniq_id = "ground-1"
         ground_station_link.destination.topology_uniq_id = "satellite-1"
         ground_station_link.disabled = False
