@@ -167,6 +167,7 @@ class NetworkxBuilder:
         """
         for satellite in self.simulation_manager.get_satellites():
             data = dict()
+            data.update(**satellite.model_dump())
             data.update(
                 orbital_phase=(
                     "ascending" if satellite.is_ascending() else "descending"
@@ -184,6 +185,7 @@ class NetworkxBuilder:
         """
         for ground_station in self.simulation_manager.get_ground_stations():
             data = dict()
+            data.update(**ground_station.model_dump())
             data.update(
                 label=ground_station.label,
                 ground_domain=(
@@ -203,6 +205,7 @@ class NetworkxBuilder:
         """
         for user_terminal in self.simulation_manager.get_user_terminals():
             data = dict()
+            data.update(**user_terminal.model_dump())
             data.update(
                 label=user_terminal.label,
                 ground_domain=(
@@ -238,9 +241,9 @@ class NetworkxBuilder:
             if not without_disabled or (
                 without_disabled and not ground_station_link.disabled
             ):
-                self.add_link(
-                    ground_station_link, {"disabled": ground_station_link.disabled}
-                )
+                data = dict()
+                data.update(**ground_station_link.model_dump())
+                self.add_link(ground_station_link, data)
 
         return self
 
@@ -250,7 +253,7 @@ class NetworkxBuilder:
         :return: Networkx Builder instance.
         """
         for user_terminal_link in self.simulation_manager.get_user_terminal_links():
-            self.add_link(user_terminal_link, {})
+            self.add_link(user_terminal_link, user_terminal_link.model_dump())
 
         return self
 
@@ -263,6 +266,7 @@ class NetworkxBuilder:
             inter_satellite_link
         ) in self.simulation_manager.get_inter_satellites_links():
             data = dict()
+            data.update(**inter_satellite_link.model_dump())
             data.update(direction=inter_satellite_link.inter_satellite_direction.name)
             self.add_link(inter_satellite_link, data)
 
