@@ -1020,6 +1020,8 @@ class GroundObjectLink(Link):
     source: GroundObject = Field(default=None)
     destination: GroundObject = Field(default=None)
 
+    recorded_latency: float | None = Field(default=None)
+
     def connect(self, source: GroundObject, destination: GroundObject):
         if source == destination:
             raise ConnectionBetweenSameTopologyForbiddenError(
