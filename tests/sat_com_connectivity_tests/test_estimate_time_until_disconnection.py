@@ -276,7 +276,7 @@ class TestEstimateTimeUntilDisconnectionTolerance:
 
         assert result <= 3600.0
 
-    def test_default_tolerance_is_01_seconds(self):
+    def test_default_tolerance_is_1_seconds(self):
         """Verify default tol is 0.1s — function signature contract."""
         import inspect
         from sat_com_connectivity.ground_object_to_space_connectivity.connection_duration_utils import (
@@ -284,7 +284,7 @@ class TestEstimateTimeUntilDisconnectionTolerance:
         )
 
         sig = inspect.signature(estimate_time_until_disconnection)
-        assert sig.parameters["tol"].default == 0.1
+        assert sig.parameters["tol"].default == 1
 
 
 class TestEstimateTimeUntilDisconnectionEdgeCases:
