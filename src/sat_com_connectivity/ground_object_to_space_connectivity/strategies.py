@@ -104,12 +104,6 @@ class ConnectToBestAngleUntilDisconnectionStrategyOrdered(
                         spatial_position_1=ground_object.get_coordinates(),
                         spatial_position_2=best_visible_satellite.satellite.get_coordinates(),
                     ),
-                    estimated_connection_time=estimate_time_until_disconnection(
-                        ground_object=ground_object,
-                        satellite=best_visible_satellite.satellite,
-                        tol=1,
-                        max_time=1200,
-                    ),
                     elevation_angle_above_horizon=best_visible_satellite.elevation_above_horizon,
                 ),
             )
@@ -186,12 +180,6 @@ class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
                         spatial_position_1=ground_object.get_coordinates(),
                         spatial_position_2=best_visible_satellite.satellite.get_coordinates(),
                     ),
-                    estimated_connection_time=estimate_time_until_disconnection(
-                        ground_object=ground_object,
-                        satellite=best_visible_satellite.satellite,
-                        tol=1,
-                        max_time=1200,
-                    ),
                     elevation_angle_above_horizon=best_visible_satellite.elevation_above_horizon,
                 ),
             )
@@ -244,14 +232,7 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                 and isinstance(satellite, Satellite)
             ):
                 vs = visible_satellite_map[satellite.topology_uniq_id]
-                # Use coarser tolerance (1.0s) and reduced max_time (600s) for faster computation
-                duration = estimate_time_until_disconnection(
-                    ground_object=link.get_ground_object(),
-                    satellite=satellite,
-                    tol=1.0,
-                    max_time=1200.0,
-                )
-                link.estimated_link_duration = duration
+
                 link.elevation_above_horizon_angle = vs.elevation_above_horizon
 
                 computed_ground_object_connections_result.updated_links.append(
@@ -262,7 +243,6 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                                 spatial_position_2=vs.satellite.get_coordinates(),
                             ),
                             elevation_angle_above_horizon=vs.elevation_above_horizon,
-                            estimated_connection_time=duration,
                         ),
                         ground_to_space_link=link,
                     )
@@ -284,12 +264,6 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                                 spatial_position_2=vs.satellite.get_coordinates(),
                             ),
                             elevation_angle_above_horizon=vs.elevation_above_horizon,
-                            estimated_connection_time=estimate_time_until_disconnection(
-                                ground_object=ground_object,
-                                satellite=vs.satellite,
-                                tol=1.0,
-                                max_time=1200.0,
-                            ),
                         ),
                     )
                 )
@@ -356,11 +330,6 @@ class ConnectToEverythingInRangeStrategy(GroundToSpaceConnectionStrategy):
                                 sat_coordinates=vs.satellite.get_coordinates().to_latitude_longitude_altitude(),
                                 gnd_coordinates=ground_object.get_coordinates().to_latitude_longitude_altitude(),
                             ),
-                            estimated_connection_time=estimate_time_until_disconnection(
-                                ground_object=ground_object,
-                                satellite=vs.satellite,
-                                max_time=1200,
-                            ),
                         ),
                         ground_to_space_link=link,
                     )
@@ -384,11 +353,6 @@ class ConnectToEverythingInRangeStrategy(GroundToSpaceConnectionStrategy):
                             elevation_angle_above_horizon=get_elevation_angle(
                                 sat_coordinates=vs.satellite.get_coordinates().to_latitude_longitude_altitude(),
                                 gnd_coordinates=ground_object.get_coordinates().to_latitude_longitude_altitude(),
-                            ),
-                            estimated_connection_time=estimate_time_until_disconnection(
-                                ground_object=ground_object,
-                                satellite=vs.satellite,
-                                max_time=1200,
                             ),
                         ),
                     )
@@ -491,11 +455,6 @@ class ConnectToBestRangeUntilDisconnectionStrategyOrdered(
                         elevation_angle_above_horizon=get_elevation_angle(
                             sat_coordinates=closest_satellite.get_coordinates().to_latitude_longitude_altitude(),
                             gnd_coordinates=ground_object.get_coordinates().to_latitude_longitude_altitude(),
-                        ),
-                        estimated_connection_time=estimate_time_until_disconnection(
-                            ground_object=ground_object,
-                            satellite=closest_satellite,
-                            max_time=1200,
                         ),
                     ),
                 )
@@ -600,11 +559,6 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
                             sat_coordinates=closest_satellite.get_coordinates().to_latitude_longitude_altitude(),
                             gnd_coordinates=ground_object.get_coordinates().to_latitude_longitude_altitude(),
                         ),
-                        estimated_connection_time=estimate_time_until_disconnection(
-                            ground_object=ground_object,
-                            satellite=closest_satellite,
-                            max_time=1200,
-                        ),
                     ),
                 )
             )
@@ -671,11 +625,6 @@ class ConnectToTheBestAngleStrategyOrdered(GroundToSpaceConnectionStrategy):
                         else None
                     ),
                     elevation_angle_above_horizon=best_visible_satellite.elevation_above_horizon,
-                    estimated_connection_time=estimate_time_until_disconnection(
-                        ground_object=ground_object,
-                        satellite=best_visible_satellite.satellite,
-                        max_time=1200,
-                    ),
                 ),
             )
         )
@@ -739,11 +688,6 @@ class ConnectToTheBestAngleStrategy(GroundToSpaceConnectionStrategy):
                         else None
                     ),
                     elevation_angle_above_horizon=best_visible_satellite.elevation_above_horizon,
-                    estimated_connection_time=estimate_time_until_disconnection(
-                        ground_object=ground_object,
-                        satellite=best_visible_satellite.satellite,
-                        max_time=1200,
-                    ),
                 ),
             )
         )
@@ -835,11 +779,6 @@ class ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
                         else None
                     ),
                     elevation_angle_above_horizon=best_visible_satellite_with_best_shell.elevation_above_horizon,
-                    estimated_connection_time=estimate_time_until_disconnection(
-                        ground_object=ground_object,
-                        satellite=best_visible_satellite_with_best_shell.satellite,
-                        max_time=1200,
-                    ),
                 ),
             )
         )
@@ -927,11 +866,6 @@ class ConnectToBestAngleUntilDisconnectionPreferLowerShellStrategy(
                         else None
                     ),
                     elevation_angle_above_horizon=best_visible_satellite_with_lowest_shell.elevation_above_horizon,
-                    estimated_connection_time=estimate_time_until_disconnection(
-                        ground_object=ground_object,
-                        satellite=best_visible_satellite_with_lowest_shell.satellite,
-                        max_time=1200,
-                    ),
                 ),
             )
         )
