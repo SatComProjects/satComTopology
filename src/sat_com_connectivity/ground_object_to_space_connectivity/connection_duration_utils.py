@@ -95,7 +95,7 @@ def _elevation_rate(
 def estimate_time_until_disconnection(
     ground_object: GroundObject,
     satellite: Satellite,
-    tol: float = 0.1,
+    tol: float = 1,
     max_time: float = 3600.0,
 ) -> float:
     """
