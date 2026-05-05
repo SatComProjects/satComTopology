@@ -280,7 +280,9 @@ class NetworkxBuilder:
         for (
             static_ground_object_link
         ) in self.simulation_manager.get_static_ground_object_links():
-            self.add_link(static_ground_object_link, {})
+            self.add_link(
+                static_ground_object_link, data=static_ground_object_link.model_dump()
+            )
 
         return self
 
