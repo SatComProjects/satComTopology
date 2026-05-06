@@ -179,7 +179,7 @@ class CesiumFormat:
         if properties is None:
             properties = dict()
 
-        properties.update(**user_terminal.model(mode="json"))
+        properties.update(**user_terminal.model_dump(mode="json"))
 
         terminal_user_js = self.cesium_element_creator.create_sphere(
             sphere_name=ground_station_name,
@@ -218,7 +218,7 @@ class CesiumFormat:
             width=ground_object_property.ground_object_link_width,
             description=html_description,
             on_ground=False,
-            properties=json.dumps(properties),
+            properties=properties,
         )
 
     def create_user_terminal_link(
@@ -250,7 +250,7 @@ class CesiumFormat:
             width=ground_object_property.ground_object_link_width,
             description=html_description,
             on_ground=False,
-            properties=json.dumps(properties),
+            properties=properties,
         )
 
     def create_inter_satellite_link_flow(
