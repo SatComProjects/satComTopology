@@ -1,0 +1,42 @@
+{
+  "simulation_name": "Single Shell Simulation",
+  "start_date": "2024-11-18 00:00:00.000000",
+  "end_date": "2024-11-25 00:00:00.000000",
+  "movement_model": "pyorbital",
+  "distance_model": "sklearn",
+  "ground_objects_properties": [
+    {
+      "identifier": "OneWeb Ground Station",
+      "data_file": "/path/to/ground_station_data.json",
+      "type": "ground_station",
+      "connectivity_properties": {
+        "elevation_above_horizon": 20,
+        "ground_to_space_connections_strategy": "everything-visible"
+      }
+    }
+  ],
+  "walker_shells": [
+    {
+      "type": "delta",
+      "constellation_property": {
+        "identifier": "Andromeda Walker",
+        "amount_of_orbit_plane": 20,
+        "amount_of_satellite_per_orbit_plane": 40,
+        "inclination": 53.0,
+        "phase_difference_between_satellites": true,
+        "mean_revolution_per_day": 15.0
+      },
+      "orbital_connectivity_property": {
+        "adjacent_inter_satellite_shifting": 1,
+        "maximum_inter_satellite_count": 4,
+        "maximum_inter_satellite_range_distance": 1000,
+        "maximum_ground_station_range": 5000,
+        "maximum_user_terminal_range": 1000,
+        "maximum_connected_ground_object": 10000,
+        "maximum_connected_user_terminal": 1000,
+        "maximum_connected_ground_station": 10
+      },
+      "ground_object_white_list": []
+    }
+  ]
+}

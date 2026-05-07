@@ -1,0 +1,69 @@
+simulation_property:
+  start_date: "2024-11-18 10:00:00.123456"
+  end_date: "2024-11-25 10:00:00.123456"
+  movement_model: "pyorbital"
+  distance_model: "sklearn"
+
+  ground_objects_properties:
+    - identifier: "Global Users"
+      data_file: "data/global_users.csv"
+      type: "user_terminal"
+      connectivity_properties:
+        elevation_above_horizon: 25
+        maximum_satellite_range_distance: 1200
+        maximum_satellite_connected_count: 2
+        shell_white_lists: ["Andromeda Walker"]
+        maximum_connected_satellites: 10
+        ground_to_space_connections_strategy: "best-angle-until-disconnection"
+
+    - identifier: "Gateway Stations"
+      data_file: "data/gateway_stations.csv"
+      type: "ground_station"
+      connectivity_properties:
+        elevation_above_horizon: 15
+        maximum_satellite_range_distance: 1500
+        shell_white_lists: ["Andromeda Polar", "Andromeda Walker"]
+        maximum_connected_satellites: 5
+        ground_to_space_connections_strategy: "everything-visible"
+
+  walker_shells:
+    - type: "star"
+      constellation_property:
+        identifier: "Andromeda Polar Shell 2"
+        amount_of_orbit_plane: 12
+        amount_of_satellite_per_orbit_plane: 50
+        inclination: 86.4
+        phase_difference_between_satellites: true
+        mean_revolution_per_day: 13
+      orbital_connectivity_property:
+        adjacent_inter_satellite_shifting: 0,
+        maximum_inter_satellite_count: 4
+        maximum_inter_satellite_range_distance: 1500.0
+        maximum_ground_station_range: 1200.0
+        maximum_user_terminal_range: 1000.0
+        maximum_connected_ground_object: 10000
+        maximum_connected_user_terminal: 500
+        maximum_connected_ground_station: 10
+      ground_object_white_list: ["Gateway Stations"]
+
+    - type: "delta"
+      constellation_property:
+        identifier: "Andromeda Walker Shell 1"
+        amount_of_orbit_plane: 72
+        amount_of_satellite_per_orbit_plane: 40
+        inclination: 53.0
+        phase_difference_between_satellites: false
+        mean_revolution_per_day: 15.7
+      orbital_connectivity_property:
+        adjacent_inter_satellite_shifting: 1,
+        maximum_inter_satellite_count: 6
+        maximum_inter_satellite_range_distance: 2000.0
+        maximum_ground_station_range: 1500.0
+        maximum_user_terminal_range: 1200.0
+        maximum_connected_ground_object: 10000
+        maximum_connected_user_terminal: 1000
+        maximum_connected_ground_station: 50
+      ground_object_white_list: ["Global Users", "Gateway Stations"]
+
+  disable_ground_station_link_preload: false
+  static_ground_station_link_mode: false

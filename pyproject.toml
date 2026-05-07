@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sat_com_topology"
+version = "4.2.0"
+authors = [
+  { name="Louis BARBIER", email="louis.barbier@isae-supaero.fr" },
+]
+description = "Satellite communication model package"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    'networkx>=3.2.1',
+    'pyorbital>=1.8.2',
+    'geopy>=2.4.1',
+    'scikit-learn~=1.5.0',
+    'PyYAML>=6.0.1',
+    'timezonefinder>=6.5.9',
+    'sgp4>=2.23',
+    'pydantic>=2.9.2',
+]
+
+[project.urls]
+Homepage = "https://github.com/elbarbi/satComTopology"
+Issues = "https://github.com/elbarbi/satComTopology/issues"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  ".", "src"
+]
+
+[tool.hatch.build]
+sources = ["src"]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/sat_com_model",
+    "src/sat_com_builder",
+    "src/sat_com_adapter",
+    "src/sat_com_trajectopy",
+    "src/sat_com_application",
+    "src/sat_com_traffic",
+    "src/sat_com_constellation",
+    "src/sat_com_connectivity",
+]
+include = [
+  "src/sat_com_traffic/earth_internet_user_generator/data/world_data.json"
+]
