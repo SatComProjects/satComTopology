@@ -341,6 +341,7 @@ class BaseConfigurationManager(ConfigurationManager):
                     **shell.satellite_property.model_dump()
                 ),
                 **shell.constellation_property.model_dump(),
+                **shell.orbital_connectivity_property.model_dump(),
                 **shell.model_dump(),
             )
 
