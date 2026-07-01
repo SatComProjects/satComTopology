@@ -742,6 +742,7 @@ class Link(BaseModel):
 
 class OpticalConstraint(BaseModel):
     azimuth_angle_degree: float = Field(default=None)
+    relative_azimuth_angle_degree: float = Field(default=None)
     elevation_angle_degree: float = Field(default=None)
     range_distance_km: float = Field(default=None)
     angular_velocity_rate_degree_per_second: float = Field(default=None)

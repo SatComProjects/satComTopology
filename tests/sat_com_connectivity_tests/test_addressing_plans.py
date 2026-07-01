@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from sat_com_connectivity.inter_satellite_link_connectivity.addressing_plans import (
-    WalkerStaticAddressingPlan,
     SSODawnDuskStaticAddressingPlan,
     _filter_by_orientation,
     FullMeshWalkerDeltaStaticAddressingPlan,
@@ -48,6 +47,7 @@ def make_constraint() -> OpticISLVisibilityConstraintResult:
         range_rate=5,
         los_min_altitude_km=7000,
         los_clear=True,
+        relative_azimuth_angle_degree=0.0,
     )
 
 

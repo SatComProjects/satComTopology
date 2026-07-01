@@ -13,6 +13,9 @@ from sat_com_model.models import (
 class OpticISLVisibilityConstraintResult(BaseModel):
     elevation_angle_degree: float
     azimuth_angle_degree: float
+
+    relative_azimuth_angle_degree: float
+
     range_distance_km: float
     angular_velocity_rate_degree_per_second: float
     range_rate: float
