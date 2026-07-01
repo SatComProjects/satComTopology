@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 from typing import Literal
 
@@ -550,6 +549,7 @@ def _make_possible_link(
             los_min_altitude_km=float(los_min_altitude[i, j]),
             elevation_angle_degree=float(el_12[i, j]),
             azimuth_angle_degree=float(az_12[i, j]),
+            relative_azimuth_angle_degree=float(az_rel_12_ij),
             range_distance_km=float(range_12[i, j]),
             angular_velocity_rate_degree_per_second=float(omega_total_12[i, j]),
             range_rate=float(range_rate_12[i, j]),
@@ -570,6 +570,7 @@ def _make_possible_link(
             los_min_altitude_km=float(los_min_altitude[i, j]),
             elevation_angle_degree=float(el_21[j, i]),
             azimuth_angle_degree=float(az_21[j, i]),
+            relative_azimuth_angle_degree=float(az_rel_21_ji),
             range_distance_km=float(range_12[i, j]),
             angular_velocity_rate_degree_per_second=float(omega_total_21[j, i]),
             estimated_duration=(
@@ -964,6 +965,7 @@ def _rec_to_possible_link(
         constraint_a_to_b=OpticISLVisibilityConstraintResult(
             elevation_angle_degree=float(el_ab[0, 0]),
             azimuth_angle_degree=float(az_ab[0, 0]),
+            relative_azimuth_angle_degree=float(az_rel_ab_val),
             range_distance_km=float(range_ab[0, 0]),
             range_rate=float(range_rate_ab[0, 0]),
             angular_velocity_rate_degree_per_second=omega_ab,
@@ -979,6 +981,7 @@ def _rec_to_possible_link(
         constraint_b_to_a=OpticISLVisibilityConstraintResult(
             elevation_angle_degree=float(el_ba[0, 0]),
             azimuth_angle_degree=float(az_ba[0, 0]),
+            relative_azimuth_angle_degree=float(az_rel_ba_val),
             range_distance_km=float(range_ab[0, 0]),
             range_rate=float(range_rate_ba[0, 0]),
             angular_velocity_rate_degree_per_second=omega_ba,

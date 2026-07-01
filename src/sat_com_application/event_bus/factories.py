@@ -115,6 +115,9 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             azimuth_a_deg=_constraint_field(
                 link.source_constraint, "azimuth_angle_degree"
             ),
+            relative_azimuth_a_deg=_constraint_field(
+                link.source_constraint, "relative_azimuth_angle_degree"
+            ),
             elevation_a_deg=_constraint_field(
                 link.source_constraint, "elevation_angle_degree"
             ),
@@ -123,6 +126,9 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             ),
             azimuth_b_deg=_constraint_field(
                 link.destination_constraint, "azimuth_angle_degree"
+            ),
+            relative_azimuth_b_deg=_constraint_field(
+                link.destination_constraint, "relative_azimuth_angle_degree"
             ),
             elevation_b_deg=_constraint_field(
                 link.destination_constraint, "elevation_angle_degree"
@@ -154,6 +160,9 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             azimuth_a_deg=_constraint_field(
                 link.source_constraint, "azimuth_angle_degree"
             ),
+            relative_azimuth_a_deg=_constraint_field(
+                link.source_constraint, "relative_azimuth_angle_degree"
+            ),
             elevation_a_deg=_constraint_field(
                 link.source_constraint, "elevation_angle_degree"
             ),
@@ -162,6 +171,9 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             ),
             azimuth_b_deg=_constraint_field(
                 link.destination_constraint, "azimuth_angle_degree"
+            ),
+            relative_azimuth_b_deg=_constraint_field(
+                link.destination_constraint, "relative_azimuth_angle_degree"
             ),
             elevation_b_deg=_constraint_field(
                 link.destination_constraint, "elevation_angle_degree"
@@ -189,6 +201,9 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             terminal_b_id=_terminal_id(link.destination_optical_terminal),
             azimuth_a_deg=_constraint_field(
                 link.source_constraint, "azimuth_angle_degree"
+            ),
+            relative_azimuth_a_deg=_constraint_field(
+                link.source_constraint, "relative_azimuth_angle_degree"
             ),
             elevation_a_deg=_constraint_field(
                 link.source_constraint, "elevation_angle_degree"

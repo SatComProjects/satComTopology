@@ -163,6 +163,7 @@ def make_constraint() -> OpticISLVisibilityConstraintResult:
         range_rate=5,
         los_min_altitude_km=5000,
         los_clear=True,
+        relative_azimuth_angle_degree=0.0,
     )
 
 
