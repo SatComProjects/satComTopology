@@ -201,38 +201,37 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                     destinations_right
                 )
 
-                candidates_case_1 = compute_OISL_links_from_terminal_pools(
+                candidates_left_right = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=sources_left,
                     terminals_group_2=destinations_right,
                     angular_velocity_dt_seconds=1.0,
                 )
-                candidates_case_2 = compute_OISL_links_from_terminal_pools(
+                candidates_right_left = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=destinations_left,
                     terminals_group_2=sources_right,
                     angular_velocity_dt_seconds=1.0,
                 )
+                # Previously excluded — confirmed geometrically valid via azimuth steering
+                # (~175°), and necessary to resolve conflicts that pure LEFT-RIGHT /
+                # RIGHT-LEFT pairing can't. Included as real, bookable candidates now.
+                candidates_left_left = compute_OISL_links_from_terminal_pools(
+                    terminals_group_1=sources_left,
+                    terminals_group_2=destinations_left,
+                    angular_velocity_dt_seconds=1.0,
+                )
+                candidates_right_right = compute_OISL_links_from_terminal_pools(
+                    terminals_group_1=sources_right,
+                    terminals_group_2=destinations_right,
+                    angular_velocity_dt_seconds=1.0,
+                )
 
                 all_candidates: list[PossibleOpticalLink] = (
-                    candidates_case_1 + candidates_case_2
+                    candidates_left_right
+                    + candidates_right_left
+                    + candidates_left_left
+                    + candidates_right_right
                 )
                 all_candidates.sort(key=lambda x: x.selection_score)
-                pool_a = sources_left + sources_right
-                pool_b = destinations_left + destinations_right
-
-                if debug:
-                    # Diagnostic-only: would LEFT-LEFT / RIGHT-RIGHT have been
-                    # geometrically valid? Never used for real booking.
-                    left_left = compute_OISL_links_from_terminal_pools(
-                        terminals_group_1=sources_left,
-                        terminals_group_2=destinations_left,
-                        angular_velocity_dt_seconds=1.0,
-                    )
-                    right_right = compute_OISL_links_from_terminal_pools(
-                        terminals_group_1=sources_right,
-                        terminals_group_2=destinations_right,
-                        angular_velocity_dt_seconds=1.0,
-                    )
-                    record.excluded_same_side_candidates = left_left + right_right
 
             elif direction == InterSatelliteLinkDirection.ORBITAL:
                 sources_forward, destinations_backward = (
