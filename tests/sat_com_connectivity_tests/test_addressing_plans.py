@@ -20,6 +20,7 @@ from sat_com_model.models import (
     DawnDuskSSOShell,
     OpticalLinkTerminal,
     Satellite,
+    OpticalTerminalConfiguration,
 )
 
 ADDRESSING_PLANS = (
@@ -53,6 +54,7 @@ def make_constraint() -> OpticISLVisibilityConstraintResult:
 
 def make_terminal(
     descriptor: InterSatelliteLinkOrientation = InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD,
+    terminal_configuration: OpticalTerminalConfiguration | None = None,
 ) -> OpticalLinkTerminal:
     terminal = MagicMock(spec=OpticalLinkTerminal)
     terminal.terminal_id = uuid.uuid4()
@@ -62,6 +64,9 @@ def make_terminal(
     terminal.__hash__ = lambda self: hash(self.terminal_id)
     terminal.__eq__ = lambda self, other: (
         isinstance(other, type(self)) and self.terminal_id == other.terminal_id
+    )
+    terminal.terminal_configuration = (
+        terminal_configuration or OpticalTerminalConfiguration()
     )
     return terminal
 
@@ -342,7 +347,7 @@ class TestWalkerBuildAssociationsOrbital:
         ):
             plan.get_link_associations([sat_a, sat_b])
 
-        assert sum(call_count) == 2
+        assert sum(call_count) == 3
 
     def test_case_1_receives_forward_backward_pools(self):
         """First pool call must receive FORWARD terminals as group_1, BACKWARD as group_2."""
@@ -518,7 +523,7 @@ class TestWalkerBuildAssociationsAdjacent:
         ):
             plan.get_link_associations([sat_a, sat_b])
 
-        assert sum(call_count) == 2
+        assert sum(call_count) == 3
 
     def test_case_1_receives_left_right_pools(self):
         plan, sat_a, sat_b = self._setup()
@@ -581,13 +586,10 @@ class TestWalkerBuildAssociationsAdjacent:
         assert result == []
 
 
-class TestWalkerBookedTerminals:
+class TestWalkerStaticTerminalSelection:
 
-    def test_booked_terminal_falls_back_to_next_candidate(self):
-        """
-        Pole-crossing scenario: two pairs compete for the same terminal.
-        The second pair must fall back to its next ranked candidate.
-        """
+    def test_contested_terminal_falls_back_at_selection_time(self):
+        """Fallback resolution happens once, during _select_static_terminals."""
         shell = make_walker_shell()
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
@@ -601,40 +603,58 @@ class TestWalkerBookedTerminals:
 
         contested = t_left(sat_b)
         fallback = t_right(sat_b)
-        t_a_right = t_right(sat_a)
-        t_c_left = t_left(sat_c)
-
-        call_index = [0]
 
         def fake_compute(terminals_group_1, terminals_group_2, **_):
-            call_index[0] += 1
             if not terminals_group_1 or not terminals_group_2:
                 return []
-            # First two calls (pair 0,1): return contested as best, fallback as second
-            if call_index[0] <= 2:
-                results = [
-                    make_possible_link(terminals_group_1[0], contested, score=0.0)
-                ]
-                if fallback in terminals_group_2:
-                    results.append(
-                        make_possible_link(terminals_group_1[0], fallback, score=5.0)
-                    )
-                return results
-            # Next two calls (pair 2,1): also want contested — must fall back
-            return [
-                make_possible_link(terminals_group_1[0], contested, score=0.0),
-                make_possible_link(terminals_group_1[0], fallback, score=5.0),
-            ]
+            results = [make_possible_link(terminals_group_1[0], contested, score=0.0)]
+            if fallback in terminals_group_2:
+                results.append(
+                    make_possible_link(terminals_group_1[0], fallback, score=5.0)
+                )
+            return results
+
+        satellite_lookup = {0: sat_a, 1: sat_b, 2: sat_c}
 
         with patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
             side_effect=fake_compute,
         ), pytest.warns(UserWarning):
-            result = plan.get_link_associations([sat_a, sat_b, sat_c])
+            plan._select_static_terminals(satellite_lookup)
 
-        assert len(result) == 2
-        terminal_b_usage = [a.terminal_b for a in result]
-        assert terminal_b_usage.count(contested) == 1  # only assigned once
+        assigned_terminals_b = [t_b for _, t_b in plan._terminal_assignment.values()]
+        assert assigned_terminals_b.count(contested) == 1
+        assert fallback in assigned_terminals_b
+
+    def test_terminal_assignment_is_stable_across_ticks(self):
+        """Once selected, the same terminal pair is reused on every call."""
+        shell = make_walker_shell()
+        sat_a = make_4_terminal_satellite(0, 0, shell)
+        sat_b = make_4_terminal_satellite(1, 1, shell)
+
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
+        plan.grid = [(0, 1, InterSatelliteLinkDirection.ADJACENT)]
+
+        def fake_compute(terminals_group_1, terminals_group_2, **_):
+            if not terminals_group_1 or not terminals_group_2:
+                return []
+            return [
+                make_possible_link(
+                    terminals_group_1[0], terminals_group_2[0], score=0.0
+                )
+            ]
+
+        with patch(
+            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
+            side_effect=fake_compute,
+        ):
+            result_1 = plan.get_link_associations([sat_a, sat_b])
+            result_2 = plan.get_link_associations([sat_a, sat_b])
+
+        assert (result_1[0].terminal_a, result_1[0].terminal_b) == (
+            result_2[0].terminal_a,
+            result_2[0].terminal_b,
+        )
 
     def test_all_candidates_booked_raises_value_error(self):
         """When every candidate's terminals are booked a ValueError must be raised."""
