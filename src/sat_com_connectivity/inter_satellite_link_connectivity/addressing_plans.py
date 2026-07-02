@@ -138,9 +138,6 @@ class LinkSelectionDebugRecord:
     eligible_candidates: list[PossibleOpticalLink] = field(default_factory=list)
     # candidates excluded by the orientation grouping (e.g. LEFT-LEFT, RIGHT-RIGHT)
     # kept only for diagnosis, never used for booking
-    excluded_same_side_candidates: list[PossibleOpticalLink] = field(
-        default_factory=list
-    )
     outcome: str = ""  # "booked" | "bumped" | "failed"
     booked_pair: tuple[uuid.UUID, uuid.UUID] | None = None
     notes: list[str] = field(default_factory=list)
@@ -376,20 +373,6 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                 print(
                     f"    score={c.selection_score:.2f} terminal_a={c.terminal_a.terminal_id} terminal_b={c.terminal_b.terminal_id}"
                 )
-            if r.excluded_same_side_candidates:
-                valid_excluded = [c for c in r.excluded_same_side_candidates]
-                print(
-                    f"  [DIAGNOSTIC] LEFT-LEFT/RIGHT-RIGHT candidates (excluded from booking): {len(valid_excluded)}"
-                )
-                for c in valid_excluded[:5]:
-                    print(
-                        f"    score={c.selection_score:.2f} terminal_a={c.terminal_a.terminal_id} terminal_b={c.terminal_b.terminal_id}"
-                    )
-                if r.outcome == "failed" and valid_excluded:
-                    print(
-                        "  >>> HYPOTHESIS CONFIRMED for this link: a same-side pairing was geometrically "
-                        "valid and could have resolved the conflict, but is excluded by the current orientation rule."
-                    )
             for note in r.notes:
                 print(f"  note: {note}")
             print()
@@ -519,7 +502,6 @@ class OldWalkerStaticAddressingPlan(StaticAddressingPlan):
                         {InterSatelliteLinkOrientation.INTER_PLANE_RIGHT},
                     )
                 )
-
                 sources_right, destinations_left = (
                     _filter_terminals_pool_by_orientation(
                         sat_a.optical_link_terminals,
@@ -534,19 +516,35 @@ class OldWalkerStaticAddressingPlan(StaticAddressingPlan):
                     destinations_right
                 )
 
-                candidates_case_1 = compute_OISL_links_from_terminal_pools(
+                candidates_left_right = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=sources_left,
                     terminals_group_2=destinations_right,
                     angular_velocity_dt_seconds=1.0,
                 )
-                candidates_case_2 = compute_OISL_links_from_terminal_pools(
+                candidates_right_left = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=destinations_left,
                     terminals_group_2=sources_right,
                     angular_velocity_dt_seconds=1.0,
                 )
+                # Previously excluded — confirmed geometrically valid via azimuth steering
+                # (~175°), and necessary to resolve conflicts that pure LEFT-RIGHT /
+                # RIGHT-LEFT pairing can't. Included as real, bookable candidates now.
+                candidates_left_left = compute_OISL_links_from_terminal_pools(
+                    terminals_group_1=sources_left,
+                    terminals_group_2=destinations_left,
+                    angular_velocity_dt_seconds=1.0,
+                )
+                candidates_right_right = compute_OISL_links_from_terminal_pools(
+                    terminals_group_1=sources_right,
+                    terminals_group_2=destinations_right,
+                    angular_velocity_dt_seconds=1.0,
+                )
 
                 all_candidates: list[PossibleOpticalLink] = (
-                    candidates_case_1 + candidates_case_2
+                    candidates_left_right
+                    + candidates_right_left
+                    + candidates_left_left
+                    + candidates_right_right
                 )
                 all_candidates.sort(key=lambda x: x.selection_score)
 
