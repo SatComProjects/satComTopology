@@ -399,7 +399,7 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
         satellite_lookup: dict[int, Satellite],
     ) -> list[LinkAssociation]:
         if not self._terminals_selected:
-            self._select_static_terminals(satellite_lookup)
+            self._select_static_terminals(satellite_lookup, debug=True)
             self.print_debug_report()
 
         associations: list[LinkAssociation] = []
