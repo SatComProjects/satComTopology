@@ -232,6 +232,8 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                     + candidates_right_right
                 )
                 all_candidates.sort(key=lambda x: x.selection_score)
+                pool_a = sources_left + sources_right
+                pool_b = destinations_left + destinations_right
 
             elif direction == InterSatelliteLinkDirection.ORBITAL:
                 sources_forward, destinations_backward = (
@@ -349,7 +351,7 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
 
         self._terminals_selected = True
 
-    def print_debug_report(self) -> None:
+    def print_debug_report(self, only_failed: bool = True) -> None:
         """
         Human-readable summary of the static selection pass. Requires
         `_select_static_terminals(..., debug=True)` to have been run first.
@@ -364,6 +366,9 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
             return
 
         for r in self.debug_records:
+            if only_failed and r.outcome == "booked":
+                continue
+
             print(
                 f"--- Link ({r.a_id}, {r.b_id}) [{r.direction.name}] -> {r.outcome.upper()} ---"
             )
