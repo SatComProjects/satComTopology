@@ -401,6 +401,22 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
         if not self._terminals_selected:
             self._select_static_terminals(satellite_lookup)
 
+            for r in self.debug_records:
+                if (r.a_id, r.b_id) == (10, 709):
+                    print(f"outcome: {r.outcome}")
+                    print(f"eligible candidates: {len(r.eligible_candidates)}")
+                    for c in r.eligible_candidates:
+                        print(
+                            f"  score={c.selection_score:.2f} a={c.terminal_a.terminal_id} b={c.terminal_b.terminal_id}"
+                        )
+                    print(
+                        f"excluded same-side candidates: {len(r.excluded_same_side_candidates)}"
+                    )
+                    for c in r.excluded_same_side_candidates:
+                        print(
+                            f"  score={c.selection_score:.2f} a={c.terminal_a.terminal_id} b={c.terminal_b.terminal_id}"
+                        )
+
         associations: list[LinkAssociation] = []
 
         for a_id, b_id, direction in self.grid:
