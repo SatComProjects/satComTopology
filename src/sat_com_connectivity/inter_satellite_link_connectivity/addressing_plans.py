@@ -1,7 +1,9 @@
 import inspect
 import math
+import uuid
 import warnings
 from abc import abstractmethod, ABC
+from dataclasses import field
 from enum import Enum
 
 from sat_com_builder.links.inter_satellite_link_generator import (
@@ -127,6 +129,23 @@ class StaticAddressingPlan(ABC):
         raise NotImplementedError()
 
 
+@dataclass
+class LinkSelectionDebugRecord:
+    a_id: int
+    b_id: int
+    direction: InterSatelliteLinkDirection
+    # candidates actually eligible for booking (grouped orientation logic)
+    eligible_candidates: list[PossibleOpticalLink] = field(default_factory=list)
+    # candidates excluded by the orientation grouping (e.g. LEFT-LEFT, RIGHT-RIGHT)
+    # kept only for diagnosis, never used for booking
+    excluded_same_side_candidates: list[PossibleOpticalLink] = field(
+        default_factory=list
+    )
+    outcome: str = ""  # "booked" | "bumped" | "failed"
+    booked_pair: tuple[uuid.UUID, uuid.UUID] | None = None
+    notes: list[str] = field(default_factory=list)
+
+
 class WalkerStaticAddressingPlan(StaticAddressingPlan):
 
     def __init__(self, walker_shell: WalkerShell):
@@ -136,17 +155,18 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
             tuple[int, int], tuple[OpticalLinkTerminal, OpticalLinkTerminal]
         ] = {}
         self._terminals_selected = False
+        self.debug_records: list[LinkSelectionDebugRecord] = []
 
         self.get_type()
 
-    def _select_static_terminals(self, satellite_lookup: dict[int, Satellite]) -> None:
-        """
-        One-time selection of the best terminal pair per grid link. Runs the
-        full candidate search + booking logic exactly once and freezes the
-        (a_id, b_id) -> (terminal_a, terminal_b) mapping so every later call
-        reuses the same physical terminals.
-        """
+    def _select_static_terminals(
+        self, satellite_lookup: dict[int, Satellite], debug: bool = False
+    ) -> None:
         booked_terminals: set[OpticalLinkTerminal] = set()
+        booked_by: dict[
+            OpticalLinkTerminal, tuple[int, int, InterSatelliteLinkDirection]
+        ] = {}
+        self.debug_records = []
 
         for a_id, b_id, direction in self.grid:
             sat_a = satellite_lookup.get(a_id)
@@ -158,6 +178,8 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                     f"in satellite list — skipping link ({a_id}, {b_id})."
                 )
                 continue
+
+            record = LinkSelectionDebugRecord(a_id=a_id, b_id=b_id, direction=direction)
 
             if direction == InterSatelliteLinkDirection.ADJACENT:
                 sources_left, destinations_right = (
@@ -200,6 +222,21 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                 pool_a = sources_left + sources_right
                 pool_b = destinations_left + destinations_right
 
+                if debug:
+                    # Diagnostic-only: would LEFT-LEFT / RIGHT-RIGHT have been
+                    # geometrically valid? Never used for real booking.
+                    left_left = compute_OISL_links_from_terminal_pools(
+                        terminals_group_1=sources_left,
+                        terminals_group_2=destinations_left,
+                        angular_velocity_dt_seconds=1.0,
+                    )
+                    right_right = compute_OISL_links_from_terminal_pools(
+                        terminals_group_1=sources_right,
+                        terminals_group_2=destinations_right,
+                        angular_velocity_dt_seconds=1.0,
+                    )
+                    record.excluded_same_side_candidates = left_left + right_right
+
             elif direction == InterSatelliteLinkDirection.ORBITAL:
                 sources_forward, destinations_backward = (
                     _filter_terminals_pool_by_orientation(
@@ -233,9 +270,7 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                     angular_velocity_dt_seconds=1.0,
                 )
 
-                all_candidates: list[PossibleOpticalLink] = (
-                    candidates_case_1 + candidates_case_2
-                )
+                all_candidates = candidates_case_1 + candidates_case_2
                 all_candidates.sort(key=lambda x: x.selection_score)
                 pool_a = sources_forward + sources_backward
                 pool_b = destinations_forward + destinations_backward
@@ -245,14 +280,21 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                     "This direction is not recognized by the addressing plan."
                 )
 
+            record.eligible_candidates = list(all_candidates)
+
             if not all_candidates:
-                warnings.warn(
+                msg = (
                     f"No valid {direction.name} terminal pair found between "
                     f"{sat_a.satellite_name} and {sat_b.satellite_name} — skipping.\n"
                     f"{sat_a.satellite_name} has {total_source_terminals} terminal(s) for this direction. "
                     f"{sat_b.satellite_name} has {total_destination_terminals} terminal(s) for this direction. "
                     f"impossible connection might be due to an azimuth constraint as a dead zone is possible in some cases."
                 )
+                warnings.warn(msg)
+                record.outcome = "failed"
+                record.notes.append(msg)
+                if debug:
+                    self.debug_records.append(record)
                 continue
 
             candidate_selected_rank = 0
@@ -262,21 +304,27 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                 best.terminal_a in booked_terminals
                 or best.terminal_b in booked_terminals
             ):
-                warnings.warn(
-                    f"Special situation where the satellite alignment is ambiguous for sat "
-                    f"{sat_a.topology_uniq_id} and {sat_b.topology_uniq_id}"
+                record.notes.append(
+                    f"Candidate rank {candidate_selected_rank} rejected: "
+                    f"terminal already booked by "
+                    f"{booked_by.get(best.terminal_a) or booked_by.get(best.terminal_b)}"
                 )
                 candidate_selected_rank += 1
                 if candidate_selected_rank > len(all_candidates) - 1:
+                    conflicts = [
+                        f"terminal {t.terminal_id} already booked by link {booked_by.get(t)}"
+                        for t in pool_a + pool_b
+                        if t in booked_terminals
+                    ]
                     warnings.warn(
-                        f"No available terminal found for the {direction} link between {a_id} and {b_id}."
+                        f"No available terminal found for the {direction} link between {a_id} and {b_id}. "
+                        f"Conflicts: {conflicts}"
                     )
                     best = None
-                    for terminal in pool_a + pool_b:
-                        if terminal in booked_terminals:
-                            print(
-                                f"Terminal {terminal.terminal_id} in booked_terminals"
-                            )
+                    record.outcome = "failed"
+                    record.notes.append(
+                        f"Exhausted all {len(all_candidates)} candidates. Conflicts: {conflicts}"
+                    )
                     break
                 best = all_candidates[candidate_selected_rank]
 
@@ -284,14 +332,67 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                 warnings.warn(
                     "No terminal pair could be permanently assigned for this link."
                 )
+                if debug:
+                    self.debug_records.append(record)
                 continue
 
             booked_terminals.add(best.terminal_a)
             booked_terminals.add(best.terminal_b)
+            booked_by[best.terminal_a] = (a_id, b_id, direction)
+            booked_by[best.terminal_b] = (a_id, b_id, direction)
 
             self._terminal_assignment[(a_id, b_id)] = (best.terminal_a, best.terminal_b)
+            record.outcome = "booked"
+            record.booked_pair = (
+                best.terminal_a.terminal_id,
+                best.terminal_b.terminal_id,
+            )
+
+            if debug:
+                self.debug_records.append(record)
 
         self._terminals_selected = True
+
+    def print_debug_report(self) -> None:
+        """
+        Human-readable summary of the static selection pass. Requires
+        `_select_static_terminals(..., debug=True)` to have been run first.
+        For each failed link, reports whether a same-side (LEFT-LEFT /
+        RIGHT-RIGHT) pairing would have been geometrically valid — this is
+        the diagnostic for the azimuth-steering-cone hypothesis.
+        """
+        if not self.debug_records:
+            print(
+                "No debug records available. Run _select_static_terminals(..., debug=True) first."
+            )
+            return
+
+        for r in self.debug_records:
+            print(
+                f"--- Link ({r.a_id}, {r.b_id}) [{r.direction.name}] -> {r.outcome.upper()} ---"
+            )
+            print(f"  Eligible candidates found: {len(r.eligible_candidates)}")
+            for c in r.eligible_candidates[:5]:
+                print(
+                    f"    score={c.selection_score:.2f} terminal_a={c.terminal_a.terminal_id} terminal_b={c.terminal_b.terminal_id}"
+                )
+            if r.excluded_same_side_candidates:
+                valid_excluded = [c for c in r.excluded_same_side_candidates]
+                print(
+                    f"  [DIAGNOSTIC] LEFT-LEFT/RIGHT-RIGHT candidates (excluded from booking): {len(valid_excluded)}"
+                )
+                for c in valid_excluded[:5]:
+                    print(
+                        f"    score={c.selection_score:.2f} terminal_a={c.terminal_a.terminal_id} terminal_b={c.terminal_b.terminal_id}"
+                    )
+                if r.outcome == "failed" and valid_excluded:
+                    print(
+                        "  >>> HYPOTHESIS CONFIRMED for this link: a same-side pairing was geometrically "
+                        "valid and could have resolved the conflict, but is excluded by the current orientation rule."
+                    )
+            for note in r.notes:
+                print(f"  note: {note}")
+            print()
 
     def _build_associations_from_grid(
         self,
