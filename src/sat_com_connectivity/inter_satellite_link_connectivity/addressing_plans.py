@@ -3,7 +3,7 @@ import math
 import uuid
 import warnings
 from abc import abstractmethod, ABC
-from dataclasses import field
+from dataclasses import field, dataclass
 from enum import Enum
 
 from sat_com_builder.links.inter_satellite_link_generator import (
