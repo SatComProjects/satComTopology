@@ -416,7 +416,21 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                 )
                 continue
 
-            best = candidates[0]
+            best = next(
+                (
+                    c
+                    for c in candidates
+                    if c.terminal_a == terminal_a and c.terminal_b == terminal_b
+                ),
+                None,
+            )
+
+            if best is None:
+                warnings.warn(
+                    f"Statically assigned terminals for link ({a_id}, {b_id}) returned "
+                    f"candidates but none matched the frozen terminal orientation — skipping."
+                )
+                continue
 
             associations.append(
                 LinkAssociation(
