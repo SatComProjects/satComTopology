@@ -334,6 +334,22 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                     self.debug_records.append(record)
                 continue
 
+            if best.terminal_a not in sat_a.optical_link_terminals:
+                # switch
+                best = PossibleOpticalLink(
+                    satellite_a=sat_a,
+                    satellite_b=sat_b,
+                    terminal_a=best.terminal_b,
+                    terminal_b=best.terminal_a,
+                    selection_score=best.selection_score,
+                    constraint_a_to_b=best.constraint_b_to_a,
+                    constraint_b_to_a=best.constraint_a_to_b,
+                    estimated_duration=best.estimated_duration,
+                    temporary_unavailable=best.temporary_unavailable,
+                    estimated_recover_time=best.estimated_recover_time,
+                    bidirectional_possible=best.bidirectional_possible,
+                )
+
             booked_terminals.add(best.terminal_a)
             booked_terminals.add(best.terminal_b)
             booked_by[best.terminal_a] = (a_id, b_id, direction)
