@@ -279,6 +279,17 @@ class CesiumRenderer:
                 )
         return self
 
+    def add_filtered_inter_satellite_links(
+        self, links: list[InterSatelliteLink]
+    ) -> "CesiumRenderer":
+        for link in links:
+            self.append_next(
+                self.cesium_format.create_inter_satellite_link(
+                    inter_satellite_link=link
+                )
+            )
+        return self
+
     def add_flows(self) -> "CesiumRenderer":
         """
         Add network traffic to the render. This will render independent traffic without links.
