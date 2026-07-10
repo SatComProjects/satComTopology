@@ -214,7 +214,7 @@ var scene = viewer.scene;
 """
 
 
-def create_background_color(color: str = "WHITESMOKE") -> str:
+def create_background_color(color: str = "WHITE") -> str:
     """
 
     :rtype: object
