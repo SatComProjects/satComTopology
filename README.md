@@ -1,13 +1,13 @@
 # Welcome to the SatComTopology project 🛰️
 
-The **satComTopology** is a project that have for goal to design a satellite communication topology.
-The objective is to generate a topology in order to **prepare a simulation**. The overall is a set of python module which 
-provides tools to build your future constellation environment. 
-The Simulation model can be exported in different format:
-- networkx: A famous network library that will allow you to compute routing, and execute basic algorithms.
-- Cesium : A visualization software that allow you to watch your constellation in 3D 🌍.
+**SatComTopology** is a project whose goal is to design satellite communication topologies.
+Its objective is to generate a topology in order to **prepare a simulation**. Overall, it is a set of Python modules
+that provide tools to build your future constellation environment.
+The simulation model can be exported in different formats:
+- **networkx**: a popular network library that allows you to compute routing and run standard graph algorithms.
+- **Cesium**: a visualization tool that lets you watch your constellation in 3D 🌍.
 
-This project si the laboratory 🔬 where you can **design** your topologies.
+This project is the laboratory 🔬 where you can **design** your topologies.
 
 <!-- TOC -->
 * [Welcome to the SatComTopology project 🛰️](#welcome-to-the-satcomtopology-project-)
@@ -20,7 +20,7 @@ This project si the laboratory 🔬 where you can **design** your topologies.
     * [Load a configuration](#load-a-configuration)
     * [Manage a Simulation](#manage-a-simulation)
       * [Export a Simulation](#export-a-simulation)
-      * [I just want my constellation in the good format](#i-just-want-my-constellation-in-the-good-format)
+      * [Quick start: straight to NetworkX](#quick-start-straight-to-networkx)
   * [Tutorials 🎓](#tutorials-)
   * [Contributing](#contributing)
   * [License ⚖️](#license-)
@@ -28,19 +28,20 @@ This project si the laboratory 🔬 where you can **design** your topologies.
 
 ## Features 📢
 ### Packages 📦
-- sat_com_model: [Topology Model](src/sat_com_model/README.md)
-- sat_com_builder: [Topology Simulation builder](src/sat_com_builder/README.md)
-- sat_com_adapter: [Topology Adapters](src/sat_com_adapter/README.md)
-- sat_com_trajectopy: [Topology Physic Manager](src/sat_com_trajectopy/README.md)
-- sat_com_application: [Topology Application](src/sat_com_application/README.md)
-- sat_com_topology_traffic: [Topology Traffic](src/sat_com_traffic/README.md) (Bêta version)
-- sat_com_connectivity: [Topology Connectivity](src/sat_com_connectivity/README.md)
+- `sat_com_model`: [Topology Model](src/sat_com_model/README.md)
+- `sat_com_builder`: [Topology Simulation Builder](src/sat_com_builder/README.md)
+- `sat_com_adapter`: [Topology Adapters](src/sat_com_adapter/README.md)
+- `sat_com_trajectopy`: [Topology Physics Manager](src/sat_com_trajectopy/README.md)
+- `sat_com_application`: [Topology Application](src/sat_com_application/README.md)
+- `sat_com_traffic`: [Topology Traffic](src/sat_com_traffic/README.md) (Beta version)
+- `sat_com_connectivity`: [Topology Connectivity](src/sat_com_connectivity/README.md)
 
 ## Installation 📃
-Uninstall if already installed:
+Uninstall any existing version first:
 ```sh
 pip uninstall sat_com_topology -y
 ```
+
 ### Install Main Version from GitLab
 ```sh
 pip install git+https://gitlab.isae-supaero.fr/eqospace/sat-com-topology.git@main#egg=sat_com_topology
@@ -53,7 +54,8 @@ pip install git+https://github.com/elbarbi/satComTopology.git@main#egg=sat_com_t
 
 ## Example 🖊️
 ### Load a configuration
-An example of a JSON configuration is located [here](src/sat_com_builder/examples/multi_shell_configuration_example.json).
+An example JSON configuration is available [here](src/sat_com_builder/examples/multi_shell_configuration_example.json).
+
 ```python
 from sat_com_builder.models import SimulationProperty
 from sat_com_builder.configuration_manager import BaseConfigurationManager
@@ -100,15 +102,14 @@ plain_config_walker = {
   ]
 }
 
-
 simulation_properties = SimulationProperty(**plain_config_walker)
-
 
 simulation_manager = BaseConfigurationManager(simulation_property=simulation_properties)
 simulation_manager = simulation_manager.load_simulation()
 ```
+
 ### Manage a Simulation
-The following code is an example of how to manually create a link between a satellite and a ground station.
+The following example shows how to manually create a link between a satellite and a ground station.
 
 ```python
 ground_station = simulation_manager.get_ground_station_by_object_id(0)
@@ -116,21 +117,23 @@ ground_station = simulation_manager.get_ground_station_by_object_id(0)
 satellite = simulation_manager.get_satellite_by_object_id(0)
 
 created_link = simulation_manager.create_and_add_ground_station_link_connection(
-  satellite,
-  ground_station
+    satellite,
+    ground_station
 )
 
 print(f"A new {created_link.type} has been created")
 print(
-  f"Source: {created_link.source.type} n° {created_link.source.object_id}, topology id: {created_link.source.topology_uniq_id}"
+    f"Source: {created_link.source.type} n° {created_link.source.object_id}, "
+    f"topology id: {created_link.source.topology_uniq_id}"
 )
 print(
-  f"Destination: {created_link.destination.type} n° {created_link.destination.object_id}, topology id: {created_link.source.topology_uniq_id}"
+    f"Destination: {created_link.destination.type} n° {created_link.destination.object_id}, "
+    f"topology id: {created_link.destination.topology_uniq_id}"
 )
 ```
+
 #### Export a Simulation
-In most of the cases, sat com topology user will need to load a simulation and export it as
-a new format.
+In most cases, a `satComTopology` user will want to load a simulation and export it to a new format.
 
 ```python
 from sat_com_adapter.adapters import NetworkXAdapter
@@ -140,10 +143,10 @@ networkx_adapter = NetworkXAdapter(simulation_manager)
 my_graph = networkx_adapter.create_full_networkx_graph()
 
 networkx_adapter.adapt("OUTPUT_PATH")
-
 ```
-#### I just want my constellation in the good format
-Here a copy-paste friendly example of how to generate your topology and export it to networkx.
+
+#### Quick start: straight to NetworkX
+Here's a copy-paste-friendly example showing how to generate your topology and export it directly to NetworkX.
 
 ```python
 from sat_com_builder.configuration_manager import YamlConfigurationManager
@@ -159,16 +162,17 @@ my_graph = networkx_adapter.create_full_networkx_graph()
 
 networkx_adapter.adapt("OUTPUT_PATH")
 ```
-## Tutorials 🎓
-Here are some tutorials in the Jupyter Notebook format:
-- [Create my first simulation](https://github.com/elbarbi/sat_com_topology_tutorials/blob/main/src/create_my_first_simulation.ipynb)
-- [Learn to  deeply use satComTopology](https://github.com/elbarbi/satComTopologyTutorials/blob/main/src/deeply_understand_sat_com_topology.ipynb)
 
-The tutorials aren't on gitlab yet, to have an access:
-louis.barbier at isae-supaero.fr
+## Tutorials 🎓
+Tutorials are available as Jupyter notebooks:
+- [Create my first simulation](https://github.com/elbarbi/sat_com_topology_tutorials/blob/main/src/create_my_first_simulation.ipynb)
+- [Learn to use satComTopology in depth](https://github.com/elbarbi/satComTopologyTutorials/blob/main/src/deeply_understand_sat_com_topology.ipynb)
+
+These tutorials aren't on GitLab yet. To request access, contact:
+louis.barbier [at] isae-supaero.fr
 
 ## Contributing
-The contributing guide is [here](https://github.com/elbarbi/satComTopology/blob/develop/CONTRIBUTING.md).
+The contributing guide is available [here](https://github.com/elbarbi/satComTopology/blob/develop/CONTRIBUTING.md).
 
 ## License ⚖️
-The project is licensed under the GNU General Public License v3.0 license.
+This project is licensed under the GNU General Public License v3.0.
