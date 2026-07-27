@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Optional, Generic, TypeVar, Any, cast
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict, computed_field
+from pydantic import BaseModel, Field, ConfigDict, computed_field, field_serializer
 from typing_extensions import deprecated
 
 from .exceptions import (
@@ -395,6 +395,10 @@ class Shell(BaseModel):
 
     shell_id: UUID = Field(default_factory=uuid.uuid4, frozen=True)
 
+    @field_serializer("shell_id", mode="plain", when_used="always")
+    def serialize_uuid_as_str(self, val: UUID) -> str:
+        return str(val)
+
     identifier: str
     type: str
     satellite_configuration: Optional[SatelliteConfiguration] = Field(default=None)
@@ -524,6 +528,10 @@ class OrbitalObject(TopologyObject):
 
 class OpticalLinkTerminal(BaseModel):
     terminal_id: uuid.UUID = Field(default_factory=uuid.uuid4, frozen=True)
+
+    @field_serializer("terminal_id", mode="plain", when_used="always")
+    def serialize_uuid_as_str(self, val: UUID) -> str:
+        return str(val)
 
     link: Optional[InterSatelliteLink] = Field(default=None, exclude=True)
     target_optical_link_terminal: Optional["OpticalLinkTerminal"] = Field(
@@ -665,6 +673,10 @@ class PointOfPresence(GroundObject):
 class Flow(BaseModel):
     id: UUID = Field(default=None)
 
+    @field_serializer("id", mode="plain", when_used="always")
+    def serialize_uuid_as_str(self, val: UUID) -> str:
+        return str(val)
+
     source: int = Field(default=None)
     destination: int = Field(default=None)
 
@@ -681,6 +693,10 @@ class Link(BaseModel):
     """
 
     link_id: uuid.UUID = Field(default_factory=uuid.uuid4)
+
+    @field_serializer("link_id", mode="plain", when_used="always")
+    def serialize_uuid_as_str(self, val: UUID) -> str:
+        return str(val)
 
     type: str = Field(default="Link", frozen=True)
 
