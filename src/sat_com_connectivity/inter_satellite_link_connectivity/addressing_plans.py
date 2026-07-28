@@ -19,6 +19,8 @@ from sat_com_connectivity.inter_satellite_link_connectivity.models import (
 )
 from sat_com_connectivity.inter_satellite_link_connectivity.optical_helpers import (
     compute_OISL_links_from_terminal_pools,
+    _EciCache,
+    compute_OISL_constraint_for_known_pair,
 )
 from sat_com_model.models import (
     WalkerShell,
@@ -403,7 +405,10 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
     ) -> list[LinkAssociation]:
         if not self._terminals_selected:
             self._select_static_terminals(satellite_lookup, debug=True)
-            self.print_debug_report()
+            self.print_debug_report(only_failed=True)
+
+        cache = _EciCache()
+        cache.warm(list(satellite_lookup.values()))
 
         associations: list[LinkAssociation] = []
 
@@ -419,41 +424,26 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
 
             terminal_a, terminal_b = assignment
 
-            candidates = compute_OISL_links_from_terminal_pools(
-                terminals_group_1=[terminal_a],
-                terminals_group_2=[terminal_b],
+            best = compute_OISL_constraint_for_known_pair(
+                terminal_a,
+                terminal_b,
+                cache,
                 angular_velocity_dt_seconds=1.0,
             )
 
-            if not candidates:
+            if best is None:
                 warnings.warn(
                     f"Statically assigned terminals for link ({a_id}, {b_id}) can't compute "
                     f"a valid constraint at this time step — skipping."
                 )
                 continue
 
-            best = next(
-                (
-                    c
-                    for c in candidates
-                    if c.terminal_a == terminal_a and c.terminal_b == terminal_b
-                ),
-                None,
-            )
-
-            if best is None:
-                warnings.warn(
-                    f"Statically assigned terminals for link ({a_id}, {b_id}) returned "
-                    f"candidates but none matched the frozen terminal orientation — skipping."
-                )
-                continue
-
             associations.append(
                 LinkAssociation(
                     satellite_a=sat_a,
-                    terminal_a=best.terminal_a,
+                    terminal_a=terminal_a,
                     satellite_b=sat_b,
-                    terminal_b=best.terminal_b,
+                    terminal_b=terminal_b,
                     direction=direction,
                     link=None,
                     constraint_a_to_b=best.constraint_a_to_b,

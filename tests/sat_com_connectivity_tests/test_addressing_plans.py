@@ -1,4 +1,5 @@
 import uuid
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -133,6 +134,9 @@ def make_possible_link(
     possible.bidirectional_possible = True
     possible.constraint_a_to_b = make_constraint()
     possible.constraint_b_to_a = make_constraint()
+    possible.estimated_duration = 30
+    possible.temporary_unavailable = False
+    possible.estimated_recover_time = None
     return possible
 
 
@@ -162,11 +166,60 @@ def t_bwd(sat):
     return sat.optical_link_terminals[3]
 
 
-def fake_compute_returns_first(terminals_group_1, terminals_group_2, **_):
-    """Simplest fake — returns one link using first terminal from each pool."""
+# ===========================================================================
+# Fakes for the two distinct geometry entry points
+# ===========================================================================
+#
+# The addressing plan now calls two different functions at two different
+# phases:
+#
+#   - compute_OISL_links_from_terminal_pools(terminals_group_1: list,
+#     terminals_group_2: list, ...) -> list[PossibleOpticalLink]
+#     Used once, during _select_static_terminals (selection/booking phase).
+#     Takes pools, returns a ranked list.
+#
+#   - compute_OISL_constraint_for_known_pair(terminal_a, terminal_b, cache,
+#     ...) -> PossibleOpticalLink | None
+#     Used every tick, during _build_associations_from_grid (refresh phase).
+#     Takes a single already-decided pair, returns a single result.
+#
+# Tests must patch whichever one the behavior under test actually lives in,
+# and any test that runs get_link_associations end-to-end also needs
+# _EciCache patched, since _build_associations_from_grid now instantiates
+# one for real and calls .warm(...) on it.
+
+
+def fake_pool_returns_first(terminals_group_1, terminals_group_2, **_):
+    """Fake for compute_OISL_links_from_terminal_pools — list in, list out."""
     if terminals_group_1 and terminals_group_2:
         return [make_possible_link(terminals_group_1[0], terminals_group_2[0])]
     return []
+
+
+def fake_pair_returns_link(terminal_a, terminal_b, cache=None, **_):
+    """Fake for compute_OISL_constraint_for_known_pair — single pair in, single result out."""
+    return make_possible_link(terminal_a, terminal_b)
+
+
+@contextmanager
+def patch_geometry(pool_side_effect=None, pair_side_effect=None):
+    """
+    Patches every external geometry call get_link_associations touches:
+    the pool-based selection call, the single-pair refresh call, and the
+    ECI cache warm-up (which would otherwise run real propagation against
+    MagicMock satellites and fail).
+    """
+    with patch(
+        f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
+        side_effect=pool_side_effect or fake_pool_returns_first,
+    ), patch(
+        f"{ADDRESSING_PLANS}.compute_OISL_constraint_for_known_pair",
+        side_effect=pair_side_effect or fake_pair_returns_link,
+    ), patch(
+        f"{ADDRESSING_PLANS}._EciCache"
+    ) as mock_cache_cls:
+        mock_cache_cls.return_value.warm.return_value = None
+        yield
 
 
 # ===========================================================================
@@ -293,10 +346,7 @@ class TestWalkerStaticAddressingPlanGridBuilding:
         plan_delta = FullMeshWalkerDeltaStaticAddressingPlan(delta_shell)
         plan_star = FullMeshWalkerStarStaticAddressingPlan(star_shell)
 
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute_returns_first,
-        ):
+        with patch_geometry():
             result_delta = plan_delta.get_link_associations(
                 make_constellation(delta_shell, 3, 3)
             )
@@ -324,37 +374,40 @@ class TestWalkerBuildAssociationsOrbital:
 
     def test_returns_orbital_association(self):
         plan, sat_a, sat_b = self._setup()
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute_returns_first,
-        ):
+        with patch_geometry():
             result = plan.get_link_associations([sat_a, sat_b])
         assert len(result) == 1
         assert result[0].direction == InterSatelliteLinkDirection.ORBITAL
 
-    def test_two_pool_calls_per_pair(self):
-        """case_1 (FORWARD→BACKWARD) and case_2 (BACKWARD→FORWARD) both called."""
+    def test_pool_and_pair_calls_total_three(self):
+        """
+        Selection phase: 2 pool calls (case_1 FORWARD->BACKWARD,
+        case_2 BACKWARD->FORWARD). Refresh phase: 1 pair call
+        (single grid link). Total = 3.
+        """
         plan, sat_a, sat_b = self._setup()
-        call_count = []
+        call_log = []
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
-            call_count.append(1)
-            return fake_compute_returns_first(terminals_group_1, terminals_group_2)
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
+            call_log.append("pool")
+            return fake_pool_returns_first(terminals_group_1, terminals_group_2)
 
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
-        ):
+        def fake_pair(terminal_a, terminal_b, cache=None, **_):
+            call_log.append("pair")
+            return fake_pair_returns_link(terminal_a, terminal_b)
+
+        with patch_geometry(pool_side_effect=fake_pool, pair_side_effect=fake_pair):
             plan.get_link_associations([sat_a, sat_b])
 
-        assert sum(call_count) == 3
+        assert call_log.count("pool") == 2
+        assert call_log.count("pair") == 1
 
     def test_case_1_receives_forward_backward_pools(self):
-        """First pool call must receive FORWARD terminals as group_1, BACKWARD as group_2."""
+        """Selection-phase behavior — patch the pool function directly."""
         plan, sat_a, sat_b = self._setup()
         first_call_args = []
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
             if not first_call_args:
                 first_call_args.append(
                     (
@@ -362,12 +415,9 @@ class TestWalkerBuildAssociationsOrbital:
                         [t.descriptor for t in terminals_group_2],
                     )
                 )
-            return fake_compute_returns_first(terminals_group_1, terminals_group_2)
+            return fake_pool_returns_first(terminals_group_1, terminals_group_2)
 
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
-        ):
+        with patch_geometry(pool_side_effect=fake_pool):
             plan.get_link_associations([sat_a, sat_b])
 
         g1_descs, g2_descs = first_call_args[0]
@@ -375,37 +425,34 @@ class TestWalkerBuildAssociationsOrbital:
         assert InterSatelliteLinkOrientation.INTRA_PLANE_BACKWARD in g2_descs
 
     def test_case_2_receives_backward_forward_pools(self):
-        """Second pool call must receive BACKWARD terminals as group_1, FORWARD as group_2."""
+        """Selection-phase behavior — patch the pool function directly."""
         plan, sat_a, sat_b = self._setup()
-        second_call_args = []
+        all_call_args = []
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
-            second_call_args.append(
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
+            all_call_args.append(
                 (
                     [t.descriptor for t in terminals_group_1],
                     [t.descriptor for t in terminals_group_2],
                 )
             )
-            return fake_compute_returns_first(terminals_group_1, terminals_group_2)
+            return fake_pool_returns_first(terminals_group_1, terminals_group_2)
 
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
-        ):
+        with patch_geometry(pool_side_effect=fake_pool):
             plan.get_link_associations([sat_a, sat_b])
 
-        g1_descs, g2_descs = second_call_args[1]
+        g1_descs, g2_descs = all_call_args[1]
         assert InterSatelliteLinkOrientation.INTRA_PLANE_BACKWARD in g1_descs
         assert InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD in g2_descs
 
     def test_best_score_candidate_wins_across_cases(self):
-        """Candidates from case_1 and case_2 are merged and the lowest score wins."""
+        """Ranking happens in selection — patch the pool function (list-returning)."""
         plan, sat_a, sat_b = self._setup()
         t_winner = t_bwd(sat_a)
         t_winner_peer = t_fwd(sat_b)
         call_index = [0]
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
             idx = call_index[0]
             call_index[0] += 1
             if idx == 0:
@@ -414,13 +461,9 @@ class TestWalkerBuildAssociationsOrbital:
                         terminals_group_1[0], terminals_group_2[0], score=10.0
                     )
                 ]
-            else:
-                return [make_possible_link(t_winner, t_winner_peer, score=1.0)]
+            return [make_possible_link(t_winner, t_winner_peer, score=1.0)]
 
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
-        ):
+        with patch_geometry(pool_side_effect=fake_pool):
             result = plan.get_link_associations([sat_a, sat_b])
 
         assert result[0].terminal_a == t_winner
@@ -428,27 +471,22 @@ class TestWalkerBuildAssociationsOrbital:
 
     def test_link_is_none(self):
         plan, sat_a, sat_b = self._setup()
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute_returns_first,
-        ):
+        with patch_geometry():
             result = plan.get_link_associations([sat_a, sat_b])
         assert result[0].link is None
 
     def test_constraints_propagated(self):
+        """Constraint comes from the refresh phase — patch the pair function."""
         plan, sat_a, sat_b = self._setup()
         expected = make_constraint()
         expected.range_distance_km = 1234.0
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
-            p = make_possible_link(terminals_group_1[0], terminals_group_2[0])
+        def fake_pair(terminal_a, terminal_b, cache=None, **_):
+            p = make_possible_link(terminal_a, terminal_b)
             p.constraint_a_to_b = expected
-            return [p]
+            return p
 
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
-        ):
+        with patch_geometry(pair_side_effect=fake_pair):
             result = plan.get_link_associations([sat_a, sat_b])
 
         assert result[0].constraint_a_to_b == expected
@@ -458,7 +496,7 @@ class TestWalkerBuildAssociationsOrbital:
         with patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
             return_value=[],
-        ), pytest.warns(UserWarning):
+        ), patch(f"{ADDRESSING_PLANS}._EciCache"), pytest.warns(UserWarning):
             result = plan.get_link_associations([sat_a, sat_b])
         assert result == []
 
@@ -467,7 +505,7 @@ class TestWalkerBuildAssociationsOrbital:
         with pytest.warns(UserWarning), patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
             return_value=[],
-        ):
+        ), patch(f"{ADDRESSING_PLANS}._EciCache"):
             result = plan.get_link_associations([sat_b])  # sat_a (id=0) absent
         assert result == []
 
@@ -478,10 +516,7 @@ class TestWalkerBuildAssociationsOrbital:
         sat_a = make_4_terminal_satellite(object_id=10, topology_id=99, shell=shell)
         sat_b = make_4_terminal_satellite(object_id=20, topology_id=88, shell=shell)
 
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute_returns_first,
-        ):
+        with patch_geometry():
             result = plan.get_link_associations([sat_a, sat_b])
 
         assert len(result) == 1
@@ -501,35 +536,34 @@ class TestWalkerBuildAssociationsAdjacent:
 
     def test_returns_adjacent_association(self):
         plan, sat_a, sat_b = self._setup()
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute_returns_first,
-        ):
+        with patch_geometry():
             result = plan.get_link_associations([sat_a, sat_b])
         assert len(result) == 1
         assert result[0].direction == InterSatelliteLinkDirection.ADJACENT
 
-    def test_two_pool_calls_per_pair(self):
+    def test_pool_and_pair_calls_total_three(self):
         plan, sat_a, sat_b = self._setup()
-        call_count = []
+        call_log = []
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
-            call_count.append(1)
-            return fake_compute_returns_first(terminals_group_1, terminals_group_2)
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
+            call_log.append("pool")
+            return fake_pool_returns_first(terminals_group_1, terminals_group_2)
 
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
-        ):
+        def fake_pair(terminal_a, terminal_b, cache=None, **_):
+            call_log.append("pair")
+            return fake_pair_returns_link(terminal_a, terminal_b)
+
+        with patch_geometry(pool_side_effect=fake_pool, pair_side_effect=fake_pair):
             plan.get_link_associations([sat_a, sat_b])
 
-        assert sum(call_count) == 3
+        assert call_log.count("pool") == 4
+        assert call_log.count("pair") == 1
 
     def test_case_1_receives_left_right_pools(self):
         plan, sat_a, sat_b = self._setup()
         first_call_args = []
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
             if not first_call_args:
                 first_call_args.append(
                     (
@@ -537,12 +571,9 @@ class TestWalkerBuildAssociationsAdjacent:
                         [t.descriptor for t in terminals_group_2],
                     )
                 )
-            return fake_compute_returns_first(terminals_group_1, terminals_group_2)
+            return fake_pool_returns_first(terminals_group_1, terminals_group_2)
 
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
-        ):
+        with patch_geometry(pool_side_effect=fake_pool):
             plan.get_link_associations([sat_a, sat_b])
 
         g1_descs, g2_descs = first_call_args[0]
@@ -557,19 +588,16 @@ class TestWalkerBuildAssociationsAdjacent:
         plan, sat_a, sat_b = self._setup()
         all_call_args = []
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
             all_call_args.append(
                 (
                     [t.descriptor for t in terminals_group_1],
                     [t.descriptor for t in terminals_group_2],
                 )
             )
-            return fake_compute_returns_first(terminals_group_1, terminals_group_2)
+            return fake_pool_returns_first(terminals_group_1, terminals_group_2)
 
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
-        ):
+        with patch_geometry(pool_side_effect=fake_pool):
             plan.get_link_associations([sat_a, sat_b])
 
         g1_descs, g2_descs = all_call_args[1]
@@ -581,7 +609,7 @@ class TestWalkerBuildAssociationsAdjacent:
         with patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
             return_value=[],
-        ), pytest.warns(UserWarning):
+        ), patch(f"{ADDRESSING_PLANS}._EciCache"), pytest.warns(UserWarning):
             result = plan.get_link_associations([sat_a, sat_b])
         assert result == []
 
@@ -589,7 +617,11 @@ class TestWalkerBuildAssociationsAdjacent:
 class TestWalkerStaticTerminalSelection:
 
     def test_contested_terminal_falls_back_at_selection_time(self):
-        """Fallback resolution happens once, during _select_static_terminals."""
+        """
+        Fallback resolution happens once, during _select_static_terminals.
+        This is pure selection-phase logic — patch the pool function only;
+        _select_static_terminals never touches _EciCache directly.
+        """
         shell = make_walker_shell()
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
@@ -604,7 +636,7 @@ class TestWalkerStaticTerminalSelection:
         contested = t_left(sat_b)
         fallback = t_right(sat_b)
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
             if not terminals_group_1 or not terminals_group_2:
                 return []
             results = [make_possible_link(terminals_group_1[0], contested, score=0.0)]
@@ -618,8 +650,8 @@ class TestWalkerStaticTerminalSelection:
 
         with patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
-        ), pytest.warns(UserWarning):
+            side_effect=fake_pool,
+        ):
             plan._select_static_terminals(satellite_lookup)
 
         assigned_terminals_b = [t_b for _, t_b in plan._terminal_assignment.values()]
@@ -635,19 +667,7 @@ class TestWalkerStaticTerminalSelection:
         plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
         plan.grid = [(0, 1, InterSatelliteLinkDirection.ADJACENT)]
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
-            if not terminals_group_1 or not terminals_group_2:
-                return []
-            return [
-                make_possible_link(
-                    terminals_group_1[0], terminals_group_2[0], score=0.0
-                )
-            ]
-
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
-        ):
+        with patch_geometry():
             result_1 = plan.get_link_associations([sat_a, sat_b])
             result_2 = plan.get_link_associations([sat_a, sat_b])
 
@@ -657,7 +677,7 @@ class TestWalkerStaticTerminalSelection:
         )
 
     def test_all_candidates_booked_raises_value_error(self):
-        """When every candidate's terminals are booked a ValueError must be raised."""
+        """When every candidate's terminals are booked, selection must warn and skip."""
         shell = make_walker_shell()
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
@@ -672,14 +692,11 @@ class TestWalkerStaticTerminalSelection:
         only_terminal_a = t_fwd(sat_a)
         only_terminal_b = t_bwd(sat_b)
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
             # Always offer only the same contested pair — no fallback
             return [make_possible_link(only_terminal_a, only_terminal_b, score=0.0)]
 
-        with patch(
-            f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
-        ):
+        with patch_geometry(pool_side_effect=fake_pool):
             with pytest.warns(Warning) as record:
                 plan.get_link_associations([sat_a, sat_b])
 
@@ -701,18 +718,14 @@ class TestWalkerStaticTerminalSelection:
         contested = t_bwd(sat_b)
         fallback = t_fwd(sat_b)
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
             return [
                 make_possible_link(terminals_group_1[0], contested, score=0.0),
                 make_possible_link(terminals_group_1[0], fallback, score=5.0),
             ]
 
-        with pytest.warns(UserWarning):
-            with patch(
-                f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-                side_effect=fake_compute,
-            ):
-                plan.get_link_associations([sat_a, sat_b, sat_c])
+        with patch_geometry(pool_side_effect=fake_pool):
+            plan.get_link_associations([sat_a, sat_b, sat_c])
 
 
 class TestWalkerUnknownDirection:
@@ -731,6 +744,10 @@ class TestWalkerUnknownDirection:
 # ===========================================================================
 # SSODawnDuskStaticAddressingPlan
 # ===========================================================================
+#
+# This plan still calls compute_OISL_links_from_terminal_pools directly —
+# it wasn't part of the static-terminal-selection refactor, so these tests
+# are unchanged.
 
 
 class TestSSODawnDuskStaticAddressingPlanGridBuilding:
@@ -766,7 +783,7 @@ class TestSSOBuildAssociationsOrbital:
         plan, satellites = self._setup()
         with patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute_returns_first,
+            side_effect=fake_pool_returns_first,
         ):
             result = plan.get_link_associations(satellites)
         assert len(result) == 1
@@ -776,13 +793,13 @@ class TestSSOBuildAssociationsOrbital:
         plan, satellites = self._setup()
         call_count = []
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
             call_count.append(1)
-            return fake_compute_returns_first(terminals_group_1, terminals_group_2)
+            return fake_pool_returns_first(terminals_group_1, terminals_group_2)
 
         with patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
+            side_effect=fake_pool,
         ):
             plan.get_link_associations(satellites)
 
@@ -792,15 +809,15 @@ class TestSSOBuildAssociationsOrbital:
         plan, satellites = self._setup()
         all_group_descriptors = []
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
             all_group_descriptors.extend(
                 [t.descriptor for t in terminals_group_1 + terminals_group_2]
             )
-            return fake_compute_returns_first(terminals_group_1, terminals_group_2)
+            return fake_pool_returns_first(terminals_group_1, terminals_group_2)
 
         with patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
+            side_effect=fake_pool,
         ):
             plan.get_link_associations(satellites)
 
@@ -847,7 +864,7 @@ class TestSSOBuildAssociationsOrbital:
         plan, satellites = self._setup()
         with patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute_returns_first,
+            side_effect=fake_pool_returns_first,
         ):
             result = plan.get_link_associations(satellites)
         assert result[0].link is None
@@ -857,14 +874,14 @@ class TestSSOBuildAssociationsOrbital:
         expected = make_constraint()
         expected.range_distance_km = 999.0
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
             p = make_possible_link(terminals_group_1[0], terminals_group_2[0])
             p.constraint_a_to_b = expected
             return [p]
 
         with patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
+            side_effect=fake_pool,
         ):
             result = plan.get_link_associations(satellites)
 
@@ -879,7 +896,7 @@ class TestSSOBuildAssociationsOrbital:
 
         with patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute_returns_first,
+            side_effect=fake_pool_returns_first,
         ):
             result = plan.get_link_associations([sat_a, sat_b])
 
@@ -923,7 +940,7 @@ class TestSSOBuildAssociationsOrbital:
         contested = t_bwd(sat_b)
         fallback = t_fwd(sat_b)
 
-        def fake_compute(terminals_group_1, terminals_group_2, **_):
+        def fake_pool(terminals_group_1, terminals_group_2, **_):
             return [
                 make_possible_link(terminals_group_1[0], contested, score=0.0),
                 make_possible_link(terminals_group_1[0], fallback, score=5.0),
@@ -931,6 +948,6 @@ class TestSSOBuildAssociationsOrbital:
 
         with pytest.warns(UserWarning), patch(
             f"{ADDRESSING_PLANS}.compute_OISL_links_from_terminal_pools",
-            side_effect=fake_compute,
+            side_effect=fake_pool,
         ):
             plan.get_link_associations([sat_a, sat_b, sat_c])

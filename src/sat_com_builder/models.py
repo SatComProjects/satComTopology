@@ -41,7 +41,9 @@ class OpticalTerminalProperty(BaseModel):
     maximum_range_distance_km: float = Field(default=7800)
     minimum_contact_duration_seconds: float = Field(default=30)
 
-    max_azimuth_degrees: float = Field(default=175)  # ±175° azimuth
+    max_azimuth_degrees: float = Field(
+        default=180
+    )  # ±180° azimuth -> This is an overkill default terminal
     min_elevation_degrees: float = Field(default=-25)  # +5°/-25° elev
     max_elevation_degrees: float = Field(default=5)
 
@@ -54,9 +56,7 @@ class OpticalTerminalInstallationProperty(BaseModel):
     azimuth_angle_configuration: float = Field(
         default=0
     )  # 0 ° (X along track), 90°, -90°, -180°
-    elevation_angle_configuration: float = Field(
-        default=-180
-    )  # Nadir anti nadir is 180
+    elevation_angle_configuration: float = Field(default=-90)  # Nadir anti nadir is -90
 
     descriptor: InterSatelliteLinkOrientationProperty = Field(
         default=InterSatelliteLinkOrientationProperty.INTRA_PLANE_FORWARD
@@ -77,7 +77,7 @@ class SatelliteProperty(BaseModel):
     ] = [
         OpticalTerminalInstallationProperty(
             azimuth_angle_configuration=0.0,
-            elevation_angle_configuration=-180,
+            elevation_angle_configuration=-90,
             descriptor=InterSatelliteLinkOrientationProperty.INTRA_PLANE_FORWARD,
             orientation_possibilities=[
                 InterSatelliteLinkOrientationProperty.INTRA_PLANE_FORWARD,
@@ -85,7 +85,7 @@ class SatelliteProperty(BaseModel):
         ),
         OpticalTerminalInstallationProperty(
             azimuth_angle_configuration=90.0,
-            elevation_angle_configuration=-180,
+            elevation_angle_configuration=-90,
             descriptor=InterSatelliteLinkOrientationProperty.INTER_PLANE_LEFT,
             orientation_possibilities=[
                 InterSatelliteLinkOrientationProperty.INTER_PLANE_LEFT,
@@ -93,7 +93,7 @@ class SatelliteProperty(BaseModel):
         ),
         OpticalTerminalInstallationProperty(
             azimuth_angle_configuration=-90.0,
-            elevation_angle_configuration=-180,
+            elevation_angle_configuration=-90,
             descriptor=InterSatelliteLinkOrientationProperty.INTER_PLANE_RIGHT,
             orientation_possibilities=[
                 InterSatelliteLinkOrientationProperty.INTER_PLANE_RIGHT,
@@ -101,7 +101,7 @@ class SatelliteProperty(BaseModel):
         ),
         OpticalTerminalInstallationProperty(
             azimuth_angle_configuration=-180.0,
-            elevation_angle_configuration=-180,
+            elevation_angle_configuration=-90,
             descriptor=InterSatelliteLinkOrientationProperty.INTRA_PLANE_BACKWARD,
             orientation_possibilities=[
                 InterSatelliteLinkOrientationProperty.INTRA_PLANE_BACKWARD,

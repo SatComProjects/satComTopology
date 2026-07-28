@@ -291,7 +291,7 @@ def make_5_isl_with_single_intershell():
             # Intra-plane
             OpticalTerminalInstallationProperty(
                 azimuth_angle_configuration=0.0,
-                elevation_angle_configuration=-180,
+                elevation_angle_configuration=-90,
                 descriptor=InterSatelliteLinkOrientationProperty.INTRA_PLANE_FORWARD,
                 orientation_possibilities=[
                     InterSatelliteLinkOrientationProperty.INTRA_PLANE_FORWARD,
@@ -299,7 +299,7 @@ def make_5_isl_with_single_intershell():
             ),
             OpticalTerminalInstallationProperty(
                 azimuth_angle_configuration=-180.0,
-                elevation_angle_configuration=-180,
+                elevation_angle_configuration=-90,
                 descriptor=InterSatelliteLinkOrientationProperty.INTRA_PLANE_BACKWARD,
                 orientation_possibilities=[
                     InterSatelliteLinkOrientationProperty.INTRA_PLANE_BACKWARD,
@@ -308,7 +308,7 @@ def make_5_isl_with_single_intershell():
             # Inter-plane
             OpticalTerminalInstallationProperty(
                 azimuth_angle_configuration=90.0,
-                elevation_angle_configuration=-180,
+                elevation_angle_configuration=-90,
                 descriptor=InterSatelliteLinkOrientationProperty.INTER_PLANE_LEFT,
                 orientation_possibilities=[
                     InterSatelliteLinkOrientationProperty.INTER_PLANE_LEFT,
@@ -316,7 +316,7 @@ def make_5_isl_with_single_intershell():
             ),
             OpticalTerminalInstallationProperty(
                 azimuth_angle_configuration=-90.0,
-                elevation_angle_configuration=-180,
+                elevation_angle_configuration=-90,
                 descriptor=InterSatelliteLinkOrientationProperty.INTER_PLANE_RIGHT,
                 orientation_possibilities=[
                     InterSatelliteLinkOrientationProperty.INTER_PLANE_RIGHT,
@@ -732,6 +732,14 @@ def assert_basic_walker_shell_four_intra_shell_simulation_is_valid(
         isl = [isl for isl in satellite.links if isinstance(isl, InterSatelliteLink)]
         if len(isl) != 4:
             print(f"Satellite {satellite.object_id} has {len(isl)} ISLs, expected 4")
+
+            print(
+                "".join(
+                    f"ISL: {isl.source.object_id} -> {isl.destination.object_id}, direction: {isl.inter_satellite_direction}\n"
+                    for isl in isl
+                )
+            )
+
         assert len(isl) == 4
 
     isls_copy = simulation_manager.get_inter_satellites_links().copy()
