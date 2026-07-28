@@ -1320,3 +1320,75 @@ def compute_OISL_links_from_terminal_pools(
 
     results.sort(key=lambda x: x.selection_score)
     return results
+
+
+def compute_OISL_constraint_for_known_pair(
+    terminal_a: OpticalLinkTerminal,
+    terminal_b: OpticalLinkTerminal,
+    cache: "_EciCache",
+    angular_velocity_dt_seconds: float = 1.0,
+) -> PossibleOpticalLink | None:
+    """
+    Lightweight path for when the terminal pairing is already fixed (e.g. a
+    static addressing plan re-evaluating link geometry each tick). Skips the
+    pooled selection matrix and booking loop entirely, and takes a
+    pre-warmed cache instead of rebuilding one per call.
+    """
+    records_1 = _build_terminal_records_from_pool([terminal_a], cache)
+    records_2 = _build_terminal_records_from_pool([terminal_b], cache)
+
+    (
+        el_12,
+        az_12,
+        range_12,
+        omega_total_12,
+        range_rate_12,
+        el_21,
+        az_21,
+        omega_total_21,
+        range_rate_21,
+        omega_ok_12,
+        omega_ok_21,
+        los_clear,
+        los_min_altitude,
+        link_ok_12,
+        link_ok_21,
+        bidirectional,
+        alignment_score,
+        estimated_duration_12,
+        estimated_duration_21,
+        estimated_duration,
+        duration_ok,
+        duration_1_ok,
+        duration_2_ok,
+    ) = _compute_constraint_matrices(records_1, records_2, angular_velocity_dt_seconds)
+
+    if not bidirectional[0, 0]:
+        return None
+
+    return _make_possible_link(
+        records_1[0],
+        records_2[0],
+        records_1[0].terminal.host_satellite,
+        records_2[0].terminal.host_satellite,
+        el_12,
+        az_12,
+        range_12,
+        range_rate_12,
+        omega_total_12,
+        el_21,
+        az_21,
+        omega_total_21,
+        omega_ok_12,
+        omega_ok_21,
+        los_clear,
+        los_min_altitude,
+        link_ok_12,
+        link_ok_21,
+        bidirectional,
+        float(alignment_score[0, 0]),
+        0,
+        0,
+        estimated_duration_12,
+        estimated_duration_21,
+    )

@@ -54,6 +54,30 @@ class PossibleOpticalLink(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
+    def __str__(self):
+        return (
+            f"PossibleOpticalLink("
+            f"{self.satellite_a.topology_uniq_id} -> {self.satellite_b.topology_uniq_id}, "
+            f"possible={self.bidirectional_possible}, "
+            f"constraint_a_to_b={self.constraint_a_to_b}, "
+            f"constraint_b_to_a={self.constraint_b_to_a}, "
+            f"terminal_a={self.terminal_a.terminal_configuration}, "
+            f"terminal_b={self.terminal_b.terminal_configuration}, "
+            f"boresight_a (az angle config)={self.terminal_a.azimuth_angle_configuration}, "
+            f"boresight_b (az angle config)={self.terminal_b.azimuth_angle_configuration}, "
+            f"score={self.selection_score:.3f})"
+        )
+
+    def __repr__(self):
+        return (
+            f"PossibleOpticalLink("
+            f"{self.satellite_a.topology_uniq_id} -> {self.satellite_b.topology_uniq_id}, "
+            f"possible={self.bidirectional_possible}, "
+            "constraint_a_to_b={self.constraint_a_to_b}, "
+            "constraint_b_to_a={self.constraint_b_to_a}, "
+            f"score={self.selection_score:.3f})"
+        )
+
 
 class LinkAssociation(BaseModel):
     """
