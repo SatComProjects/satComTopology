@@ -926,12 +926,28 @@ class CheckerboardWalkerDeltaStaticAddressingPlan(WalkerStaticAddressingPlan):
         )
 
 
+class EmptyAddressingPlan(WalkerStaticAddressingPlan):
+    name = "EMPTY"
+
+    def get_link_associations(
+        self, satellites: list[Satellite]
+    ) -> list["LinkAssociation"]:
+        return []
+
+    def get_type(self) -> str:
+        return "EMPTY"
+
+    def __init__(self, walker_shell: WalkerShell):
+        super().__init__(walker_shell)
+
+
 class AvailableAddressingPlans(str, Enum):
     CHECKERBOARD_WALKER_DELTA = CheckerboardWalkerDeltaStaticAddressingPlan.name
     CHECKERBOARD_WALKER_STAR = CheckerboardWalkerStarStaticAddressingPlan.name
     FULL_MESH_WALKER_DELTA = FullMeshWalkerDeltaStaticAddressingPlan.name
     FULL_MESH_WALKER_STAR = FullMeshWalkerStarStaticAddressingPlan.name
     LINKED_SSO = SSODawnDuskStaticAddressingPlan.name
+    EMPTY = EmptyAddressingPlan.name
 
     @classmethod
     def _mapping(cls):
@@ -941,6 +957,7 @@ class AvailableAddressingPlans(str, Enum):
             cls.FULL_MESH_WALKER_DELTA: FullMeshWalkerDeltaStaticAddressingPlan,
             cls.FULL_MESH_WALKER_STAR: FullMeshWalkerStarStaticAddressingPlan,
             cls.LINKED_SSO: SSODawnDuskStaticAddressingPlan,
+            cls.EMPTY: EmptyAddressingPlan,
         }
 
     def get_class(self):
@@ -1000,3 +1017,6 @@ class AvailableAddressingPlans(str, Enum):
 
     def is_full_mesh(self) -> bool:
         return "FULL_MESH" in self.value
+
+    def is_empty(self) -> bool:
+        return "EMPTY" in self.value
