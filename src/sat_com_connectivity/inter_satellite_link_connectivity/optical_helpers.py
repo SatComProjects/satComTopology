@@ -1376,17 +1376,22 @@ def compute_OISL_links_from_terminal_pools(
     selection_strategy: Literal[
         "best_alignment", "best_angular_velocity", "shortest_range"
     ] = "best_alignment",
+    cache: _EciCache = None,
 ) -> list[PossibleOpticalLink]:
     """
     Compute inter-shell optical links from two small pre-filtered terminal pools.
     Group 1 drives assignment. Group 2 is secondary. One terminal → one connection.
     No range pre-filter — caller is responsible for passing only relevant terminals.
+
+    PLEASE USE THE CACHE !!!
     """
     if not terminals_group_1 or not terminals_group_2:
         return []
 
-    cache = _EciCache()
-    cache.warm([t.host_satellite for t in terminals_group_1 + terminals_group_2])
+    if cache is None:
+        # This is really, really useless, please pass the cache when using this function
+        cache = _EciCache()
+        cache.warm([t.host_satellite for t in terminals_group_1 + terminals_group_2])
 
     records_1 = _build_terminal_records_from_pool(terminals_group_1, cache)
     records_2 = _build_terminal_records_from_pool(terminals_group_2, cache)

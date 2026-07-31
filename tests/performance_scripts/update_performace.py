@@ -31,6 +31,22 @@ def generate_test_constellation() -> SimulationProperty:
     )
 
 
+def test_time_taken_for_init_performance():
+    import time
+    from sat_com_application.event_bus.bus import EventBus
+    from sat_com_application.event_bus.factories import EventFactories
+    from sat_com_builder.configuration_manager import BaseConfigurationManager
+
+    event_bus = EventBus()
+    event_factories = EventFactories()
+    configuration_manager = BaseConfigurationManager(
+        simulation_property=generate_test_constellation(),
+        event_bus=event_bus,
+        event_factories=event_factories,
+    )
+    simulation_manager = configuration_manager.load_simulation()
+
+
 def test_time_taken_for_update_performance():
     import time
     from sat_com_application.event_bus.bus import EventBus
@@ -49,7 +65,7 @@ def test_time_taken_for_update_performance():
 
     average_ticking_time = 0
 
-    for i in range(1):
+    for i in range(100):
         start_time = time.time()
         simulation_manager.time_manager.tick(seconds=10)
         end_time = time.time()
