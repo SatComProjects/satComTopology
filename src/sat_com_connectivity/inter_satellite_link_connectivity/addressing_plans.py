@@ -148,6 +148,7 @@ class LinkSelectionDebugRecord:
 class WalkerStaticAddressingPlan(StaticAddressingPlan):
 
     def __init__(self, walker_shell: WalkerShell):
+
         self.walker_shell = walker_shell
         self.grid: list[tuple[int, int, InterSatelliteLinkDirection]] = []
         self._terminal_assignment: dict[
@@ -155,6 +156,7 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
         ] = {}
         self._terminals_selected = False
         self.debug_records: list[LinkSelectionDebugRecord] = []
+        self.cache = None
 
         self.get_type()
 
@@ -207,11 +209,13 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                     terminals_group_1=sources_left,
                     terminals_group_2=destinations_right,
                     angular_velocity_dt_seconds=1.0,
+                    cache=self.cache,
                 )
                 candidates_right_left = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=destinations_left,
                     terminals_group_2=sources_right,
                     angular_velocity_dt_seconds=1.0,
+                    cache=self.cache,
                 )
                 # Previously excluded — confirmed geometrically valid via azimuth steering
                 # (~175°), and necessary to resolve conflicts that pure LEFT-RIGHT /
@@ -220,11 +224,13 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                     terminals_group_1=sources_left,
                     terminals_group_2=destinations_left,
                     angular_velocity_dt_seconds=1.0,
+                    cache=self.cache,
                 )
                 candidates_right_right = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=sources_right,
                     terminals_group_2=destinations_right,
                     angular_velocity_dt_seconds=1.0,
+                    cache=self.cache,
                 )
 
                 all_candidates: list[PossibleOpticalLink] = (
@@ -263,11 +269,13 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                     terminals_group_1=sources_forward,
                     terminals_group_2=destinations_backward,
                     angular_velocity_dt_seconds=1.0,
+                    cache=self.cache,
                 )
                 candidates_case_2 = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=sources_backward,
                     terminals_group_2=destinations_forward,
                     angular_velocity_dt_seconds=1.0,
+                    cache=self.cache,
                 )
 
                 all_candidates = candidates_case_1 + candidates_case_2
@@ -403,14 +411,10 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
         self,
         satellite_lookup: dict[int, Satellite],
     ) -> list[LinkAssociation]:
+
         if not self._terminals_selected:
             self._select_static_terminals(satellite_lookup, debug=True)
             self.print_debug_report(only_failed=True)
-
-        delta_t_velocity = 1
-
-        cache = _EciCache(delta_t_velocity)
-        cache.warm(list(satellite_lookup.values()))
 
         associations: list[LinkAssociation] = []
 
@@ -429,8 +433,8 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
             best = compute_OISL_constraint_for_known_pair(
                 terminal_a,
                 terminal_b,
-                cache,
-                angular_velocity_dt_seconds=delta_t_velocity,
+                self.cache,
+                angular_velocity_dt_seconds=self.delta_t_velocity,
             )
 
             if best is None:
@@ -458,6 +462,12 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
         self, satellites: list[Satellite]
     ) -> list[LinkAssociation]:
         satellite_lookup = {sat.object_id: sat for sat in satellites}
+
+        self.delta_t_velocity = 1
+
+        cache = _EciCache(self.delta_t_velocity)
+        cache.warm(list(satellite_lookup.values()))
+        self.cache = cache
 
         return self._build_associations_from_grid(satellite_lookup)
 
