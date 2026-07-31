@@ -22,12 +22,24 @@ from sat_com_model.models import Satellite, OpticalLinkTerminal
 class _EciCache:
     """
     Lazy per-satellite ECI cache keyed by topology_uniq_id.
+
+    Stores for every satellite:
+      - position / velocity / LVLH frame at current time (t)
+      - position / velocity / LVLH frame at t + dt
+
     Build once at the top of any public function, pass down to every helper.
     """
 
-    def __init__(self):
+    def __init__(self, dt: float = 0.0):
+        self.dt = float(dt)
+
         self._pos: dict[int, np.ndarray] = {}
         self._vel: dict[int, np.ndarray] = {}
+        self.lvlh_frames: dict[int, np.ndarray] = {}
+
+        self._pos_dt: dict[int, np.ndarray] = {}
+        self._vel_dt: dict[int, np.ndarray] = {}
+        self.lvlh_frames_dt: dict[int, np.ndarray] = {}
 
     def get(self, sat: Satellite) -> tuple[np.ndarray, np.ndarray]:
         sid = sat.topology_uniq_id
@@ -41,9 +53,63 @@ class _EciCache:
             ).flatten()[:3]
         return self._pos[sid], self._vel[sid]
 
+    def get_lvlh_frames(self, sat: Satellite) -> np.ndarray:
+        sid = sat.topology_uniq_id
+        if sid not in self.lvlh_frames:
+            pos, vel = self.get(sat)
+            self.lvlh_frames[sid] = _build_lvlh_frames(
+                pos.reshape(1, 3), vel.reshape(1, 3)
+            )[0]
+        return self.lvlh_frames[sid]
+
+    def get_dt(self, sat: Satellite) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Position & velocity at t + dt.
+        Uses linear propagation (pos + vel*dt) — accurate enough for dt ≈ 1 s.
+        """
+        sid = sat.topology_uniq_id
+        if sid not in self._pos_dt:
+            pos, vel = self.get(sat)
+            self._pos_dt[sid] = pos + vel * self.dt
+            self._vel_dt[sid] = vel
+        return self._pos_dt[sid], self._vel_dt[sid]
+
+    def get_lvlh_frames_dt(self, sat: Satellite) -> np.ndarray:
+        """LVLH frame at t + self.dt."""
+        sid = sat.topology_uniq_id
+        if sid not in self.lvlh_frames_dt:
+            pos, vel = self.get_dt(sat)
+            self.lvlh_frames_dt[sid] = _build_lvlh_frames(
+                pos.reshape(1, 3), vel.reshape(1, 3)
+            )[0]
+        return self.lvlh_frames_dt[sid]
+
+    def warm_all_lvlh_frames(self) -> None:
+        """Vectorised LVLH construction for both t and t+dt."""
+        if not self._pos:
+            return
+
+        sids = list(self._pos.keys())
+
+        pos_array = np.stack([self._pos[sid] for sid in sids])
+        vel_array = np.stack([self._vel[sid] for sid in sids])
+        frames_array = _build_lvlh_frames(pos_array, vel_array)
+        for sid, frame in zip(sids, frames_array):
+            self.lvlh_frames[sid] = frame
+
+        if self.dt != 0.0 and self._pos_dt:
+            pos_dt_array = np.stack([self._pos_dt[sid] for sid in sids])
+            vel_dt_array = np.stack([self._vel_dt[sid] for sid in sids])
+            frames_dt_array = _build_lvlh_frames(pos_dt_array, vel_dt_array)
+            for sid, frame in zip(sids, frames_dt_array):
+                self.lvlh_frames_dt[sid] = frame
+
     def warm(self, satellites: list[Satellite]) -> None:
         for sat in satellites:
             self.get(sat)
+            if self.dt != 0.0:
+                self.get_dt(sat)
+        self.warm_all_lvlh_frames()
 
     def __len__(self) -> int:
         return len(self._pos)
@@ -104,9 +170,38 @@ def _compute_angles_a_to_b(
 
     Returns : elevation_deg (N,M), azimuth_deg (N,M), range_km (N,M)
     """
+    # ----- fast path: single pair -----
+    if positions_a.shape[0] == 1 and positions_b.shape[0] == 1:
+        dx = positions_b[0, 0] - positions_a[0, 0]
+        dy = positions_b[0, 1] - positions_a[0, 1]
+        dz = positions_b[0, 2] - positions_a[0, 2]
+        range_km = (dx * dx + dy * dy + dz * dz) ** 0.5
+
+        # accept both (3,3) and (1,3,3)
+        f = frames_a[0] if frames_a.ndim == 3 else frames_a
+
+        lx = f[0, 0] * dx + f[0, 1] * dy + f[0, 2] * dz
+        ly = f[1, 0] * dx + f[1, 1] * dy + f[1, 2] * dz
+        lz = f[2, 0] * dx + f[2, 1] * dy + f[2, 2] * dz
+
+        if range_km > 0.0:
+            sin_el = max(-1.0, min(1.0, lz / range_km))
+            elevation_deg = np.degrees(np.arcsin(sin_el))
+            azimuth_deg = np.degrees(np.arctan2(ly, lx))
+        else:
+            elevation_deg = 0.0
+            azimuth_deg = 0.0
+
+        return (
+            np.array([[elevation_deg]]),
+            np.array([[azimuth_deg]]),
+            np.array([[range_km]]),
+        )
+
+    # ----- general vectorised path -----
     d = positions_b[np.newaxis, :, :] - positions_a[:, np.newaxis, :]
     range_km = np.linalg.norm(d, axis=2)
-    local = np.einsum("iab, ijb -> ija", frames_a, d)
+    local = np.einsum("iab,ijb->ija", frames_a, d)
     safe_r = np.where(range_km > 0, range_km, 1.0)
     sin_el = np.where(range_km > 0, local[:, :, 2] / safe_r, 0.0)
     elevation_deg = np.degrees(np.arcsin(np.clip(sin_el, -1.0, 1.0)))
@@ -115,10 +210,9 @@ def _compute_angles_a_to_b(
 
 
 def _compute_angular_velocity_a_to_b(
-    positions_a: np.ndarray,
-    velocities_a: np.ndarray,
-    positions_b: np.ndarray,
-    velocities_b: np.ndarray,
+    positions_a_dt: np.ndarray,
+    frames_a_dt: np.ndarray,
+    positions_b_dt: np.ndarray,
     el_t0: np.ndarray,
     az_t0: np.ndarray,
     range_t0: np.ndarray,
@@ -127,6 +221,9 @@ def _compute_angular_velocity_a_to_b(
     """
     First-order finite-difference estimate of az/el angular rates and range rate.
 
+    All dt-quantities (positions + LVLH frames) are expected to be pre-computed
+    and passed in (e.g. from _EciCache).
+
     Returns
     -------
     az_rate_deg_s : (N, M)  absolute azimuth rate   [deg/s]  — always ≥ 0
@@ -134,18 +231,20 @@ def _compute_angular_velocity_a_to_b(
     range_rate_km_s : (N, M)  signed range rate [km/s]
                       positive = satellites diverging
                       negative = satellites closing
-
-    Note: az/el rates are returned as magnitudes (abs). When signed rates are
-    required for recovery-time estimation use the dedicated signed path in
-    _check_pair_feasibility instead.
     """
-    pos_a_dt = positions_a + velocities_a * dt_seconds
-    pos_b_dt = positions_b + velocities_b * dt_seconds
-    frames_a_dt = _build_lvlh_frames(pos_a_dt, velocities_a)
-    el_dt, az_dt, range_dt = _compute_angles_a_to_b(pos_a_dt, frames_a_dt, pos_b_dt)
+    """
+        el_12, az_12, range_12 = _compute_angles_a_to_b(pos_1, frames_1, pos_2)
+    el_21, az_21, _ = _compute_angles_a_to_b(pos_2, frames_2, pos_1)
+    
+    """
+    el_dt, az_dt, range_dt = _compute_angles_a_to_b(
+        positions_a_dt, frames_a_dt, positions_b_dt
+    )
+
     d_az = (az_dt - az_t0 + 180.0) % 360.0 - 180.0
     d_el = el_dt - el_t0
-    range_rate = (range_dt - range_t0) / dt_seconds  # km/s, signed
+    range_rate = (range_dt - range_t0) / dt_seconds
+
     return np.abs(d_az) / dt_seconds, np.abs(d_el) / dt_seconds, range_rate
 
 
@@ -166,8 +265,15 @@ class _TerminalRecord:
     terminal: OpticalLinkTerminal
     satellite_index: int
     terminal_index: int
+
     position_km: np.ndarray
     velocity_km_s: np.ndarray
+    lvlh_frames: np.ndarray
+
+    position_km_dt: np.ndarray
+    velocity_km_s_dt: np.ndarray
+    lvlh_frames_dt: np.ndarray
+
     el_min_deg: float
     el_max_deg: float
     az_max_deg: float
@@ -186,7 +292,14 @@ def _build_terminal_records(
     for sat_idx, sat in enumerate(satellites):
         if not sat.optical_link_terminals:
             continue
+
         pos, vel = cache.get(sat)
+
+        lvlh_frames = cache.get_lvlh_frames(sat)
+
+        pos_dt, vel_dt = cache.get_dt(sat)
+        lvlh_frames_dt = cache.get_lvlh_frames_dt(sat)
+
         for term_idx, terminal in enumerate(sat.optical_link_terminals):
             cfg = terminal.terminal_configuration
             records.append(
@@ -196,6 +309,10 @@ def _build_terminal_records(
                     terminal_index=term_idx,
                     position_km=pos,
                     velocity_km_s=vel,
+                    lvlh_frames=lvlh_frames,
+                    position_km_dt=pos_dt,
+                    velocity_km_s_dt=vel_dt,
+                    lvlh_frames_dt=lvlh_frames_dt,
                     el_min_deg=cfg.min_elevation_degrees,
                     el_max_deg=cfg.max_elevation_degrees,
                     az_max_deg=cfg.max_azimuth_degrees,
@@ -217,6 +334,11 @@ def _build_terminal_records_from_pool(
     for term_idx, terminal in enumerate(terminals):
         sat = terminal.host_satellite
         pos, vel = cache.get(sat)
+        lvlh_frames = cache.get_lvlh_frames(sat)
+
+        pos_dt, vel_dt = cache.get_dt(sat)
+        lvlh_frames_dt = cache.get_lvlh_frames_dt(sat)
+
         cfg = terminal.terminal_configuration
         records.append(
             _TerminalRecord(
@@ -225,6 +347,10 @@ def _build_terminal_records_from_pool(
                 terminal_index=term_idx,
                 position_km=pos,
                 velocity_km_s=vel,
+                lvlh_frames=lvlh_frames,
+                position_km_dt=pos_dt,
+                velocity_km_s_dt=vel_dt,
+                lvlh_frames_dt=lvlh_frames_dt,
                 el_min_deg=cfg.min_elevation_degrees,
                 el_max_deg=cfg.max_elevation_degrees,
                 az_max_deg=cfg.max_azimuth_degrees,
@@ -281,6 +407,11 @@ def _compute_constraint_matrices(
     pos_2 = np.array([r.position_km for r in records_2])
     vel_2 = np.array([r.velocity_km_s for r in records_2])
 
+    pos_1_dt = np.array([r.position_km_dt for r in records_1])
+    vel_1_dt = np.array([r.velocity_km_s_dt for r in records_1])
+    pos_2_dt = np.array([r.position_km_dt for r in records_2])
+    vel_2_dt = np.array([r.velocity_km_s_dt for r in records_2])
+
     el_min_1 = np.array([r.el_min_deg for r in records_1]).reshape(N, 1)
     el_max_1 = np.array([r.el_max_deg for r in records_1]).reshape(N, 1)
     az_max_1 = np.array([r.az_max_deg for r in records_1]).reshape(N, 1)
@@ -299,30 +430,31 @@ def _compute_constraint_matrices(
     )
     boresight_az_2 = np.array([r.boresight_az_deg for r in records_2]).reshape(M, 1)
 
-    frames_1 = _build_lvlh_frames(pos_1, vel_1)
-    frames_2 = _build_lvlh_frames(pos_2, vel_2)
+    frames_1 = np.array([r.lvlh_frames for r in records_1])
+    frames_2 = np.array([r.lvlh_frames for r in records_2])
+
+    frames_1_dt = np.array([r.lvlh_frames_dt for r in records_1])
+    frames_2_dt = np.array([r.lvlh_frames_dt for r in records_2])
 
     el_12, az_12, range_12 = _compute_angles_a_to_b(pos_1, frames_1, pos_2)
     el_21, az_21, _ = _compute_angles_a_to_b(pos_2, frames_2, pos_1)
 
     az_rate_12, el_rate_12, range_rate_12 = _compute_angular_velocity_a_to_b(
-        pos_1,
-        vel_1,
-        pos_2,
-        vel_2,
-        el_12,
-        az_12,
-        range_12,
+        positions_a_dt=pos_1_dt,
+        frames_a_dt=frames_1_dt,
+        positions_b_dt=pos_2_dt,
+        el_t0=el_12,
+        az_t0=az_12,
+        range_t0=range_12,
         dt_seconds=angular_velocity_dt_seconds,
     )
     az_rate_21, el_rate_21, range_rate_21 = _compute_angular_velocity_a_to_b(
-        pos_2,
-        vel_2,
-        pos_1,
-        vel_1,
-        el_21,
-        az_21,
-        range_12.T,
+        positions_a_dt=pos_2_dt,
+        frames_a_dt=frames_2_dt,
+        positions_b_dt=pos_1_dt,
+        el_t0=el_21,
+        az_t0=az_21,
+        range_t0=range_12.T,
         dt_seconds=angular_velocity_dt_seconds,
     )
 
@@ -640,16 +772,17 @@ def _check_pair_feasibility(
     pos_b = rec_b.position_km.reshape(1, 3)
     vel_b = rec_b.velocity_km_s.reshape(1, 3)
 
+    frames_a_t0 = rec_a.lvlh_frames
+    frames_b_t0 = rec_b.lvlh_frames
+
+    frames_a_dt = rec_a.lvlh_frames_dt
+    frames_b_dt = rec_b.lvlh_frames_dt
+
     # ─────────────────────────────────────────────
     # Geometry at t0 and t0+dt — one finite-difference step.
     # ─────────────────────────────────────────────
-    pos_a_dt = pos_a + vel_a * dt
-    pos_b_dt = pos_b + vel_b * dt
-
-    frames_a_t0 = _build_lvlh_frames(pos_a, vel_a)
-    frames_b_t0 = _build_lvlh_frames(pos_b, vel_b)
-    frames_a_dt = _build_lvlh_frames(pos_a_dt, vel_a)
-    frames_b_dt = _build_lvlh_frames(pos_b_dt, vel_b)
+    pos_a_dt = rec_a.position_km_dt.reshape(1, 3)
+    pos_b_dt = rec_b.position_km_dt.reshape(1, 3)
 
     el_ab_arr, az_ab_arr, range_arr = _compute_angles_a_to_b(pos_a, frames_a_t0, pos_b)
     el_ba_arr, az_ba_arr, _ = _compute_angles_a_to_b(pos_b, frames_b_t0, pos_a)
@@ -897,34 +1030,37 @@ def _rec_to_possible_link(
     boresight-relative deviation, not the raw LVLH azimuth.
     """
     pos_a = rec_a.position_km.reshape(1, 3)
-    vel_a = rec_a.velocity_km_s.reshape(1, 3)
     pos_b = rec_b.position_km.reshape(1, 3)
-    vel_b = rec_b.velocity_km_s.reshape(1, 3)
 
-    frames_a = _build_lvlh_frames(pos_a, vel_a)
-    frames_b = _build_lvlh_frames(pos_b, vel_b)
+    pos_a_dt = rec_a.position_km_dt.reshape(1, 3)
+
+    pos_b_dt = rec_b.position_km_dt.reshape(1, 3)
+
+    frames_a = rec_a.lvlh_frames
+    frames_b = rec_b.lvlh_frames
+
+    frames_a_dt = rec_a.lvlh_frames_dt
+    frames_b_dt = rec_b.lvlh_frames_dt
 
     el_ab, az_ab, range_ab = _compute_angles_a_to_b(pos_a, frames_a, pos_b)
     el_ba, az_ba, _ = _compute_angles_a_to_b(pos_b, frames_b, pos_a)
 
     az_rate_ab, el_rate_ab, range_rate_ab = _compute_angular_velocity_a_to_b(
-        pos_a,
-        vel_a,
-        pos_b,
-        vel_b,
-        el_ab,
-        az_ab,
-        range_ab,
+        positions_a_dt=pos_a_dt,
+        frames_a_dt=frames_a_dt.reshape(1, 3, 3),
+        positions_b_dt=pos_b_dt,
+        el_t0=el_ab,
+        az_t0=az_ab,
+        range_t0=range_ab,
         dt_seconds=angular_velocity_dt_seconds,
     )
     az_rate_ba, el_rate_ba, range_rate_ba = _compute_angular_velocity_a_to_b(
-        pos_b,
-        vel_b,
-        pos_a,
-        vel_a,
-        el_ba,
-        az_ba,
-        range_ab.T,
+        positions_a_dt=pos_b_dt,
+        frames_a_dt=frames_b_dt.reshape(1, 3, 3),
+        positions_b_dt=pos_a_dt,
+        el_t0=el_ba,
+        az_t0=az_ba,
+        range_t0=range_ab.T,
         dt_seconds=angular_velocity_dt_seconds,
     )
 
@@ -1023,6 +1159,15 @@ def compute_OISL_feasibility_for_terminal_pair(
     pos_a, vel_a = cache.get(satellite_a)
     pos_b, vel_b = cache.get(satellite_b)
 
+    lvlh_frames_a = cache.get_lvlh_frames(satellite_a)
+    lvlh_frames_b = cache.get_lvlh_frames(satellite_b)
+
+    pos_a_dt, vel_a_dt = cache.get_dt(satellite_a)
+    pos_b_dt, vel_b_dt = cache.get_dt(satellite_b)
+
+    lvlh_frames_a_dt = cache.get_lvlh_frames_dt(satellite_a)
+    lvlh_frames_b_dt = cache.get_lvlh_frames_dt(satellite_b)
+
     cfg_a = terminal_a.terminal_configuration
     cfg_b = terminal_b.terminal_configuration
 
@@ -1032,6 +1177,10 @@ def compute_OISL_feasibility_for_terminal_pair(
         terminal_index=0,
         position_km=pos_a,
         velocity_km_s=vel_a,
+        lvlh_frames=lvlh_frames_a,
+        position_km_dt=pos_a_dt,
+        velocity_km_s_dt=vel_a_dt,
+        lvlh_frames_dt=lvlh_frames_a_dt,
         el_min_deg=cfg_a.min_elevation_degrees,
         el_max_deg=cfg_a.max_elevation_degrees,
         az_max_deg=cfg_a.max_azimuth_degrees,
@@ -1047,6 +1196,10 @@ def compute_OISL_feasibility_for_terminal_pair(
         terminal_index=0,
         position_km=pos_b,
         velocity_km_s=vel_b,
+        lvlh_frames=lvlh_frames_b,
+        position_km_dt=pos_b_dt,
+        velocity_km_s_dt=vel_b_dt,
+        lvlh_frames_dt=lvlh_frames_b_dt,
         el_min_deg=cfg_b.min_elevation_degrees,
         el_max_deg=cfg_b.max_elevation_degrees,
         az_max_deg=cfg_b.max_azimuth_degrees,

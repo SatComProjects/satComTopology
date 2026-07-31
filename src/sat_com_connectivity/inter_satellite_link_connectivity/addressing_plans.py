@@ -1,10 +1,14 @@
+import cProfile
 import inspect
 import math
+import pstats
+import time
 import uuid
 import warnings
 from abc import abstractmethod, ABC
 from dataclasses import field, dataclass
 from enum import Enum
+from io import StringIO
 
 from sat_com_builder.links.inter_satellite_link_generator import (
     generate_walker_star_constellation_grid,
@@ -407,11 +411,25 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
             self._select_static_terminals(satellite_lookup, debug=True)
             self.print_debug_report(only_failed=True)
 
-        cache = _EciCache()
+        delta_t_velocity = 1
+
+        # ---------- optional: keep your wall-clock timers ----------
+        t0 = time.perf_counter()
+        cache = _EciCache(delta_t_velocity)
         cache.warm(list(satellite_lookup.values()))
+        t_warming = time.perf_counter() - t0
+        print(
+            f"Cache warming took {t_warming * 1000:.2f} ms "
+            f"for {len(satellite_lookup)} satellites."
+        )
 
         associations: list[LinkAssociation] = []
 
+        # ---------- cProfile around the hot loop ----------
+        profiler = cProfile.Profile()
+        profiler.enable()
+
+        t_isl_start = time.perf_counter()
         for a_id, b_id, direction in self.grid:
             sat_a = satellite_lookup.get(a_id)
             sat_b = satellite_lookup.get(b_id)
@@ -428,7 +446,7 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                 terminal_a,
                 terminal_b,
                 cache,
-                angular_velocity_dt_seconds=1.0,
+                angular_velocity_dt_seconds=delta_t_velocity,
             )
 
             if best is None:
@@ -450,6 +468,22 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
                     constraint_b_to_a=best.constraint_b_to_a,
                 )
             )
+
+        profiler.disable()
+        t_isl = time.perf_counter() - t_isl_start
+        print(
+            f"Update of all ISL took {t_isl * 1000:.2f} ms "
+            f"({len(associations)} associations)."
+        )
+
+        # ---------- print the profile ----------
+        s = StringIO()
+        ps = pstats.Stats(profiler, stream=s).sort_stats("cumulative")
+        ps.print_stats(40)  # top 40 lines
+        print(s.getvalue())
+
+        # optional: also dump to a file you can open later with snakeviz / tuna
+        # profiler.dump_stats("isl_update.prof")
 
         return associations
 
