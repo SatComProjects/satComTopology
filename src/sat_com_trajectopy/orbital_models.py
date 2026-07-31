@@ -9,26 +9,20 @@ from sat_com_model.models import MovementModel, SpatialPosition
 
 class PyOrbitalModel(MovementModel):
     """
-    Orbital movement model using Two-Line Element (TLE) sets propagated via the
-    pyorbital SGP4 implementation.
+    Orbital movement model using TLEs propagated via pyorbital SGP4.
 
-    Two independent caches are maintained to avoid cross-invalidation:
-    - lonlatalt cache: geographic coordinates (longitude, latitude, altitude)
-    - ECI cache: Earth-Centered Inertial position and velocity vectors
-
-    Both caches are only populated for current-time queries (delta_t=0).
-    Future-time queries (delta_t>0) always propagate directly.
+    Two independent caches (lon/lat/alt and ECI) store results keyed by absolute
+    datetime.  When the simulation clock advances, any cached times that are
+    strictly before the new current time are discarded.
     """
 
     orbital_object: Orbital
     clock: TimeManager
 
-    _last_spatial_position: SpatialPosition = None
-    _last_time_longitude_latitude_altitude_calculated: datetime.datetime = None
-
-    _last_position_eci: tuple[float, float, float] = None
-    _last_velocity_eci: tuple[float, float, float] = None
-    _last_time_eci_calculated: datetime.datetime = None
+    _lonlatalt_cache: dict[datetime.datetime, SpatialPosition]
+    _eci_cache: dict[
+        datetime.datetime, tuple[tuple[float, float, float], tuple[float, float, float]]
+    ]
 
     def __init__(self, tle: dict, time_manager: TimeManager):
         super().__init__()
@@ -40,129 +34,95 @@ class PyOrbitalModel(MovementModel):
         )
         self.clock = time_manager
 
+        self._lonlatalt_cache = {}
+        self._eci_cache = {}
+
     def get_datetime(self) -> datetime.datetime:
         return self.clock.get_current_time()
 
+    def _purge_old_entries(self) -> None:
+        """Drop every cached time that is already in the past."""
+        now = self.clock.get_current_time()
+        for cache in (self._lonlatalt_cache, self._eci_cache):
+            for t in list(cache):
+                if t < now:
+                    del cache[t]
+
+    def _absolute_time(self, delta_t: float) -> datetime.datetime:
+        return self.clock.get_current_time() + datetime.timedelta(seconds=delta_t)
+
     def is_ascending(self) -> bool:
-        """
-        Returns True if the satellite is currently in the ascending part of its orbit
-        (i.e. moving toward higher latitudes), determined by the sign of the ECI z-velocity.
-        """
-        _, velocity = self.orbital_object.get_position(
-            self.clock.get_current_time(), normalize=False
-        )
+        """True when the satellite is currently ascending (ECI vz > 0)."""
+        _, velocity = self.get_position_and_velocity_earth_general_inertial(0.0)
         return velocity[2] > 0
 
     def get_longitude_latitude_altitude(self, delta_t: float = 0.0) -> SpatialPosition:
         """
-        Return the geographic position of the satellite as a SpatialPosition.
-        Altitude is converted from km (pyorbital) to metres.
-
-        Current-time results (delta_t=0) are cached to avoid redundant SGP4 calls.
-        Future-time queries (delta_t>0) always propagate directly.
-
-        Parameters
-        ----------
-        delta_t : float
-            Time offset in seconds from the current clock time.
+        Geographic position (lon, lat, alt-in-metres).
+        Results for any delta_t are cached; past entries are purged
+        automatically when the clock advances.
         """
-        t = self.clock.get_current_time() + datetime.timedelta(seconds=delta_t)
+        self._purge_old_entries()
+        t = self._absolute_time(delta_t)
 
-        if (
-            delta_t == 0.0
-            and t == self._last_time_longitude_latitude_altitude_calculated
-            and self._last_spatial_position is not None
-        ):
-            return self._last_spatial_position
+        if t in self._lonlatalt_cache:
+            return self._lonlatalt_cache[t]
 
         longitude, latitude, altitude = self.orbital_object.get_lonlatalt(t)
-
         position = SpatialPosition(
             longitude=longitude,
             latitude=latitude,
-            altitude=altitude * 1000,  # km → m
+            altitude=altitude * 1000.0,  # km → m
         )
-
-        if delta_t == 0.0:
-            self._last_spatial_position = position
-            self._last_time_longitude_latitude_altitude_calculated = t
-
+        self._lonlatalt_cache[t] = position
         return position
 
     @deprecated(
-        "Use get_longitude_latitude_altitude instead for more complete position information."
+        "Use get_longitude_latitude_altitude instead for more complete "
+        "position information."
     )
     def get_longitude_latitude(self) -> SpatialPosition:
         return self.get_longitude_latitude_altitude()
 
+    def get_position_and_velocity_earth_general_inertial(
+        self, delta_t: float = 0.0
+    ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        """
+        Single SGP4 call that returns both ECI position (km) and velocity (km/s).
+        Preferred entry point when both vectors are needed.
+        """
+        self._purge_old_entries()
+        t = self._absolute_time(delta_t)
+
+        if t in self._eci_cache:
+            return self._eci_cache[t]
+
+        position, velocity = self.orbital_object.get_position(t, normalize=False)
+        self._eci_cache[t] = (position, velocity)
+        return position, velocity
+
     def get_position_earth_general_inertial(
         self, delta_t: float = 0.0
     ) -> tuple[float, float, float]:
-        """
-        Return the ECI position vector (km) at now + delta_t seconds.
-        Current-time results (delta_t=0) are cached and shared with
-        get_velocity_earth_general_inertial to avoid a redundant SGP4 call.
-
-        Parameters
-        ----------
-        delta_t : float
-            Time offset in seconds from the current clock time.
-
-        Returns
-        -------
-        tuple[float, float, float]
-            ECI position vector in km.
-        """
-        t = self.clock.get_current_time() + datetime.timedelta(seconds=delta_t)
-
-        if (
-            delta_t == 0.0
-            and t == self._last_time_eci_calculated
-            and self._last_position_eci is not None
-        ):
-            return self._last_position_eci
-
-        position, velocity = self.orbital_object.get_position(t, normalize=False)
-
-        if delta_t == 0.0:
-            self._last_position_eci = position
-            self._last_velocity_eci = velocity
-            self._last_time_eci_calculated = t
-
+        """ECI position vector (km) at now + delta_t."""
+        position, _ = self.get_position_and_velocity_earth_general_inertial(delta_t)
         return position
 
     def get_velocity_earth_general_inertial(
         self, delta_t: float = 0.0
     ) -> tuple[float, float, float]:
-        """
-        Return the ECI velocity vector (km/s) at now + delta_t seconds.
-        If get_position_earth_general_inertial was already called at the same
-        current time, the cached velocity is returned at no extra SGP4 cost.
-
-        Parameters
-        ----------
-        delta_t : float
-            Time offset in seconds from the current clock time.
-
-        Returns
-        -------
-        tuple[float, float, float]
-            ECI velocity vector in km/s.
-        """
-        t = self.clock.get_current_time() + datetime.timedelta(seconds=delta_t)
-
-        if (
-            delta_t == 0.0
-            and t == self._last_time_eci_calculated
-            and self._last_velocity_eci is not None
-        ):
-            return self._last_velocity_eci
-
-        position, velocity = self.orbital_object.get_position(t, normalize=False)
-
-        if delta_t == 0.0:
-            self._last_position_eci = position
-            self._last_velocity_eci = velocity
-            self._last_time_eci_calculated = t
-
+        """ECI velocity vector (km/s) at now + delta_t."""
+        _, velocity = self.get_position_and_velocity_earth_general_inertial(delta_t)
         return velocity
+
+    def clear_caches(self) -> None:
+        """Force-clear both caches (rarely needed)."""
+        self._lonlatalt_cache.clear()
+        self._eci_cache.clear()
+
+    def cache_stats(self) -> dict:
+        """Return current cache sizes (useful for profiling)."""
+        return {
+            "lonlatalt": len(self._lonlatalt_cache),
+            "eci": len(self._eci_cache),
+        }

@@ -1,5 +1,5 @@
 import datetime
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -16,7 +16,6 @@ FAKE_TLE = {
     "line2": "2 25544  51.6400   0.0000 0001000   0.0000   0.0000 15.50000000000000",
 }
 
-# Realistic ISS-like SGP4 output
 FAKE_LON_LAT_ALT_KM = (-4.74, 42.75, 550.0)  # lon, lat, alt in km
 FAKE_POSITION_ECI_KM = (6500.0, 1000.0, 1000.0)  # km
 FAKE_VELOCITY_ECI_KMS = (-1.0, 7.0, 0.5)  # km/s
@@ -41,7 +40,7 @@ def make_model(now: datetime.datetime = None) -> tuple[PyOrbitalModel, MagicMock
         )
 
         model = PyOrbitalModel(tle=FAKE_TLE, time_manager=clock)
-        model.orbital_object = mock_orb  # keep reference after patch exits
+        model.orbital_object = mock_orb
 
     return model, mock_orb
 
@@ -65,13 +64,10 @@ class TestPyOrbitalModelInit:
         model, _ = make_model()
         assert model.line2 == FAKE_TLE["line2"]
 
-    def test_caches_are_none_on_creation(self):
+    def test_caches_are_empty_dicts_on_creation(self):
         model, _ = make_model()
-        assert model._last_spatial_position is None
-        assert model._last_time_longitude_latitude_altitude_calculated is None
-        assert model._last_position_eci is None
-        assert model._last_velocity_eci is None
-        assert model._last_time_eci_calculated is None
+        assert model._lonlatalt_cache == {}
+        assert model._eci_cache == {}
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +88,7 @@ class TestGetDatetime:
 
 
 # ---------------------------------------------------------------------------
-# get_longitude_latitude_altitude — units and format
+# get_longitude_latitude_altitude
 # ---------------------------------------------------------------------------
 
 
@@ -104,14 +100,11 @@ class TestGetLongitudeLatitudeAltitude:
         assert isinstance(result, SpatialPosition)
 
     def test_altitude_is_converted_from_km_to_metres(self):
-        """pyorbital returns km — SpatialPosition must store metres."""
         model, _ = make_model()
         result = model.get_longitude_latitude_altitude()
-        expected_alt_m = FAKE_LON_LAT_ALT_KM[2] * 1000.0
-        assert result.altitude == pytest.approx(expected_alt_m)
+        assert result.altitude == pytest.approx(FAKE_LON_LAT_ALT_KM[2] * 1000.0)
 
     def test_altitude_is_not_in_km(self):
-        """Guard: altitude must NOT be the raw km value."""
         model, _ = make_model()
         result = model.get_longitude_latitude_altitude()
         assert result.altitude != pytest.approx(FAKE_LON_LAT_ALT_KM[2])
@@ -132,7 +125,6 @@ class TestGetLongitudeLatitudeAltitude:
         assert result.altitude > 0
 
     def test_altitude_is_above_earth_surface_in_metres(self):
-        """LEO satellite — altitude must be between 200 km and 2000 km in metres."""
         model, _ = make_model()
         result = model.get_longitude_latitude_altitude()
         assert 200_000 < result.altitude < 2_000_000
@@ -144,7 +136,7 @@ class TestGetLongitudeLatitudeAltitude:
         result = model.get_longitude_latitude_altitude(delta_t=60.0)
         assert result.altitude == pytest.approx(future_alt_km * 1000.0)
 
-    # --- Cache behaviour ---
+    # --- Cache behaviour (new dict cache) ---
 
     def test_cache_hit_avoids_second_sgp4_call(self):
         model, mock_orb = make_model()
@@ -152,31 +144,43 @@ class TestGetLongitudeLatitudeAltitude:
         model.get_longitude_latitude_altitude()
         mock_orb.get_lonlatalt.assert_called_once()
 
-    def test_future_query_does_not_populate_cache(self):
+    def test_future_query_populates_cache(self):
+        """Any absolute time is now cached, including future offsets."""
         model, mock_orb = make_model()
         model.get_longitude_latitude_altitude(delta_t=60.0)
-        assert model._last_spatial_position is None
+        assert len(model._lonlatalt_cache) == 1
+        mock_orb.get_lonlatalt.assert_called_once()
 
-    def test_future_query_does_not_use_cache(self):
+        # second call at the same future time must hit the cache
+        model.get_longitude_latitude_altitude(delta_t=60.0)
+        mock_orb.get_lonlatalt.assert_called_once()
+
+    def test_different_delta_t_are_cached_independently(self):
         model, mock_orb = make_model()
-        model.get_longitude_latitude_altitude()  # populate cache
-        model.get_longitude_latitude_altitude(delta_t=60.0)  # must re-propagate
+        model.get_longitude_latitude_altitude(delta_t=0.0)
+        model.get_longitude_latitude_altitude(delta_t=60.0)
         assert mock_orb.get_lonlatalt.call_count == 2
+        assert len(model._lonlatalt_cache) == 2
 
-    def test_cache_invalidated_when_clock_advances(self):
+    def test_cache_purged_when_clock_advances_past_entry(self):
         now = datetime.datetime(2024, 1, 1, 12, 0, 0)
         model, mock_orb = make_model(now)
-        model.get_longitude_latitude_altitude()
 
-        # Advance clock
+        model.get_longitude_latitude_altitude()  # cached at `now`
+        assert len(model._lonlatalt_cache) == 1
+
+        # Advance clock past the cached time → entry must be purged
         model.clock.get_current_time.return_value = now + datetime.timedelta(seconds=1)
         model.get_longitude_latitude_altitude()
 
         assert mock_orb.get_lonlatalt.call_count == 2
+        # only the new time remains
+        assert len(model._lonlatalt_cache) == 1
+        assert now not in model._lonlatalt_cache
 
 
 # ---------------------------------------------------------------------------
-# get_position_earth_general_inertial — units and format
+# get_position / get_velocity ECI
 # ---------------------------------------------------------------------------
 
 
@@ -186,10 +190,9 @@ class TestGetPositionEarthGeneralInertial:
         model, _ = make_model()
         result = model.get_position_earth_general_inertial()
         assert len(result) == 3
-        assert all(isinstance(v, float) for v in result)
+        assert all(isinstance(v, (float, int)) for v in result)
 
     def test_position_values_are_in_km_not_metres(self):
-        """ECI position must be ~6000-8000 km for LEO, not millions (metres)."""
         model, _ = make_model()
         result = model.get_position_earth_general_inertial()
         magnitude = sum(v**2 for v in result) ** 0.5
@@ -202,15 +205,15 @@ class TestGetPositionEarthGeneralInertial:
         result = model.get_position_earth_general_inertial()
         assert result == pytest.approx(FAKE_POSITION_ECI_KM)
 
-    def test_future_query_propagates_directly(self):
+    def test_future_query_propagates_and_caches(self):
         model, mock_orb = make_model()
         model.get_position_earth_general_inertial(delta_t=120.0)
         mock_orb.get_position.assert_called_once()
+        assert len(model._eci_cache) == 1
 
-    def test_future_query_does_not_populate_eci_cache(self):
-        model, _ = make_model()
+        # same future time → cache hit
         model.get_position_earth_general_inertial(delta_t=120.0)
-        assert model._last_position_eci is None
+        mock_orb.get_position.assert_called_once()
 
     def test_cache_hit_avoids_second_sgp4_call(self):
         model, mock_orb = make_model()
@@ -218,16 +221,12 @@ class TestGetPositionEarthGeneralInertial:
         model.get_position_earth_general_inertial()
         mock_orb.get_position.assert_called_once()
 
-    def test_position_call_populates_velocity_cache(self):
-        """get_position should cache velocity as byproduct — avoids double SGP4 call."""
+    def test_position_call_populates_velocity_in_same_cache_entry(self):
         model, _ = make_model()
         model.get_position_earth_general_inertial()
-        assert model._last_velocity_eci == FAKE_VELOCITY_ECI_KMS
-
-
-# ---------------------------------------------------------------------------
-# get_velocity_earth_general_inertial — units and format
-# ---------------------------------------------------------------------------
+        # velocity must be available from the same cache entry
+        vel = model.get_velocity_earth_general_inertial()
+        assert vel == pytest.approx(FAKE_VELOCITY_ECI_KMS)
 
 
 class TestGetVelocityEarthGeneralInertial:
@@ -236,10 +235,9 @@ class TestGetVelocityEarthGeneralInertial:
         model, _ = make_model()
         result = model.get_velocity_earth_general_inertial()
         assert len(result) == 3
-        assert all(isinstance(v, float) for v in result)
+        assert all(isinstance(v, (float, int)) for v in result)
 
     def test_velocity_values_are_in_km_per_second_not_metres(self):
-        """LEO orbital velocity is ~7 km/s — must NOT be ~7000 (m/s)."""
         model, _ = make_model()
         result = model.get_velocity_earth_general_inertial()
         magnitude = sum(v**2 for v in result) ** 0.5
@@ -253,24 +251,20 @@ class TestGetVelocityEarthGeneralInertial:
         assert result == pytest.approx(FAKE_VELOCITY_ECI_KMS)
 
     def test_velocity_uses_cache_populated_by_position_call(self):
-        """If position was already called, velocity must reuse cache — zero extra SGP4."""
         model, mock_orb = make_model()
         model.get_position_earth_general_inertial()
         mock_orb.get_position.reset_mock()
         model.get_velocity_earth_general_inertial()
         mock_orb.get_position.assert_not_called()
 
-    def test_future_query_does_not_use_cache(self):
+    def test_future_query_populates_cache(self):
         model, mock_orb = make_model()
-        model.get_velocity_earth_general_inertial()  # populate cache
-        mock_orb.get_position.reset_mock()
         model.get_velocity_earth_general_inertial(delta_t=60.0)
+        assert len(model._eci_cache) == 1
         mock_orb.get_position.assert_called_once()
 
-    def test_future_query_does_not_populate_velocity_cache(self):
-        model, _ = make_model()
         model.get_velocity_earth_general_inertial(delta_t=60.0)
-        assert model._last_velocity_eci is None
+        mock_orb.get_position.assert_called_once()  # still once
 
 
 # ---------------------------------------------------------------------------
@@ -284,7 +278,7 @@ class TestIsAscending:
         model, mock_orb = make_model()
         mock_orb.get_position.return_value = (
             FAKE_POSITION_ECI_KM,
-            (0.0, 0.0, 1.0),  # positive z
+            (0.0, 0.0, 1.0),
         )
         assert model.is_ascending() is True
 
@@ -292,7 +286,7 @@ class TestIsAscending:
         model, mock_orb = make_model()
         mock_orb.get_position.return_value = (
             FAKE_POSITION_ECI_KM,
-            (0.0, 0.0, -1.0),  # negative z
+            (0.0, 0.0, -1.0),
         )
         assert model.is_ascending() is False
 
@@ -302,30 +296,68 @@ class TestIsAscending:
 
 
 # ---------------------------------------------------------------------------
-# Cross-cache independence
+# Cross-cache independence & helpers
 # ---------------------------------------------------------------------------
 
 
 class TestCacheIndependence:
 
     def test_lonlatalt_cache_and_eci_cache_are_independent(self):
-        """
-        Calling get_position_earth_general_inertial must not invalidate
-        the lonlatalt cache and vice versa.
-        """
         model, mock_orb = make_model()
 
-        model.get_longitude_latitude_altitude()  # populate lonlatalt cache
-        lonlatalt_calls_after_first = mock_orb.get_lonlatalt.call_count
+        model.get_longitude_latitude_altitude()
+        lonlatalt_calls = mock_orb.get_lonlatalt.call_count
 
-        model.get_position_earth_general_inertial()  # populate ECI cache
+        model.get_position_earth_general_inertial()
 
-        model.get_longitude_latitude_altitude()  # should still hit lonlatalt cache
-        assert mock_orb.get_lonlatalt.call_count == lonlatalt_calls_after_first
+        model.get_longitude_latitude_altitude()  # must still hit lonlatalt cache
+        assert mock_orb.get_lonlatalt.call_count == lonlatalt_calls
 
     def test_eci_cache_not_polluted_by_lonlatalt_call(self):
-        model, mock_orb = make_model()
+        model, _ = make_model()
         model.get_longitude_latitude_altitude()
-        # ECI cache must still be empty
-        assert model._last_position_eci is None
-        assert model._last_velocity_eci is None
+        assert model._eci_cache == {}
+
+    def test_clear_caches(self):
+        model, _ = make_model()
+        model.get_longitude_latitude_altitude()
+        model.get_position_earth_general_inertial()
+        assert len(model._lonlatalt_cache) == 1
+        assert len(model._eci_cache) == 1
+
+        model.clear_caches()
+        assert model._lonlatalt_cache == {}
+        assert model._eci_cache == {}
+
+    def test_cache_stats(self):
+        model, _ = make_model()
+        assert model.cache_stats() == {"lonlatalt": 0, "eci": 0}
+
+        model.get_longitude_latitude_altitude()
+        model.get_position_earth_general_inertial(delta_t=10.0)
+        stats = model.cache_stats()
+        assert stats["lonlatalt"] == 1
+        assert stats["eci"] == 1
+
+
+class TestPurgeOnClockAdvance:
+
+    def test_future_entry_survives_until_clock_passes_it(self):
+        now = datetime.datetime(2024, 1, 1, 12, 0, 0)
+        model, mock_orb = make_model(now)
+
+        # cache a point 60 s in the future
+        model.get_position_earth_general_inertial(delta_t=60.0)
+        future_t = now + datetime.timedelta(seconds=60)
+        assert future_t in model._eci_cache
+
+        # advance clock by 30 s — future entry must still be present
+        model.clock.get_current_time.return_value = now + datetime.timedelta(seconds=30)
+        model.get_position_earth_general_inertial(delta_t=0.0)  # triggers purge
+        assert future_t in model._eci_cache
+        assert len(model._eci_cache) == 2  # now + future
+
+        # advance past the future entry
+        model.clock.get_current_time.return_value = now + datetime.timedelta(seconds=61)
+        model.get_position_earth_general_inertial(delta_t=0.0)
+        assert future_t not in model._eci_cache
