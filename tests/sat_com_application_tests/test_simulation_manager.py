@@ -159,6 +159,54 @@ class TestSimulationManager:
         assert created_link in ground_station.links
         assert created_link in satellite.links
 
+    def test_get_connected_satellites_to_ground_station(self, simulation_service):
+        """
+        get_connected_satellites_to_ground_station used to collect results in a set(),
+        but Satellite overrides __eq__ without __hash__, which Python makes unhashable,
+        raising `TypeError: unhashable type: 'Satellite'`.
+        """
+        ground_station = create_fake_ground_station_with_object_id(1)
+        satellite_1 = create_fake_satellite_with_object_id(1)
+        satellite_2 = create_fake_satellite_with_object_id(2)
+        unrelated_satellite = create_fake_satellite_with_object_id(3)
+
+        simulation_service.add_ground_station(ground_station)
+        simulation_service.add_satellite(satellite_1)
+        simulation_service.add_satellite(satellite_2)
+        simulation_service.add_satellite(unrelated_satellite)
+
+        simulation_service.create_and_add_ground_station_link_connection(
+            satellite_1, ground_station
+        )
+        simulation_service.create_and_add_ground_station_link_connection(
+            satellite_2, ground_station
+        )
+
+        connected_satellites = (
+            simulation_service.get_connected_satellites_to_ground_station(
+                ground_station
+            )
+        )
+
+        assert isinstance(connected_satellites, list)
+        assert len(connected_satellites) == 2
+        assert satellite_1 in connected_satellites
+        assert satellite_2 in connected_satellites
+        assert unrelated_satellite not in connected_satellites
+
+    def test_get_connected_satellites_to_ground_station_with_no_link(
+        self, simulation_service
+    ):
+        ground_station = create_fake_ground_station_with_object_id(1)
+        simulation_service.add_ground_station(ground_station)
+
+        assert (
+            simulation_service.get_connected_satellites_to_ground_station(
+                ground_station
+            )
+            == []
+        )
+
     def test_create_user_terminal_link(self, simulation_service):
         assert len(simulation_service.simulation.user_terminal_links) == 0
         satellite = create_fake_satellite_with_object_id(1)
