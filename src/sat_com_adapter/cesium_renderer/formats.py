@@ -33,6 +33,24 @@ from sat_com_model.models import (
 SATELLITE_RADIUS = 30000
 
 
+def _get_walker_shell_identifier(satellite: Satellite):
+    """
+    walker_shell is Optional on Satellite (e.g. satellites created manually without a shell).
+    """
+    return satellite.walker_shell.identifier if satellite.walker_shell else None
+
+
+def _get_ground_object_domain_identifier(ground_object: GroundObject):
+    """
+    ground_object_domain is Optional on GroundObject (e.g. ground objects created manually without a domain).
+    """
+    return (
+        ground_object.ground_object_domain.identifier
+        if ground_object.ground_object_domain
+        else None
+    )
+
+
 class CesiumFormat:
     cesium_element_creator: CesiumElementFactory
 
@@ -90,7 +108,7 @@ class CesiumFormat:
 
     def create_satellite(self, satellite: Satellite, properties: dict = None):
         satellites_cesium_property = self.shells_customs_properties.get(
-            satellite.walker_shell.identifier,
+            _get_walker_shell_identifier(satellite),
             self.cesium_property.cesium_renderer_shell_property,
         )
 
@@ -123,7 +141,7 @@ class CesiumFormat:
         self, ground_station: GroundStation, properties: dict = None
     ):
         ground_object_domain_properties = self.ground_objects_custom_properties.get(
-            ground_station.ground_object_domain.identifier,
+            _get_ground_object_domain_identifier(ground_station),
             self.cesium_property.cesium_renderer_ground_object_property,
         )
 
@@ -160,7 +178,7 @@ class CesiumFormat:
         self, user_terminal: UserTerminal, properties: dict = None
     ):
         ground_object_domain_properties = self.ground_objects_custom_properties.get(
-            user_terminal.ground_object_domain.identifier,
+            _get_ground_object_domain_identifier(user_terminal),
             self.cesium_property.cesium_renderer_ground_object_property,
         )
 
@@ -170,8 +188,8 @@ class CesiumFormat:
             user_terminal.topology_uniq_id
         )
 
-        ground_station_name = "{username} {object_id}. {topology_id}".format(
-            username=user_terminal.user_name,
+        user_terminal_name = "{label} {object_id}. {topology_id}".format(
+            label=user_terminal.label,
             object_id=user_terminal.object_id,
             topology_id=user_terminal.topology_uniq_id,
         )
@@ -182,7 +200,7 @@ class CesiumFormat:
         properties.update(**user_terminal.model_dump(mode="json"))
 
         terminal_user_js = self.cesium_element_creator.create_sphere(
-            sphere_name=ground_station_name,
+            sphere_name=user_terminal_name,
             position=user_terminal.get_coordinates(),
             cesium_uniq_identifier=cesium_uniq_identifier,
             color=display_color,
@@ -196,12 +214,12 @@ class CesiumFormat:
     def create_ground_station_link(self, ground_station_link: GroundStationLink):
         if isinstance(ground_station_link.source, GroundObject):
             ground_object_property = self.ground_objects_custom_properties.get(
-                ground_station_link.source.ground_object_domain.identifier,
+                _get_ground_object_domain_identifier(ground_station_link.source),
                 self.cesium_property.cesium_renderer_ground_object_property,
             )
         else:
             ground_object_property = self.ground_objects_custom_properties.get(
-                ground_station_link.destination.ground_object_domain.identifier,
+                _get_ground_object_domain_identifier(ground_station_link.destination),
                 self.cesium_property.cesium_renderer_ground_object_property,
             )
 
@@ -226,12 +244,12 @@ class CesiumFormat:
     ):
         if isinstance(user_terminal_link.source, GroundObject):
             ground_object_property = self.ground_objects_custom_properties.get(
-                user_terminal_link.source.ground_object_domain.identifier,
+                _get_ground_object_domain_identifier(user_terminal_link.source),
                 self.cesium_property.cesium_renderer_ground_object_property,
             )
         else:
             ground_object_property = self.ground_objects_custom_properties.get(
-                user_terminal_link.destination.ground_object_domain.identifier,
+                _get_ground_object_domain_identifier(user_terminal_link.destination),
                 self.cesium_property.cesium_renderer_ground_object_property,
             )
 
@@ -304,7 +322,7 @@ class CesiumFormat:
         self, inter_satellite_link: InterSatelliteLink, properties: dict = None
     ):
         satellites_property = self.shells_customs_properties.get(
-            inter_satellite_link.source.walker_shell.identifier,
+            _get_walker_shell_identifier(inter_satellite_link.source),
             self.cesium_property.cesium_renderer_shell_property,
         )
 
@@ -346,13 +364,16 @@ class CesiumFormat:
             if isinstance(
                 properties, CesiumRendererDomainToDomainGroundObjectConnectivity
             ):
+                source_domain_identifier = _get_ground_object_domain_identifier(source)
+                destination_domain_identifier = _get_ground_object_domain_identifier(
+                    destination
+                )
                 if (
-                    properties.domain_a == source.ground_object_domain.identifier
-                    and properties.domain_b
-                    == destination.ground_object_domain.identifier
+                    properties.domain_a == source_domain_identifier
+                    and properties.domain_b == destination_domain_identifier
                 ) or (
-                    properties.domain_a == destination.ground_object_domain.identifier
-                    and properties.domain_b == source.ground_object_domain.identifier
+                    properties.domain_a == destination_domain_identifier
+                    and properties.domain_b == source_domain_identifier
                 ):
                     return properties.cesium_static_ground_object_connectivity_property
 

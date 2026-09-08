@@ -340,5 +340,5 @@ class YamlConfigurationManager(BaseConfigurationManager):
         with open(configuration_path, "r") as file:
             plain_configuration = yaml.safe_load(file)
             self.configuration_path = configuration_path
-            super().__init__(plain_configuration)
+            super().__init__(SimulationProperty(**plain_configuration))
             file.close()
