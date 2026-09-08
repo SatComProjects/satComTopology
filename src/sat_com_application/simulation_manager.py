@@ -783,18 +783,24 @@ class SimulationManager:
     def get_connected_satellites_to_ground_station(
         self, ground_station: GroundStation
     ) -> list[Satellite]:
-        satellites_connected = set()
+        satellites_connected = []
+        seen_satellite_topology_uniq_ids = set()
+
+        def add_satellite(satellite: Satellite):
+            if satellite.topology_uniq_id not in seen_satellite_topology_uniq_ids:
+                seen_satellite_topology_uniq_ids.add(satellite.topology_uniq_id)
+                satellites_connected.append(satellite)
 
         for ground_station_link in self.get_ground_stations_links():
             if (
                 ground_station_link.source is not None
                 and ground_station_link.source == ground_station
             ):
-                satellites_connected.add(ground_station_link.destination)
+                add_satellite(ground_station_link.destination)
             if ground_station_link.destination == ground_station:
-                satellites_connected.add(ground_station_link.source)
+                add_satellite(ground_station_link.source)
 
-        return list(satellites_connected)
+        return satellites_connected
 
     def connect_user_terminal_to_satellites(
         self, user_terminal: UserTerminal, maximum_satellite_range_distance: float
