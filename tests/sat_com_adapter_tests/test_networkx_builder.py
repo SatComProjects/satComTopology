@@ -223,4 +223,4 @@ class TestNetworkxBuilder:
 
         assert network_builder.graph.has_edge("ground-1", "satellite-1")
         edge_data = network_builder.graph.get_edge_data("ground-1", "satellite-1")
-        assert edge_data["disabled"] is False
+        assert edge_data["model_data"]["disabled"] is False

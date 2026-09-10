@@ -1155,7 +1155,7 @@ def compute_OISL_feasibility_for_terminal_pair(
     Accepts an optional pre-built _EciCache to avoid redundant SGP4 calls
     when called in a loop (e.g. from compute_OISL_links_from_terminal_pools).
     """
-    cache = _cache or _EciCache()
+    cache = _cache or _EciCache(angular_velocity_dt_seconds)
     pos_a, vel_a = cache.get(satellite_a)
     pos_b, vel_b = cache.get(satellite_b)
 
@@ -1244,7 +1244,7 @@ def compute_OISL_links_from_terminal_pools_filtered(
 
     n1, n2 = len(terminals_group_1), len(terminals_group_2)
 
-    cache = _EciCache()
+    cache = _EciCache(angular_velocity_dt_seconds)
     cache.warm([t.host_satellite for t in terminals_group_1 + terminals_group_2])
 
     records_1 = _build_terminal_records_from_pool(terminals_group_1, cache)
@@ -1390,7 +1390,7 @@ def compute_OISL_links_from_terminal_pools(
 
     if cache is None:
         # This is really, really useless, please pass the cache when using this function
-        cache = _EciCache()
+        cache = _EciCache(angular_velocity_dt_seconds)
         cache.warm([t.host_satellite for t in terminals_group_1 + terminals_group_2])
 
     records_1 = _build_terminal_records_from_pool(terminals_group_1, cache)
