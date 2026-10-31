@@ -132,12 +132,14 @@ class BaseConfigurationManager(ConfigurationManager):
             strategy = IntraShellStaticConnectivity(
                 satellites=simulation_manager.get_satellites(),
                 shell_and_plans=simulation_manager.shell_addressing_plans,
+                state_cache=simulation_manager.satellite_state_cache,
             )
 
         elif isl_connection_strategy == InterShellSSOPriorityConnectivity.type:
             strategy = InterShellSSOPriorityConnectivity(
                 satellites=simulation_manager.get_satellites(),
                 shell_and_plans=simulation_manager.shell_addressing_plans,
+                state_cache=simulation_manager.satellite_state_cache,
             )
         else:
             raise ValueError(

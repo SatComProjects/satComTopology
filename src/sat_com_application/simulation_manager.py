@@ -13,6 +13,7 @@ from sat_com_application.event_bus.events import (
 from sat_com_application.event_bus.factories import EventFactories
 from sat_com_application.models import AssociationState
 from sat_com_application.time_managers import SimulationTimeManager
+from sat_com_connectivity.satellite_state_cache import SatelliteStateCache
 from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
     GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
 )
@@ -140,11 +141,19 @@ class SimulationManager:
         self.static_ground_station_link_mode = False
         self.time_manager = None
 
+        # Satellite state shared by every connectivity computation (ground
+        # links, inter-satellite links, every shell). Dropped at each tick.
+        self.satellite_state_cache = SatelliteStateCache()
+
         self.ground_to_space_connection_strategies = {}
         for name, cls in GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY.items():
             kwargs = {"distance_model": self.simulation.distance_model}
 
-            self.ground_to_space_connection_strategies[name] = cls(**kwargs)
+            strategy = cls(**kwargs)
+            # Set as an attribute, not a constructor argument, so registered
+            # custom strategies with a fixed __init__ signature keep working.
+            strategy.state_cache = self.satellite_state_cache
+            self.ground_to_space_connection_strategies[name] = strategy
 
         self.shell_addressing_plans: list[tuple[Shell, StaticAddressingPlan]] = list()
 
@@ -166,6 +175,10 @@ class SimulationManager:
             return self.enabled_update_functions
 
     def __update(self):
+        # The cache also detects time changes by itself; this covers movement
+        # models whose clock does not move (test doubles).
+        self.satellite_state_cache.invalidate()
+
         for update_function in self.update_protocol:
             t0 = time.perf_counter()
 
@@ -414,6 +427,7 @@ class SimulationManager:
         ground_station: GroundStation,
         elevation_above_horizon_angle: float = 0,
         estimated_link_duration: float = None,
+        distance_km: float | None = None,
     ) -> GroundStationLink:
         """
         Create a ground station link between a satellite and a ground station and append it to the simulation.
@@ -430,6 +444,7 @@ class SimulationManager:
             elevation_above_horizon_angle
         )
         ground_station_link.estimated_link_duration = estimated_link_duration
+        ground_station_link.distance_km = distance_km
 
         satellite.links.append(ground_station_link)
         ground_station.links.append(ground_station_link)
@@ -448,6 +463,7 @@ class SimulationManager:
         user_terminal: UserTerminal,
         elevation_above_horizon_angle: float = 0,
         estimated_link_duration: float = None,
+        distance_km: float | None = None,
     ) -> UserTerminalLink:
         """
         Create a user terminal link between a satellite and a user terminal
@@ -461,6 +477,7 @@ class SimulationManager:
         user_terminal_link.connect(satellite, user_terminal)
         user_terminal_link.elevation_above_horizon_angle = elevation_above_horizon_angle
         user_terminal_link.estimated_link_duration = estimated_link_duration
+        user_terminal_link.distance_km = distance_km
 
         satellite.links.append(user_terminal_link)
         user_terminal.links.append(user_terminal_link)
@@ -1325,6 +1342,8 @@ class SimulationManager:
                     or -1,
                     estimated_link_duration=new_connection.ground_to_space_constraints.estimated_connection_time
                     or -1,
+                    distance_km=new_connection.ground_to_space_constraints.distance_km
+                    or -1,
                 )
             for updates in update_response.updated_links:
                 if not isinstance(updates.ground_to_space_link, UserTerminalLink):
@@ -1359,6 +1378,8 @@ class SimulationManager:
                     elevation_above_horizon_angle=new_connection.ground_to_space_constraints.elevation_angle_above_horizon
                     or -1,
                     estimated_link_duration=new_connection.ground_to_space_constraints.estimated_connection_time
+                    or -1,
+                    distance_km=new_connection.ground_to_space_constraints.distance_km
                     or -1,
                 )
 

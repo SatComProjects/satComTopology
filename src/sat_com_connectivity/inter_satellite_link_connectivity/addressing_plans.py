@@ -22,6 +22,7 @@ from sat_com_connectivity.inter_satellite_link_connectivity.optical_helpers impo
     _EciCache,
     compute_OISL_constraint_for_known_pair,
 )
+from sat_com_connectivity.satellite_state_cache import SatelliteStateCache
 from sat_com_model.models import (
     WalkerShell,
     Satellite,
@@ -37,6 +38,9 @@ from sat_com_model.models import (
 # and on which terminal, without touching simulation state.
 # ---------------------------------------------------------------------------
 
+
+# Finite-difference step used for the angular velocities / range rates.
+_DELTA_T_VELOCITY = 1.0
 
 _ORBITAL_INTER_SATELLITE_LINK_ORIENTATION = {
     InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD,
@@ -116,13 +120,18 @@ class StaticAddressingPlan(ABC):
 
     @abstractmethod
     def get_link_associations(
-        self, satellites: list[Satellite]
+        self,
+        satellites: list[Satellite],
+        state_cache: SatelliteStateCache | None = None,
     ) -> list["LinkAssociation"]:
         """
         Compute the full set of intended terminal-to-terminal associations
         for all satellites in this shell.
         Returns LinkAssociation objects with link=None — the SimulationManager
         is responsible for actually creating the ISL objects.
+
+        `state_cache`: the simulation-wide satellite state cache, shared with
+        the other shells and the ground links. A private cache is used when None.
         """
         pass
 
@@ -459,13 +468,18 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
         return associations
 
     def get_link_associations(
-        self, satellites: list[Satellite]
+        self,
+        satellites: list[Satellite],
+        state_cache: SatelliteStateCache | None = None,
     ) -> list[LinkAssociation]:
         satellite_lookup = {sat.object_id: sat for sat in satellites}
 
         self.delta_t_velocity = 1
 
-        cache = _EciCache(self.delta_t_velocity)
+        if state_cache is None:
+            cache = _EciCache(self.delta_t_velocity)
+        else:
+            cache = state_cache.eci(self.delta_t_velocity)
         cache.warm(list(satellite_lookup.values()))
         self.cache = cache
 
@@ -513,7 +527,10 @@ class OldWalkerStaticAddressingPlan(StaticAddressingPlan):
     def _build_associations_from_grid(
         self,
         satellite_lookup: dict[int, Satellite],
+        cache: _EciCache | None = None,
     ) -> list[LinkAssociation]:
+        if cache is None:
+            cache = _EciCache(_DELTA_T_VELOCITY)
         associations: list[LinkAssociation] = []
         booked_terminals: set[OpticalLinkTerminal] = set()
 
@@ -554,12 +571,14 @@ class OldWalkerStaticAddressingPlan(StaticAddressingPlan):
                 candidates_left_right = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=sources_left,
                     terminals_group_2=destinations_right,
-                    angular_velocity_dt_seconds=1.0,
+                    angular_velocity_dt_seconds=_DELTA_T_VELOCITY,
+                    cache=cache,
                 )
                 candidates_right_left = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=destinations_left,
                     terminals_group_2=sources_right,
-                    angular_velocity_dt_seconds=1.0,
+                    angular_velocity_dt_seconds=_DELTA_T_VELOCITY,
+                    cache=cache,
                 )
                 # Previously excluded — confirmed geometrically valid via azimuth steering
                 # (~175°), and necessary to resolve conflicts that pure LEFT-RIGHT /
@@ -567,12 +586,14 @@ class OldWalkerStaticAddressingPlan(StaticAddressingPlan):
                 candidates_left_left = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=sources_left,
                     terminals_group_2=destinations_left,
-                    angular_velocity_dt_seconds=1.0,
+                    angular_velocity_dt_seconds=_DELTA_T_VELOCITY,
+                    cache=cache,
                 )
                 candidates_right_right = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=sources_right,
                     terminals_group_2=destinations_right,
-                    angular_velocity_dt_seconds=1.0,
+                    angular_velocity_dt_seconds=_DELTA_T_VELOCITY,
+                    cache=cache,
                 )
 
                 all_candidates: list[PossibleOpticalLink] = (
@@ -608,12 +629,14 @@ class OldWalkerStaticAddressingPlan(StaticAddressingPlan):
                 candidates_case_1 = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=sources_forward,
                     terminals_group_2=destinations_backward,
-                    angular_velocity_dt_seconds=1.0,
+                    angular_velocity_dt_seconds=_DELTA_T_VELOCITY,
+                    cache=cache,
                 )
                 candidates_case_2 = compute_OISL_links_from_terminal_pools(
                     terminals_group_1=sources_backward,
                     terminals_group_2=destinations_forward,
-                    angular_velocity_dt_seconds=1.0,
+                    angular_velocity_dt_seconds=_DELTA_T_VELOCITY,
+                    cache=cache,
                 )
 
                 all_candidates: list[PossibleOpticalLink] = (
@@ -687,11 +710,15 @@ class OldWalkerStaticAddressingPlan(StaticAddressingPlan):
         return associations
 
     def get_link_associations(
-        self, satellites: list[Satellite]
+        self,
+        satellites: list[Satellite],
+        state_cache: SatelliteStateCache | None = None,
     ) -> list[LinkAssociation]:
         satellite_lookup = {sat.object_id: sat for sat in satellites}
 
-        return self._build_associations_from_grid(satellite_lookup)
+        # Lazy: satellites are only propagated when a pool needs them.
+        cache = state_cache.eci(_DELTA_T_VELOCITY) if state_cache is not None else None
+        return self._build_associations_from_grid(satellite_lookup, cache)
 
     @abstractmethod
     def get_type(self) -> str:
@@ -730,7 +757,10 @@ class SSODawnDuskStaticAddressingPlan(StaticAddressingPlan):
     def _build_associations_from_grid(
         self,
         satellite_lookup: dict[int, Satellite],
+        cache: _EciCache | None = None,
     ) -> list[LinkAssociation]:
+        if cache is None:
+            cache = _EciCache(_DELTA_T_VELOCITY)
         associations: list[LinkAssociation] = []
         booked_terminals: set[OpticalLinkTerminal] = set()
 
@@ -770,12 +800,14 @@ class SSODawnDuskStaticAddressingPlan(StaticAddressingPlan):
             candidates_case_1 = compute_OISL_links_from_terminal_pools(
                 terminals_group_1=sources_forward,
                 terminals_group_2=destinations_backward,
-                angular_velocity_dt_seconds=1.0,
+                angular_velocity_dt_seconds=_DELTA_T_VELOCITY,
+                cache=cache,
             )
             candidates_case_2 = compute_OISL_links_from_terminal_pools(
                 terminals_group_1=sources_backward,
                 terminals_group_2=destinations_forward,
-                angular_velocity_dt_seconds=1.0,
+                angular_velocity_dt_seconds=_DELTA_T_VELOCITY,
+                cache=cache,
             )
 
             all_candidates: list[PossibleOpticalLink] = (
@@ -840,11 +872,15 @@ class SSODawnDuskStaticAddressingPlan(StaticAddressingPlan):
         return associations
 
     def get_link_associations(
-        self, satellites: list[Satellite]
+        self,
+        satellites: list[Satellite],
+        state_cache: SatelliteStateCache | None = None,
     ) -> list[LinkAssociation]:
         satellite_lookup = {sat.object_id: sat for sat in satellites}
 
-        return self._build_associations_from_grid(satellite_lookup)
+        # Lazy: satellites are only propagated when a pool needs them.
+        cache = state_cache.eci(_DELTA_T_VELOCITY) if state_cache is not None else None
+        return self._build_associations_from_grid(satellite_lookup, cache)
 
 
 class FullMeshWalkerStarStaticAddressingPlan(WalkerStaticAddressingPlan):
@@ -930,7 +966,9 @@ class EmptyAddressingPlan(WalkerStaticAddressingPlan):
     name = "EMPTY"
 
     def get_link_associations(
-        self, satellites: list[Satellite]
+        self,
+        satellites: list[Satellite],
+        state_cache: SatelliteStateCache | None = None,
     ) -> list["LinkAssociation"]:
         return []
 

@@ -45,12 +45,20 @@ def test_connect_to_everything_visible_strategy(
         type(
             "VisibleSatellite",
             (),
-            {"satellite": satellite_2, "elevation_above_horizon": 45.0},
+            {
+                "satellite": satellite_2,
+                "elevation_above_horizon": 45.0,
+                "distance_km": 1_100.0,
+            },
         ),
         type(
             "VisibleSatellite",
             (),
-            {"satellite": satellite_3, "elevation_above_horizon": 60.0},
+            {
+                "satellite": satellite_3,
+                "elevation_above_horizon": 60.0,
+                "distance_km": 800.0,
+            },
         ),
     ]
 
@@ -79,3 +87,10 @@ def test_connect_to_everything_visible_strategy(
             assert (
                 conn.ground_to_space_constraints.elevation_angle_above_horizon == 60.0
             )
+
+    # Distance comes from the visibility computation, not a second computation
+    distances = {
+        conn.satellite.topology_uniq_id: conn.ground_to_space_constraints.distance_km
+        for conn in added_connections
+    }
+    assert distances == {102: 1_100.0, 103: 800.0}

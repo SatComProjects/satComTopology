@@ -17,6 +17,8 @@ from datetime import timezone
 from astropy.time import Time
 from sgp4.api import Satrec, WGS72
 
+from sat_com_model.constants import J2, MU_KM3_S2, RE_KM
+
 from sat_com_constellation.sso_constellation.sso_propagation import (
     get_sun_ra_deg_high_precision,
     generate_sso_dawn_dusk,
@@ -85,7 +87,7 @@ def _epoch(sat):
 
 
 def _elem(sat):
-    mu, Re = 398600.4418, 6378.137
+    mu, Re = MU_KM3_S2, RE_KM  # WGS72, the gravity model used by Satrec above
     n = sat.no / 60.0
     a = (mu / n**2) ** (1 / 3)
     return {
@@ -97,7 +99,7 @@ def _elem(sat):
 
 
 def _nodal_rate(inc_deg, alt_km, e=0.0):
-    Re, mu, J2 = 6378.137, 398600.4418, 1.08262668e-3
+    Re, mu = RE_KM, MU_KM3_S2  # WGS72, with J2 from sat_com_model.constants
     a = Re + alt_km
     n = math.sqrt(mu / a**3)
     rate = (

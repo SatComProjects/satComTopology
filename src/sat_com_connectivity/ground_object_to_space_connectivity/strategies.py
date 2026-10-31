@@ -30,8 +30,14 @@ from sat_com_model.models import (
     GroundObject,
     GroundToSpaceLink,
 )
-from sat_com_trajectopy.angle_utils import get_elevation_angle
+from sat_com_connectivity.utils import get_elevation_angle
 from sat_com_trajectopy.distance_models import SkLearningDistanceModel
+
+_RANGE_STRATEGY_DEPRECATION = (
+    "it decides visibility from the ground distance only and ignores the "
+    "elevation angle. Use an elevation-based strategy instead, e.g. "
+    "'{replacement}'. It will be removed in a future version."
+)
 
 
 class ConnectToBestAngleUntilDisconnectionStrategyOrdered(
@@ -84,7 +90,9 @@ class ConnectToBestAngleUntilDisconnectionStrategyOrdered(
 
         # Get visible satellites and apply white list filtering
         visible_satellites = get_visible_satellites(
-            satellites=satellites, ground_object=ground_object
+            satellites=satellites,
+            ground_object=ground_object,
+            state_cache=self.state_cache,
         )
 
         # Select best satellite according to whitelist rules (ORDERED PRIORITY)
@@ -100,10 +108,7 @@ class ConnectToBestAngleUntilDisconnectionStrategyOrdered(
                 ground_object=ground_object,
                 satellite=best_visible_satellite.satellite,
                 ground_to_space_constraints=GroundToSpaceConstraints(
-                    distance_km=SkLearningDistanceModel().get_3d_distance_km(
-                        spatial_position_1=ground_object.get_coordinates(),
-                        spatial_position_2=best_visible_satellite.satellite.get_coordinates(),
-                    ),
+                    distance_km=best_visible_satellite.distance_km,
                     elevation_angle_above_horizon=best_visible_satellite.elevation_above_horizon,
                 ),
             )
@@ -160,7 +165,9 @@ class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
 
         # Get visible satellites and apply white list filtering
         visible_satellites = get_visible_satellites(
-            satellites=satellites, ground_object=ground_object
+            satellites=satellites,
+            ground_object=ground_object,
+            state_cache=self.state_cache,
         )
 
         # Select best satellite according to white list rules (NO PRIORITY ORDER)
@@ -176,10 +183,7 @@ class ConnectToBestAngleUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
                 ground_object=ground_object,
                 satellite=best_visible_satellite.satellite,
                 ground_to_space_constraints=GroundToSpaceConstraints(
-                    distance_km=SkLearningDistanceModel().get_3d_distance_km(
-                        spatial_position_1=ground_object.get_coordinates(),
-                        spatial_position_2=best_visible_satellite.satellite.get_coordinates(),
-                    ),
+                    distance_km=best_visible_satellite.distance_km,
                     elevation_angle_above_horizon=best_visible_satellite.elevation_above_horizon,
                 ),
             )
@@ -192,15 +196,6 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
     strategy_name = "everything-visible"
     description = "Connect to all visible satellites. Do not maintain connectivity, recomputed each timestep."
 
-    def __init__(self, **kwargs):
-        super().__init__()
-        try:
-            self.distance_model = kwargs.get("distance_model", None)
-            if self.distance_model is None:
-                self.distance_model = SkLearningDistanceModel()
-        except KeyError:
-            raise ValueError("Missing required parameter: distance_model")
-
     def compute_ground_object_connection_strategy(
         self,
         ground_object: GroundObject,
@@ -211,7 +206,9 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
         )
 
         visible_satellites = get_visible_satellites(
-            satellites=satellites, ground_object=ground_object
+            satellites=satellites,
+            ground_object=ground_object,
+            state_cache=self.state_cache,
         )
 
         visible_satellite_map = {
@@ -238,10 +235,7 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                 computed_ground_object_connections_result.updated_links.append(
                     GroundToSpaceUpdate(
                         ground_to_space_constraints=GroundToSpaceConstraints(
-                            distance_km=self.distance_model.get_3d_distance_km(
-                                spatial_position_1=ground_object.get_coordinates(),
-                                spatial_position_2=vs.satellite.get_coordinates(),
-                            ),
+                            distance_km=vs.distance_km,
                             elevation_angle_above_horizon=vs.elevation_above_horizon,
                         ),
                         ground_to_space_link=link,
@@ -259,10 +253,7 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
                         ground_object=ground_object,
                         satellite=vs.satellite,
                         ground_to_space_constraints=GroundToSpaceConstraints(
-                            distance_km=self.distance_model.get_3d_distance_km(
-                                spatial_position_1=ground_object.get_coordinates(),
-                                spatial_position_2=vs.satellite.get_coordinates(),
-                            ),
+                            distance_km=vs.distance_km,
                             elevation_angle_above_horizon=vs.elevation_above_horizon,
                         ),
                     )
@@ -273,7 +264,10 @@ class ConnectToEverythingVisibleStrategy(GroundToSpaceConnectionStrategy):
 
 class ConnectToEverythingInRangeStrategy(GroundToSpaceConnectionStrategy):
     strategy_name = "everything-in-range"
-    description = "Connect to all satellites in range. Do not maintain connectivity, recomputed each timestep."
+    deprecation_message = _RANGE_STRATEGY_DEPRECATION.format(
+        replacement="everything-visible"
+    )
+    description = "[DEPRECATED] Connect to all satellites in range. Do not maintain connectivity, recomputed each timestep."
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -289,6 +283,7 @@ class ConnectToEverythingInRangeStrategy(GroundToSpaceConnectionStrategy):
         ground_object: GroundObject,
         satellites: list[Satellite],
     ) -> ComputedGroundObjectConnectionsResult:
+        self._warn_if_deprecated()
         computed_ground_object_connections_result = (
             ComputedGroundObjectConnectionsResult()
         )
@@ -365,7 +360,10 @@ class ConnectToBestRangeUntilDisconnectionStrategyOrdered(
     GroundToSpaceConnectionStrategy
 ):
     strategy_name = "best-range-until-disconnection-ordered"
-    description = "Connect to the closest satellite. If shell white lists are configured, prioritize shells in the order specified. Maintain the connection until the satellite is no longer in range."
+    deprecation_message = _RANGE_STRATEGY_DEPRECATION.format(
+        replacement="best-angle-until-disconnection-ordered"
+    )
+    description = "[DEPRECATED] Connect to the closest satellite. If shell white lists are configured, prioritize shells in the order specified. Maintain the connection until the satellite is no longer in range."
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -384,6 +382,7 @@ class ConnectToBestRangeUntilDisconnectionStrategyOrdered(
         :param satellites:
         :return:
         """
+        self._warn_if_deprecated()
 
         computed_ground_object_connections_result = (
             ComputedGroundObjectConnectionsResult()
@@ -468,7 +467,10 @@ class ConnectToBestRangeUntilDisconnectionStrategyOrdered(
 
 class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrategy):
     strategy_name = "best-range-until-disconnection"
-    description = "Connect to the closest satellite. If shell white lists are configured, consider all white-listed shells equally (no priority order). Maintain the connection until the satellite is no longer in range."
+    deprecation_message = _RANGE_STRATEGY_DEPRECATION.format(
+        replacement="best-angle-until-disconnection"
+    )
+    description = "[DEPRECATED] Connect to the closest satellite. If shell white lists are configured, consider all white-listed shells equally (no priority order). Maintain the connection until the satellite is no longer in range."
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -487,6 +489,7 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
         :param satellites:
         :return:
         """
+        self._warn_if_deprecated()
 
         computed_ground_object_connections_result = (
             ComputedGroundObjectConnectionsResult()
@@ -576,10 +579,6 @@ class ConnectToTheBestAngleStrategyOrdered(GroundToSpaceConnectionStrategy):
         "Do not maintain connectivity, recomputed each timestep."
     )
 
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.distance_model = kwargs.get("distance_model", None)
-
     def compute_ground_object_connection_strategy(
         self,
         ground_object: GroundObject,
@@ -600,7 +599,9 @@ class ConnectToTheBestAngleStrategyOrdered(GroundToSpaceConnectionStrategy):
         )
 
         visible_satellites = get_visible_satellites(
-            satellites=satellites, ground_object=ground_object
+            satellites=satellites,
+            ground_object=ground_object,
+            state_cache=self.state_cache,
         )
 
         # Select best satellite according to white list rules (ORDERED PRIORITY)
@@ -616,14 +617,7 @@ class ConnectToTheBestAngleStrategyOrdered(GroundToSpaceConnectionStrategy):
                 ground_object=ground_object,
                 satellite=best_visible_satellite.satellite,
                 ground_to_space_constraints=GroundToSpaceConstraints(
-                    distance_km=(
-                        self.distance_model.get_3d_distance_km(
-                            spatial_position_1=ground_object.get_coordinates(),
-                            spatial_position_2=best_visible_satellite.satellite.get_coordinates(),
-                        )
-                        if self.distance_model
-                        else None
-                    ),
+                    distance_km=best_visible_satellite.distance_km,
                     elevation_angle_above_horizon=best_visible_satellite.elevation_above_horizon,
                 ),
             )
@@ -638,10 +632,6 @@ class ConnectToTheBestAngleStrategy(GroundToSpaceConnectionStrategy):
         "Connect to the satellite with the best elevation angle. If white lists are configured, consider all white-listed shells equally (no priority order). "
         "Do not maintain connectivity, recomputed each timestep."
     )
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.distance_model = kwargs.get("distance_model", None)
 
     def compute_ground_object_connection_strategy(
         self,
@@ -663,7 +653,9 @@ class ConnectToTheBestAngleStrategy(GroundToSpaceConnectionStrategy):
         )
 
         visible_satellites = get_visible_satellites(
-            satellites=satellites, ground_object=ground_object
+            satellites=satellites,
+            ground_object=ground_object,
+            state_cache=self.state_cache,
         )
 
         # Select best satellite according to white list rules (NO PRIORITY ORDER)
@@ -679,14 +671,7 @@ class ConnectToTheBestAngleStrategy(GroundToSpaceConnectionStrategy):
                 ground_object=ground_object,
                 satellite=best_visible_satellite.satellite,
                 ground_to_space_constraints=GroundToSpaceConstraints(
-                    distance_km=(
-                        self.distance_model.get_3d_distance_km(
-                            spatial_position_1=ground_object.get_coordinates(),
-                            spatial_position_2=best_visible_satellite.satellite.get_coordinates(),
-                        )
-                        if self.distance_model
-                        else None
-                    ),
+                    distance_km=best_visible_satellite.distance_km,
                     elevation_angle_above_horizon=best_visible_satellite.elevation_above_horizon,
                 ),
             )
@@ -703,10 +688,6 @@ class ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
         "Connect to the satellite with the best elevation angle, preferring satellites in larger shells."
         "Maintain the connection until the satellite is no longer visible."
     )
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.distance_model = kwargs.get("distance_model", None)
 
     def compute_ground_object_connection_strategy(
         self, ground_object: GroundObject, satellites: list[Satellite]
@@ -756,7 +737,9 @@ class ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
             self.valid_links.clear()
 
         visible_satellites = get_visible_satellites(
-            satellites=satellites, ground_object=ground_object
+            satellites=satellites,
+            ground_object=ground_object,
+            state_cache=self.state_cache,
         )
         best_visible_satellite_with_best_shell = (
             get_best_visible_satellite_with_biggest_shell(visible_satellites)
@@ -770,14 +753,7 @@ class ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
                 ground_object=ground_object,
                 satellite=best_visible_satellite_with_best_shell.satellite,
                 ground_to_space_constraints=GroundToSpaceConstraints(
-                    distance_km=(
-                        self.distance_model.get_3d_distance_km(
-                            spatial_position_1=ground_object.get_coordinates(),
-                            spatial_position_2=ground_object.get_coordinates(),
-                        )
-                        if self.distance_model
-                        else None
-                    ),
+                    distance_km=best_visible_satellite_with_best_shell.distance_km,
                     elevation_angle_above_horizon=best_visible_satellite_with_best_shell.elevation_above_horizon,
                 ),
             )
@@ -789,10 +765,6 @@ class ConnectToBestAngleUntilDisconnectionPreferBiggerShellStrategy(
 class ConnectToBestAngleUntilDisconnectionPreferLowerShellStrategy(
     GroundToSpaceConnectionStrategy
 ):
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.distance_model = kwargs.get("distance_model", None)
 
     strategy_name = "best-angle-until-disconnection-prefer-lower-shell"
 
@@ -843,7 +815,9 @@ class ConnectToBestAngleUntilDisconnectionPreferLowerShellStrategy(
             self.valid_links.clear()
 
         visible_satellites = get_visible_satellites(
-            satellites=satellites, ground_object=ground_object
+            satellites=satellites,
+            ground_object=ground_object,
+            state_cache=self.state_cache,
         )
         best_visible_satellite_with_lowest_shell = (
             get_best_visible_satellite_with_lowest_shell(visible_satellites)
@@ -857,14 +831,7 @@ class ConnectToBestAngleUntilDisconnectionPreferLowerShellStrategy(
                 ground_object=ground_object,
                 satellite=best_visible_satellite_with_lowest_shell.satellite,
                 ground_to_space_constraints=GroundToSpaceConstraints(
-                    distance_km=(
-                        self.distance_model.get_3d_distance_km(
-                            spatial_position_1=ground_object.get_coordinates(),
-                            spatial_position_2=ground_object.get_coordinates(),
-                        )
-                        if self.distance_model
-                        else None
-                    ),
+                    distance_km=best_visible_satellite_with_lowest_shell.distance_km,
                     elevation_angle_above_horizon=best_visible_satellite_with_lowest_shell.elevation_above_horizon,
                 ),
             )

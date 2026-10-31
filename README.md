@@ -22,6 +22,7 @@ This project si the laboratory 🔬 where you can **design** your topologies.
       * [Export a Simulation](#export-a-simulation)
       * [I just want my constellation in the good format](#i-just-want-my-constellation-in-the-good-format)
   * [Tutorials 🎓](#tutorials-)
+  * [Performance 📈](#performance-)
   * [Contributing](#contributing)
   * [License ⚖️](#license-)
 <!-- TOC -->
@@ -166,6 +167,12 @@ Here are some tutorials in the Jupyter Notebook format:
 
 The tutorials aren't on gitlab yet, to have an access:
 louis.barbier at isae-supaero.fr
+
+## Performance 📈
+- [Performance Using Optical Links Advanced Model](docs/performance/README.md): bootstrap and tick
+  time, broken down by stage, on Starlink Group 2, Starlink Group 7, OneWeb and Starlink Group 2 + SSO,
+  with 100 ground stations. Regenerate it with
+  `python tests/performance_scripts/benchmark_constellations.py`.
 
 ## Contributing
 The contributing guide is [here](https://github.com/elbarbi/satComTopology/blob/develop/CONTRIBUTING.md).

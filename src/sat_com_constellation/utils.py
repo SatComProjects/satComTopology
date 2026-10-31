@@ -14,6 +14,8 @@ from sgp4.api import Satrec, WGS72
 from sgp4.api import jday
 from sgp4.exporter import export_tle
 
+from sat_com_model.constants import J2, MU_KM3_S2, RE_KM
+
 
 class TwoLineElement(BaseModel):
     satellite_name: str
@@ -94,9 +96,8 @@ def generate_sso_dawn_dusk(
         epoch_utc = epoch
 
     # --- Earth constants (WGS72, consistent with SGP4) ---
-    mu = 398600.4418  # km^3/s^2
-    Re = 6378.137  # km
-    J2 = 1.08262668e-3  # second zonal harmonic
+    mu = MU_KM3_S2  # km^3/s^2
+    Re = RE_KM  # km
 
     # --- Orbital geometry ---
     a = Re + altitude_km  # semi-major axis (km)

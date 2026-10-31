@@ -1,7 +1,7 @@
 import datetime
 import math
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from sat_com_connectivity.inter_satellite_link_connectivity.addressing_plans import (
     _is_inter_shell_capable,
@@ -696,7 +696,7 @@ class TestComputeIntraShellAssociationsNoExistingLinks:
         strategy = make_strategy([sat_a], [(walker_shell, plan)])
         run_intra_shell(strategy)
 
-        plan.get_link_associations.assert_called_once_with([sat_a])
+        plan.get_link_associations.assert_called_once_with([sat_a], state_cache=ANY)
 
 
 class TestComputeIntraShellAssociationsExistingLinks:

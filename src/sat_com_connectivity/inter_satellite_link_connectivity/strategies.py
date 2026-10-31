@@ -18,6 +18,7 @@ from sat_com_connectivity.inter_satellite_link_connectivity.optical_helpers impo
     compute_OISL_feasibility_for_terminal_pair,
     compute_OISL_links_from_terminal_pools_filtered,
 )
+from sat_com_connectivity.satellite_state_cache import SatelliteStateCache
 from sat_com_model.models import (
     Satellite,
     Shell,
@@ -28,13 +29,32 @@ from sat_com_model.models import (
     InterSatelliteLink,
 )
 
+# Finite-difference step used for the angular velocities / range rates.
+_DELTA_T_VELOCITY = 1.0
+
 
 class InterSatelliteConnectivityStrategy(ABC):
     type: str = Field(default="base")
 
+    """
+    Simulation-wide satellite state cache (see satellite_state_cache.py),
+    shared by every phase and every addressing plan. When None, each
+    compute_strategy() call uses its own private cache.
+    """
+    state_cache: SatelliteStateCache | None = None
+
     @abstractmethod
     def compute_strategy(self) -> InterSatelliteConnectivityResult:
         pass
+
+    def _resolve_state_cache(
+        self, state_cache: SatelliteStateCache | None = None
+    ) -> SatelliteStateCache:
+        if state_cache is not None:
+            return state_cache
+        if self.state_cache is not None:
+            return self.state_cache
+        return SatelliteStateCache()
 
 
 # ---------------------------------------------------------------------------
@@ -81,11 +101,19 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
         self,
         satellites: list[Satellite],
         shell_and_plans: list[tuple[Shell, StaticAddressingPlan]],
+        state_cache: SatelliteStateCache | None = None,
     ):
         self.satellites = satellites
         self.shell_and_plans = shell_and_plans
+        self.state_cache = state_cache
 
-    def _compute_inter_shell_associations(self, ledger: ConnectivityLedger) -> None:
+    def _compute_inter_shell_associations(
+        self,
+        ledger: ConnectivityLedger,
+        state_cache: SatelliteStateCache | None = None,
+    ) -> None:
+        eci_cache = self._resolve_state_cache(state_cache).eci(_DELTA_T_VELOCITY)
+
         # -----------------------------------------------------------------------
         # Step 1 — collect inter-shell capable terminals
         # -----------------------------------------------------------------------
@@ -129,7 +157,8 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                     terminal_a=terminal,
                     satellite_b=peer_sat,
                     terminal_b=peer_terminal,
-                    angular_velocity_dt_seconds=1.0,
+                    angular_velocity_dt_seconds=_DELTA_T_VELOCITY,
+                    _cache=eci_cache,
                 )
 
                 # -------------------------------------------------------------------
@@ -301,7 +330,8 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
             terminals_group_1=sso_pool,
             terminals_group_2=walker_pool,
             maximum_range_to_filter_in_km=10_000.0,
-            angular_velocity_dt_seconds=1.0,
+            angular_velocity_dt_seconds=_DELTA_T_VELOCITY,
+            cache=eci_cache,
         )
 
         for possible_link in inter_shell_links:
@@ -347,7 +377,13 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                 )
             )
 
-    def _compute_intra_shell_associations(self, ledger: ConnectivityLedger) -> None:
+    def _compute_intra_shell_associations(
+        self,
+        ledger: ConnectivityLedger,
+        state_cache: SatelliteStateCache | None = None,
+    ) -> None:
+        state_cache = self._resolve_state_cache(state_cache)
+
         satellites_by_shell: dict[Shell, list[Satellite]] = {}
         for sat in self.satellites:
             satellites_by_shell.setdefault(sat.shell, []).append(sat)
@@ -357,7 +393,9 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
         for shell, plan in self.shell_and_plans:
             shell_satellites = satellites_by_shell.get(shell)
 
-            for association in plan.get_link_associations(shell_satellites):
+            for association in plan.get_link_associations(
+                shell_satellites, state_cache=state_cache
+            ):
 
                 if ledger.is_terminal_booked(
                     association.terminal_a
@@ -496,9 +534,12 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
             )
 
     def compute_strategy(self) -> InterSatelliteConnectivityResult:
+        # One cache for both phases: the inter-shell satellites are also
+        # handled by their shell addressing plan.
+        state_cache = self._resolve_state_cache()
         ledger = ConnectivityLedger()
-        self._compute_inter_shell_associations(ledger)
-        self._compute_intra_shell_associations(ledger)
+        self._compute_inter_shell_associations(ledger, state_cache=state_cache)
+        self._compute_intra_shell_associations(ledger, state_cache=state_cache)
         return ledger.to_result()
 
 
@@ -519,11 +560,14 @@ class IntraShellStaticConnectivity(InterSatelliteConnectivityStrategy):
         self,
         satellites: list[Satellite],
         shell_and_plans: list[tuple[Shell, StaticAddressingPlan]],
+        state_cache: SatelliteStateCache | None = None,
     ):
         self.satellites = satellites
         self.shell_and_plans = shell_and_plans
+        self.state_cache = state_cache
 
     def compute_strategy(self) -> InterSatelliteConnectivityResult:
+        state_cache = self._resolve_state_cache()
         ledger = ConnectivityLedger()
 
         satellites_by_shell: dict[Shell, list[Satellite]] = {}
@@ -534,7 +578,9 @@ class IntraShellStaticConnectivity(InterSatelliteConnectivityStrategy):
 
         for shell, plan in self.shell_and_plans:
             shell_satellites = satellites_by_shell.get(shell)
-            for association in plan.get_link_associations(shell_satellites):
+            for association in plan.get_link_associations(
+                shell_satellites, state_cache=state_cache
+            ):
                 link_key = (
                     min(
                         association.satellite_a.topology_uniq_id,

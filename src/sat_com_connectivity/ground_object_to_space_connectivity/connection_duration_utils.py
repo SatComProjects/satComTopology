@@ -4,31 +4,18 @@ import math
 
 import numpy as np
 
+from sat_com_connectivity.utils import (
+    get_elevation_angle,
+    latitude_longitude_altitude_to_x_y_z,
+)
 from sat_com_model.constants import (
-    WGS72_E2,
-    WGS72_A,
+    KM_TO_METER,
     OMEGA_EARTH,
     GMST_RATE_DEG_PER_DAY,
     GMST_J2000_DEG,
     SECONDS_PER_DAY,
 )
 from sat_com_model.models import GroundObject, Satellite
-from sat_com_trajectopy.angle_utils import get_elevation_angle
-
-
-def _geodetic_to_ecef(lat_deg: float, lon_deg: float, alt_km: float) -> np.ndarray:
-    """Geodetic (deg, deg, km) → ECEF position (km)."""
-    lat = math.radians(lat_deg)
-    lon = math.radians(lon_deg)
-    N = WGS72_A / math.sqrt(1 - WGS72_E2 * math.sin(lat) ** 2)
-    r = (N + alt_km) * math.cos(lat)
-    return np.array(
-        [
-            r * math.cos(lon),
-            r * math.sin(lon),
-            (N * (1 - WGS72_E2) + alt_km) * math.sin(lat),
-        ]
-    )
 
 
 def _gmst(t: datetime.datetime) -> float:
@@ -130,7 +117,10 @@ def estimate_time_until_disconnection(
     )
 
     # Ground station ECEF (km) — WGS72, consistent with SGP4/TLE frame
-    r_gnd_ecef = _geodetic_to_ecef(gnd_lat, gnd_lon, gnd_alt / 1000.0)
+    r_gnd_ecef = (
+        np.array(latitude_longitude_altitude_to_x_y_z(gnd_lat, gnd_lon, gnd_alt))
+        / KM_TO_METER
+    )
 
     def _gnd_eci_at(delta_t: float) -> np.ndarray:
         return _ecef_to_eci(

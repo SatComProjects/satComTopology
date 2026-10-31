@@ -6,6 +6,7 @@ from sgp4.model import Satrec
 from sgp4.vallado_cpp import WGS72
 
 from sat_com_constellation.utils import TwoLineElement, calculate_tle_line_checksum
+from sat_com_model.constants import MU_KM3_S2, RE_KM
 
 
 def generate_two_line_elements(
@@ -48,11 +49,12 @@ def generate_two_line_elements(
                 mean_motion_rad_per_second = (
                     mean_motion_revolution_per_day * 2 * math.pi / 86400
                 )
+                # WGS72 constants, the gravity model given to sgp4init below
                 semi_major_axis = (
-                    398600.4418 * (1 / mean_motion_rad_per_second) ** 2
+                    MU_KM3_S2 * (1 / mean_motion_rad_per_second) ** 2
                 ) ** (1 / 3)
                 altitude = (
-                    semi_major_axis - 6378.137
+                    semi_major_axis - RE_KM
                 )  # We need the altitude to obtain half cone angle
 
                 orbit_wise_shift = 180.0 / number_of_satellites_per_plane
@@ -65,8 +67,8 @@ def generate_two_line_elements(
 
                 half_cone_angle = math.degrees(
                     math.acos(
-                        6378.137
-                        / (6378.137 + altitude)
+                        RE_KM
+                        / (RE_KM + altitude)
                         * math.cos(math.radians(minimum_elevation_angle))
                     )
                 )

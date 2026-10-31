@@ -46,7 +46,7 @@ def test_valid_existing_link(strategy):
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle_and_distance"
 )
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
@@ -57,7 +57,7 @@ def test_obsolete_link_then_connect_to_closest_satellite(
     strategy,
 ):
     mock_get_elevation_angle.return_value = 45
-    mock_estimate_time_until_disconnection.return_value = 300
+    mock_estimate_time_until_disconnection.return_value = (300, 1_000_000.0)
 
     mock_distance_model = strategy.distance_model
 
@@ -105,7 +105,7 @@ def test_obsolete_link_then_connect_to_closest_satellite(
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle_and_distance"
 )
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
@@ -116,7 +116,7 @@ def test_no_links_and_no_visible_satellites(
     mock_distance_model = strategy.distance_model
 
     mock_get_elevation_angle.return_value = 45
-    mock_estimate_time_until_disconnection.return_value = 300
+    mock_estimate_time_until_disconnection.return_value = (300, 1_000_000.0)
 
     ground_object = make_fake_ground_object()
     ground_object.links = []
@@ -135,7 +135,7 @@ def test_no_links_and_no_visible_satellites(
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle_and_distance"
 )
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
@@ -146,7 +146,7 @@ def test_k_closest_returns_non_satellite(
     mock_distance_model = strategy.distance_model
 
     mock_get_elevation_angle.return_value = 45
-    mock_estimate_time_until_disconnection.return_value = 300
+    mock_estimate_time_until_disconnection.return_value = (300, 1_000_000.0)
     mock_get_elevation_angle.get_3d_distance_meters.return_value = 800_000
 
     ground_object = make_fake_ground_object()
@@ -161,7 +161,7 @@ def test_k_closest_returns_non_satellite(
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle_and_distance"
 )
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
@@ -174,7 +174,7 @@ def test_white_list_empty_uses_closest_satellite(
     """Test that when white list is empty, closest range strategy is used (no priority)"""
     mock_distance_model = strategy.distance_model
 
-    mock_get_elevation_angle.return_value = 45
+    mock_get_elevation_angle.return_value = (45, 1_000_000.0)
     mock_estimate_time_until_disconnection.return_value = 300
     mock_distance_model.get_3d_distance_meters.return_value = 800_000
 
@@ -207,7 +207,7 @@ def test_white_list_empty_uses_closest_satellite(
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle_and_distance"
 )
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
@@ -220,7 +220,7 @@ def test_white_list_filters_satellites_by_shell_for_range(
     """Test that white list filters satellites by shell identifier for range strategy"""
     mock_distance_model = strategy.distance_model
 
-    mock_get_elevation_angle.return_value = 45
+    mock_get_elevation_angle.return_value = (45, 1_000_000.0)
     mock_estimate_time_until_disconnection.return_value = 300
     mock_distance_model.get_3d_distance_meters.return_value = 800_000
 
@@ -263,7 +263,7 @@ def test_white_list_filters_satellites_by_shell_for_range(
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle_and_distance"
 )
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
@@ -276,7 +276,7 @@ def test_white_list_ordered_priority_for_range(
     """Test that white list respects order priority for range strategy"""
     mock_distance_model = strategy.distance_model
 
-    mock_get_elevation_angle.return_value = 45
+    mock_get_elevation_angle.return_value = (45, 1_000_000.0)
     mock_estimate_time_until_disconnection.return_value = 300
     mock_distance_model.get_3d_distance_meters.return_value = 800_000
 
@@ -318,7 +318,7 @@ def test_white_list_ordered_priority_for_range(
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle_and_distance"
 )
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
@@ -331,7 +331,7 @@ def test_white_list_fallback_to_next_shell_for_range(
     """Test fallback to next shell when first has no satellites in range"""
     mock_distance_model = strategy.distance_model
 
-    mock_get_elevation_angle.return_value = 45
+    mock_get_elevation_angle.return_value = (45, 1_000_000.0)
     mock_estimate_time_until_disconnection.return_value = 300
     mock_distance_model.get_3d_distance_meters.return_value = 800_000
 
@@ -373,7 +373,7 @@ def test_white_list_fallback_to_next_shell_for_range(
 
 
 @patch(
-    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle"
+    "sat_com_connectivity.ground_object_to_space_connectivity.visibility_angle_utils.get_elevation_angle_and_distance"
 )
 @patch(
     "sat_com_connectivity.ground_object_to_space_connectivity.strategies.estimate_time_until_disconnection"
@@ -386,7 +386,7 @@ def test_white_list_no_matching_shells_for_range(
     """Test that no connection is made if no satellites match white list shells"""
     mock_distance_model = strategy.distance_model
 
-    mock_get_elevation_angle.return_value = 45
+    mock_get_elevation_angle.return_value = (45, 1_000_000.0)
     mock_estimate_time_until_disconnection.return_value = 300
     mock_distance_model.get_3d_distance_meters.return_value = 800_000
 

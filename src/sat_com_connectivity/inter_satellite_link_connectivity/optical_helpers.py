@@ -10,109 +10,33 @@ from sat_com_connectivity.inter_satellite_link_connectivity.models import (
     PossibleOpticalLink,
 )
 from sat_com_model.constants import WGS84_A, ATMOSPHERE_EXCLUSION_ZONE_KM
+from sat_com_connectivity.satellite_state_cache import EciCache, build_lvlh_frames
 from sat_com_model.models import Satellite, OpticalLinkTerminal
 
 # =========================================================================
 # ECI CACHE
-# Centralised SGP4 call deduplication. Pass a single instance through all
-# internal functions so each satellite is propagated at most once per tick.
+# Centralised SGP4 call deduplication, see satellite_state_cache.py.
+# Pass a single instance through all internal functions so each satellite is
+# propagated at most once per tick. Inside a simulation, the instance comes
+# from the simulation-wide SatelliteStateCache.
 # =========================================================================
 
+# Private aliases kept for the existing imports (and test patches).
+_EciCache = EciCache
+_build_lvlh_frames = build_lvlh_frames
 
-class _EciCache:
+
+def _check_cache_dt(cache: EciCache, angular_velocity_dt_seconds: float) -> None:
     """
-    Lazy per-satellite ECI cache keyed by topology_uniq_id.
-
-    Stores for every satellite:
-      - position / velocity / LVLH frame at current time (t)
-      - position / velocity / LVLH frame at t + dt
-
-    Build once at the top of any public function, pass down to every helper.
+    A cache only holds the t + dt state for its own dt. Using it with another
+    dt gives wrong angular velocities and range rates without any error.
     """
-
-    def __init__(self, dt: float = 0.0):
-        self.dt = float(dt)
-
-        self._pos: dict[int, np.ndarray] = {}
-        self._vel: dict[int, np.ndarray] = {}
-        self.lvlh_frames: dict[int, np.ndarray] = {}
-
-        self._pos_dt: dict[int, np.ndarray] = {}
-        self._vel_dt: dict[int, np.ndarray] = {}
-        self.lvlh_frames_dt: dict[int, np.ndarray] = {}
-
-    def get(self, sat: Satellite) -> tuple[np.ndarray, np.ndarray]:
-        sid = sat.topology_uniq_id
-        if sid not in self._pos:
-            mm = sat.get_movement_model()
-            self._pos[sid] = np.asarray(
-                mm.get_position_earth_general_inertial(), dtype=float
-            ).flatten()[:3]
-            self._vel[sid] = np.asarray(
-                mm.get_velocity_earth_general_inertial(), dtype=float
-            ).flatten()[:3]
-        return self._pos[sid], self._vel[sid]
-
-    def get_lvlh_frames(self, sat: Satellite) -> np.ndarray:
-        sid = sat.topology_uniq_id
-        if sid not in self.lvlh_frames:
-            pos, vel = self.get(sat)
-            self.lvlh_frames[sid] = _build_lvlh_frames(
-                pos.reshape(1, 3), vel.reshape(1, 3)
-            )[0]
-        return self.lvlh_frames[sid]
-
-    def get_dt(self, sat: Satellite) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Position & velocity at t + dt.
-        Uses linear propagation (pos + vel*dt) — accurate enough for dt ≈ 1 s.
-        """
-        sid = sat.topology_uniq_id
-        if sid not in self._pos_dt:
-            pos, vel = self.get(sat)
-            self._pos_dt[sid] = pos + vel * self.dt
-            self._vel_dt[sid] = vel
-        return self._pos_dt[sid], self._vel_dt[sid]
-
-    def get_lvlh_frames_dt(self, sat: Satellite) -> np.ndarray:
-        """LVLH frame at t + self.dt."""
-        sid = sat.topology_uniq_id
-        if sid not in self.lvlh_frames_dt:
-            pos, vel = self.get_dt(sat)
-            self.lvlh_frames_dt[sid] = _build_lvlh_frames(
-                pos.reshape(1, 3), vel.reshape(1, 3)
-            )[0]
-        return self.lvlh_frames_dt[sid]
-
-    def warm_all_lvlh_frames(self) -> None:
-        """Vectorised LVLH construction for both t and t+dt."""
-        if not self._pos:
-            return
-
-        sids = list(self._pos.keys())
-
-        pos_array = np.stack([self._pos[sid] for sid in sids])
-        vel_array = np.stack([self._vel[sid] for sid in sids])
-        frames_array = _build_lvlh_frames(pos_array, vel_array)
-        for sid, frame in zip(sids, frames_array):
-            self.lvlh_frames[sid] = frame
-
-        if self.dt != 0.0 and self._pos_dt:
-            pos_dt_array = np.stack([self._pos_dt[sid] for sid in sids])
-            vel_dt_array = np.stack([self._vel_dt[sid] for sid in sids])
-            frames_dt_array = _build_lvlh_frames(pos_dt_array, vel_dt_array)
-            for sid, frame in zip(sids, frames_dt_array):
-                self.lvlh_frames_dt[sid] = frame
-
-    def warm(self, satellites: list[Satellite]) -> None:
-        for sat in satellites:
-            self.get(sat)
-            if self.dt != 0.0:
-                self.get_dt(sat)
-        self.warm_all_lvlh_frames()
-
-    def __len__(self) -> int:
-        return len(self._pos)
+    if isinstance(cache, EciCache) and cache.dt != float(angular_velocity_dt_seconds):
+        raise ValueError(
+            f"ECI cache built for dt={cache.dt}s used with "
+            f"angular_velocity_dt_seconds={angular_velocity_dt_seconds}s. "
+            "Use SatelliteStateCache.eci(dt) to get the cache matching dt."
+        )
 
 
 # =========================================================================
@@ -144,19 +68,6 @@ def _compute_los_min_altitude(
     closest = pos_1[:, np.newaxis, :] + t[:, :, np.newaxis] * d  # (N, M, 3)
     min_radius = np.linalg.norm(closest, axis=2)  # (N, M)
     return min_radius - WGS84_A  # altitude [km]
-
-
-def _build_lvlh_frames(positions: np.ndarray, velocities: np.ndarray) -> np.ndarray:
-    """
-    Parameters : positions (N,3) [km], velocities (N,3) [km/s]
-    Returns    : frames (N,3,3)  rows are [x_hat, y_hat, z_hat]
-    """
-    z_hat = positions / np.linalg.norm(positions, axis=1, keepdims=True)
-    v_dot_z = np.sum(velocities * z_hat, axis=1, keepdims=True)
-    x_raw = velocities - v_dot_z * z_hat
-    x_hat = x_raw / np.linalg.norm(x_raw, axis=1, keepdims=True)
-    y_hat = np.cross(z_hat, x_hat)
-    return np.stack([x_hat, y_hat, z_hat], axis=1)
 
 
 def _compute_angles_a_to_b(
@@ -1154,8 +1065,14 @@ def compute_OISL_feasibility_for_terminal_pair(
     Check bidirectional feasibility for one specific terminal pair.
     Accepts an optional pre-built _EciCache to avoid redundant SGP4 calls
     when called in a loop (e.g. from compute_OISL_links_from_terminal_pools).
+    Its dt must be angular_velocity_dt_seconds.
     """
-    cache = _cache or _EciCache(angular_velocity_dt_seconds)
+    # `is None`, not `or`: an empty cache has len() == 0 and is falsy.
+    if _cache is None:
+        cache = _EciCache(angular_velocity_dt_seconds)
+    else:
+        _check_cache_dt(_cache, angular_velocity_dt_seconds)
+        cache = _cache
     pos_a, vel_a = cache.get(satellite_a)
     pos_b, vel_b = cache.get(satellite_b)
 
@@ -1238,13 +1155,21 @@ def compute_OISL_links_from_terminal_pools_filtered(
         "estimated_link_duration",
     ] = "estimated_link_duration",
     debug: bool = False,
+    cache: _EciCache | None = None,
 ) -> list[PossibleOpticalLink]:
+    """
+    `cache`: optional shared ECI cache, its dt must be
+    angular_velocity_dt_seconds. A new one is built when None.
+    """
     if not terminals_group_1 or not terminals_group_2:
         return []
 
     n1, n2 = len(terminals_group_1), len(terminals_group_2)
 
-    cache = _EciCache(angular_velocity_dt_seconds)
+    if cache is None:
+        cache = _EciCache(angular_velocity_dt_seconds)
+    else:
+        _check_cache_dt(cache, angular_velocity_dt_seconds)
     cache.warm([t.host_satellite for t in terminals_group_1 + terminals_group_2])
 
     records_1 = _build_terminal_records_from_pool(terminals_group_1, cache)
@@ -1392,6 +1317,8 @@ def compute_OISL_links_from_terminal_pools(
         # This is really, really useless, please pass the cache when using this function
         cache = _EciCache(angular_velocity_dt_seconds)
         cache.warm([t.host_satellite for t in terminals_group_1 + terminals_group_2])
+    else:
+        _check_cache_dt(cache, angular_velocity_dt_seconds)
 
     records_1 = _build_terminal_records_from_pool(terminals_group_1, cache)
     records_2 = _build_terminal_records_from_pool(terminals_group_2, cache)
@@ -1492,6 +1419,7 @@ def compute_OISL_constraint_for_known_pair(
     pooled selection matrix and booking loop entirely, and takes a
     pre-warmed cache instead of rebuilding one per call.
     """
+    _check_cache_dt(cache, angular_velocity_dt_seconds)
     records_1 = _build_terminal_records_from_pool([terminal_a], cache)
     records_2 = _build_terminal_records_from_pool([terminal_b], cache)
 

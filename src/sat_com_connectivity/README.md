@@ -66,6 +66,16 @@ class DummyTestStrategy(GroundToSpaceConnectionStrategy):
 - **GroundToSpaceConnectionStrategy**: Base class for all ground to space connection strategies. 
 - **ConnectToBestAngleUntilDisconnectionStrategy**: Connects to the satellite with the best angle until disconnection. Name: **best-angle-until-disconnection**.
 - **ConnectToEverythingVisibleStrategy**: Connects to all visible satellites. Name: **everything-visible**.
-- **ConnectToEverythingInRangeStrategy**: Connects to all satellites in range. Name: **everything-in-range**.
-- **ConnectToBestRangeUntilDisconnectionStrategy**: Connects to the satellite with the best range until disconnection. Name: **best-range-until-disconnection**.
-- **ConnectToTheBestAngleStrategy**: Connects to the satellite with the best angle (Handover each time a best angle satellite is found). Name: **best-angle**. 
+- **ConnectToTheBestAngleStrategy**: Connects to the satellite with the best angle (Handover each time a best angle satellite is found). Name: **best-angle**.
+
+Every strategy above decides visibility from the elevation angle. The
+ground-to-satellite distance (`distance_km` on the link) is the straight-line
+distance computed with that elevation, from the same vector: it is not computed
+a second time.
+
+#### Deprecated strategies
+These decide visibility from the ground distance only and ignore the elevation
+angle. They emit a `FutureWarning` on first use and will be removed.
+- **everything-in-range** (ConnectToEverythingInRangeStrategy): use **everything-visible**.
+- **best-range-until-disconnection** (ConnectToBestRangeUntilDisconnectionStrategy): use **best-angle-until-disconnection**.
+- **best-range-until-disconnection-ordered** (ConnectToBestRangeUntilDisconnectionStrategyOrdered): use **best-angle-until-disconnection-ordered**. 

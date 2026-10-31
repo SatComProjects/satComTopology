@@ -47,12 +47,20 @@ def test_connect_to_the_best_angle_strategy(
         type(
             "VisibleSatellite",
             (),
-            {"satellite": satellite_2, "elevation_above_horizon": 45.0},
+            {
+                "satellite": satellite_2,
+                "elevation_above_horizon": 45.0,
+                "distance_km": 1_000.0,
+            },
         ),
         type(
             "VisibleSatellite",
             (),
-            {"satellite": satellite_3, "elevation_above_horizon": 60.0},
+            {
+                "satellite": satellite_3,
+                "elevation_above_horizon": 60.0,
+                "distance_km": 1_000.0,
+            },
         ),
     ]
 
@@ -112,17 +120,29 @@ def test_that_new_satellite_is_picked_even_if_the_former_one_is_still_visible(
         type(
             "VisibleSatellite",
             (),
-            {"satellite": sat_old, "elevation_above_horizon": 40},
+            {
+                "satellite": sat_old,
+                "elevation_above_horizon": 40,
+                "distance_km": 1_000.0,
+            },
         ),  # Worst angle
         type(
             "VisibleSatellite",
             (),
-            {"satellite": sat_new1, "elevation_above_horizon": 30},
+            {
+                "satellite": sat_new1,
+                "elevation_above_horizon": 30,
+                "distance_km": 1_000.0,
+            },
         ),
         type(
             "VisibleSatellite",
             (),
-            {"satellite": sat_new2, "elevation_above_horizon": 50},
+            {
+                "satellite": sat_new2,
+                "elevation_above_horizon": 50,
+                "distance_km": 1_000.0,
+            },
         ),  # Best one
     ]
 
@@ -171,17 +191,29 @@ def test_that_old_satellite_is_picked_even_if_the_former_one_is_still_visible_an
         type(
             "VisibleSatellite",
             (),
-            {"satellite": sat_old, "elevation_above_horizon": 60},
+            {
+                "satellite": sat_old,
+                "elevation_above_horizon": 60,
+                "distance_km": 1_000.0,
+            },
         ),  # Worst angle
         type(
             "VisibleSatellite",
             (),
-            {"satellite": sat_new1, "elevation_above_horizon": 30},
+            {
+                "satellite": sat_new1,
+                "elevation_above_horizon": 30,
+                "distance_km": 1_000.0,
+            },
         ),
         type(
             "VisibleSatellite",
             (),
-            {"satellite": sat_new2, "elevation_above_horizon": 50},
+            {
+                "satellite": sat_new2,
+                "elevation_above_horizon": 50,
+                "distance_km": 1_000.0,
+            },
         ),  # Best one
     ]
 
