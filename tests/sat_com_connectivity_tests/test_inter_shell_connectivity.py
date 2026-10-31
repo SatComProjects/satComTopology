@@ -17,6 +17,7 @@ from sat_com_connectivity.inter_satellite_link_connectivity.strategies import (
     InterShellSSOPriorityConnectivity,
 )
 from sat_com_model.models import (
+    OpticalInterSatelliteLinkModel,
     InterSatelliteLinkDirection,
     InterSatelliteLinkOrientation,
     WalkerShell,
@@ -116,6 +117,7 @@ def make_isl(
     link.inter_satellite_direction = direction
     link.temporary_unavailable = temporary_unavailable
     link.recovery_time = recovery_time
+    link.optical_link_model = OpticalInterSatelliteLinkModel.ADVANCED
     link.__hash__ = lambda self: hash(self.link_id)
     link.__eq__ = lambda self, other: (
         isinstance(other, type(self)) and self.link_id == other.link_id
@@ -387,6 +389,48 @@ class TestComputeInterShellAssociationsExistingInterShellLinks:
         assert result.obsolete_links[0].link == link
         assert len(result.updated_links) == 0
         assert not ledger.is_terminal_booked(t_sso)
+
+    def test_infeasible_link_with_unknown_recovery_time_goes_to_obsolete_once(self):
+        """
+        CASE 3.2 with estimated_recover_time=None: the link is dropped and the
+        terminal returns to the pool once. It used to fall through to
+        max(0.0, None) and raise a TypeError.
+        """
+        sso_shell = make_sso_shell()
+        walker_shell = make_walker_shell()
+        t_sso = make_terminal(is_inter_shell=True)
+        t_walker = make_terminal(is_inter_shell=True)
+        t_walker.host_satellite = make_satellite(2, walker_shell)
+
+        link = make_isl(
+            make_satellite(1, sso_shell), t_walker.host_satellite, t_sso, t_walker
+        )
+        t_sso.link = link
+        t_sso.target_optical_link_terminal = t_walker
+
+        sat_sso = make_satellite(1, sso_shell, [t_sso])
+        t_sso.host_satellite = sat_sso
+
+        not_feasible_unknown_recovery = make_possible_link(
+            t_sso, t_walker, temporary_unavailable=True, estimated_recover_time=None
+        )
+
+        with patch(
+            f"{MODULE}.compute_OISL_feasibility_for_terminal_pair",
+            return_value=not_feasible_unknown_recovery,
+        ), patch(
+            f"{MODULE}.compute_OISL_links_from_terminal_pools_filtered",
+            return_value=[],
+        ) as pool:
+            strategy = make_strategy([sat_sso])
+            ledger = run_inter_shell(strategy)
+
+        result = ledger.to_result()
+        assert len(result.obsolete_links) == 1
+        assert result.obsolete_links[0].link == link
+        assert len(result.updated_links) == 0
+        sso_pool = pool.call_args.kwargs["terminals_group_1"]
+        assert sso_pool == [t_sso]
 
     def test_infeasible_but_maintainable_inter_shell_link_goes_to_updated(self):
         sso_shell = make_sso_shell()

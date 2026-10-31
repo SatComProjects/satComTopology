@@ -78,6 +78,18 @@ def _terminal_id(terminal) -> str | None:
     return str(terminal.terminal_id) if terminal is not None else None
 
 
+def _link_distance_km(link: InterSatelliteLink) -> float | None:
+    """Distance set by the SimulationManager, or the range of the constraints."""
+    if link.distance_km is not None:
+        return link.distance_km
+    return _constraint_field(link.source_constraint, "range_distance_km")
+
+
+def _optical_link_model(link: InterSatelliteLink) -> str | None:
+    model = getattr(link, "optical_link_model", None)
+    return model.value if model is not None else None
+
+
 def _constraint_field(constraint: OpticalConstraint | None, field: str) -> float | None:
     """
     Safely read one field from an OpticalConstraint.
@@ -136,7 +148,8 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             angular_velocity_b_deg_s=_constraint_field(
                 link.destination_constraint, "angular_velocity_rate_degree_per_second"
             ),
-            distance_km=_constraint_field(link.source_constraint, "range_distance_km"),
+            distance_km=_link_distance_km(link),
+            optical_link_model=_optical_link_model(link),
             range_rate=_constraint_field(link.source_constraint, "range_rate"),
             los_min_altitude_km=_constraint_field(
                 link.source_constraint, "los_min_altitude_km"
@@ -181,7 +194,8 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             angular_velocity_b_deg_s=_constraint_field(
                 link.destination_constraint, "angular_velocity_rate_degree_per_second"
             ),
-            distance_km=_constraint_field(link.source_constraint, "range_distance_km"),
+            distance_km=_link_distance_km(link),
+            optical_link_model=_optical_link_model(link),
             range_rate=_constraint_field(link.source_constraint, "range_rate"),
             los_min_altitude_km=_constraint_field(
                 link.source_constraint, "los_min_altitude_km"
@@ -220,7 +234,8 @@ class DefaultISLEventFactory(AbstractISLEventFactory):
             angular_velocity_b_deg_s=_constraint_field(
                 link.destination_constraint, "angular_velocity_rate_degree_per_second"
             ),
-            distance_km=_constraint_field(link.source_constraint, "range_distance_km"),
+            distance_km=_link_distance_km(link),
+            optical_link_model=_optical_link_model(link),
             range_rate=_constraint_field(link.source_constraint, "range_rate"),
             los_min_altitude_km=_constraint_field(
                 link.source_constraint, "los_min_altitude_km"

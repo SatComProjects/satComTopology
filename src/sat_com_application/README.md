@@ -28,6 +28,11 @@ bus = EventBus()
 manager = SimulationManager(simulation, event_bus=bus)
 ```
 
+The manager owns the simulation satellite state cache, `manager.satellite_state_cache`
+(see [sat_com_connectivity](../sat_com_connectivity/README.md#satellite-state-cache-satellite_state_cachepy)).
+It is given to every ground and ISL strategy, so satellite positions are computed
+once per time step for the whole simulation, and it is dropped at the start of each tick.
+
 ---
 
 ## Adding Topology Objects
@@ -90,6 +95,8 @@ Domain lookups raise `TopologyObjectNotFoundError` when the object is not found.
 ### Inter-Satellite Links (ISL)
 
 ```python
+from sat_com_model.models import InterSatelliteLinkDirection, OpticalInterSatelliteLinkModel
+
 # Create — terminals and constraints are optional
 link = manager.create_and_add_inter_satellite_link_connection(
     satellite_a=sat_a,
@@ -99,6 +106,8 @@ link = manager.create_and_add_inter_satellite_link_connection(
     satellite_a_constraint=optical_constraint_a,    # OpticalConstraint, optional
     satellite_b_constraint=optical_constraint_b,    # OpticalConstraint, optional
     inter_satellite_link_direction=InterSatelliteLinkDirection.ORBITAL,
+    distance_km=1250.0,                             # optional, set before the event
+    optical_link_model=OpticalInterSatelliteLinkModel.BASIC,  # optional, see below
 )
 
 # Bind optical terminals to an existing link
@@ -113,13 +122,17 @@ manager.bind_optical_inter_satellite_links(
 # Update optical constraints on an existing link
 manager.update_inter_satellite_link(
     inter_satellite_link=link,
-    optical_constraint_a_to_b=constraint_a,
+    optical_constraint_a_to_b=constraint_a,         # None for a basic link
     optical_constraint_b_to_a=constraint_b,
+    distance_km=1260.0,                             # optional, set before the event
 )
 
 # Remove — unbinds terminals, clears flows, removes from satellite link lists
 manager.remove_inter_satellite_link(link)
 ```
+
+When `optical_link_model` is not given at creation, the link is `ADVANCED` if
+constraints are given and `BASIC` otherwise.
 
 `bind_optical_inter_satellite_links` raises:
 - `LinkNotFoundError` if the link is not registered in the simulation.
@@ -233,6 +246,7 @@ from sat_com_connectivity.inter_satellite_link_connectivity.strategies import (
 strategy = InterShellSSOPriorityConnectivity(
     satellites=manager.get_satellites(),
     shell_and_plans=manager.shell_addressing_plans,
+    state_cache=manager.satellite_state_cache,  # optional, shares satellite state
 )
 
 manager.inter_satellite_link_connection_strategy = strategy
@@ -244,10 +258,34 @@ manager.update_inter_satellite_links()
 On each call `update_inter_satellite_links()` will:
 1. Call `strategy.compute_strategy()` to get new / obsolete / updated link associations.
 2. Remove every obsolete link (unbinding terminals first).
-3. Update optical constraints on every updated link.
-4. Create every new link with its terminals and constraints bound.
+3. Compute the distance of every new and updated link, before any event is published.
+4. Update optical constraints on every updated link.
+5. Create every new link with its terminals and constraints bound.
 
-Raises `ValueError` if no strategy has been set.
+Raises `ValueError` if no strategy has been set, or if an `ADVANCED` link comes
+without its optical constraints.
+
+### Optical link model: basic (default) or advanced
+
+`SimulationProperty.optical_inter_satellite_link_model` selects how optical ISLs
+are computed:
+
+| | `basic` (default) | `advanced` |
+|---|---|---|
+| Terminal choice | from the terminals orientations only (forward/backward, any free inter-plane terminal) | from the geometry, checked against the terminals configuration |
+| Optical constraints | `None` by design | computed every tick |
+| Links dropped for geometry | never | yes, when a constraint breaks |
+| `distance_km` | straight-line distance from the satellites positions | range of the constraints |
+
+Each `InterSatelliteLink` records its model in `optical_link_model`
+(`has_optical_metrics` is `True` for `advanced`), and so do the ISL events: a
+`None` optical field is expected for a `basic` link and never happens for an
+`advanced` one.
+
+A strategy that needs the optical metrics declares `requires_oisl_metrics = True`
+and computes them for the links it manages, whatever the simulation model.
+`InterShellSSOPriorityConnectivity` does so for inter-shell links: it runs before
+the addressing plans and has the last word on the terminals it books.
 
 ---
 
@@ -259,6 +297,10 @@ Ground-to-space links are updated per ground object using registered strategies.
 manager.update_ground_station_links()   # re-evaluates all GSLs
 manager.update_user_terminal_links()    # re-evaluates all UTLs
 ```
+
+Each strategy reads the satellite positions from `manager.satellite_state_cache`:
+they are computed once per tick for all ground objects. The link `distance_km` is
+the straight-line distance computed with the elevation.
 
 Set `static_ground_station_link_mode = True` to use a static mode that disables
 out-of-range links rather than removing and recreating them each tick.
@@ -298,7 +340,8 @@ closest    = manager.get_closest_satellite_to_a_ground_station(ground_station)
 
 ## Update Protocol
 
-The default update protocol runs on every simulation tick in this order:
+The default update protocol runs on every simulation tick in this order, after
+the satellite state cache has been dropped:
 
 ```
 1. update_satellites              — calls satellite.update() on all satellites
@@ -341,7 +384,7 @@ When an **EventBus** is provided, the manager publishes events on every state ch
 |---|---|
 | `ISLCreatedEvent` | ISL created |
 | `ISLRemovedEvent` | ISL removed |
-| `ISLUpdatedEvent` | ISL constraints updated |
+| `ISLUpdatedEvent` | ISL constraints / distance updated |
 | `GSLCreatedEvent` | GSL created |
 | `GSLRemovedEvent` | GSL removed |
 | `GSLUpdatedEvent` | GSL elevation / duration updated |
@@ -350,6 +393,10 @@ When an **EventBus** is provided, the manager publishes events on every state ch
 | `UTLUpdatedEvent` | UTL elevation / duration updated |
 
 Events carry `sim_time` automatically if a time manager is attached.
+
+ISL events carry the link `distance_km` and its `optical_link_model` (`"basic"` or
+`"advanced"`): for a basic link the optical fields (azimuth, elevation, angular
+velocity, range rate...) are `None` by design.
 
 ---
 

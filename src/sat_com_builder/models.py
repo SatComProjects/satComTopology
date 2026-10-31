@@ -8,6 +8,7 @@ from sat_com_constellation.models import (
     WalkerConstellationProperty,
     DawnDuskSunSynchronousOrbitConstellationProperty,
 )
+from sat_com_model.models import OpticalInterSatelliteLinkModel
 
 
 class InterSatelliteLinkOrientationProperty(str, Enum):
@@ -48,8 +49,6 @@ class OpticalTerminalProperty(BaseModel):
     max_elevation_degrees: float = Field(default=5)
 
     los_central_angle_max_degrees: float = Field(default=80)
-
-    enable_dynamic_reassignment: bool = Field(default=True)
 
 
 class OpticalTerminalInstallationProperty(BaseModel):
@@ -315,4 +314,13 @@ class SimulationProperty(BaseModel):
 
     inter_satellite_link_connection_strategy: str = Field(
         default="intra-shell-static-connectivity"
+    )
+
+    """
+    BASIC (default): optical ISLs follow the addressing plans without optical
+    metrics. ADVANCED: every optical ISL is checked against its terminals.
+    See sat_com_model.models.OpticalInterSatelliteLinkModel.
+    """
+    optical_inter_satellite_link_model: OpticalInterSatelliteLinkModel = Field(
+        default=OpticalInterSatelliteLinkModel.BASIC
     )

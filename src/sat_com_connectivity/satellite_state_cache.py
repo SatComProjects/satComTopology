@@ -250,6 +250,21 @@ class SatelliteStateCache:
             self._ground_ecef[key] = entry
         return entry[1]
 
+    def distances_km(
+        self, satellite_pairs: list[tuple[Satellite, Satellite]]
+    ) -> np.ndarray:
+        """
+        Straight-line distance (km) between the satellites of each pair, from
+        their ECI positions (SGP4), shape (len(satellite_pairs),).
+        """
+        if not satellite_pairs:
+            return np.empty(0)
+        # Positions do not depend on dt: any ECI cache gives the same values.
+        cache = self.eci(0.0)
+        positions_a = np.stack([cache.get(sat_a)[0] for sat_a, _ in satellite_pairs])
+        positions_b = np.stack([cache.get(sat_b)[0] for _, sat_b in satellite_pairs])
+        return np.linalg.norm(positions_a - positions_b, axis=1)
+
     def invalidate(self) -> None:
         """Drop every entry. Called by the SimulationManager at each tick."""
         for cache in self._eci_caches.values():

@@ -44,6 +44,8 @@ class ISLCreatedEvent(Event):
 
     direction: str | None = None
     distance_km: float | None = None
+    # BASIC: optical fields are None by design. ADVANCED: they are computed.
+    optical_link_model: str | None = None
 
     terminal_a_id: str | None = None  # OpticalLinkTerminal.terminal_id as str
     terminal_b_id: str | None = None
@@ -74,6 +76,8 @@ class ISLUpdatedEvent(Event):
 
     direction: str | None = None
     distance_km: float | None = None
+    # BASIC: optical fields are None by design. ADVANCED: they are computed.
+    optical_link_model: str | None = None
 
     terminal_a_id: str | None = None
     terminal_b_id: str | None = None
@@ -103,6 +107,8 @@ class ISLRemovedEvent(Event):
 
     direction: str | None = None
     distance_km: float | None = None
+    # BASIC: optical fields are None by design. ADVANCED: they are computed.
+    optical_link_model: str | None = None
 
     terminal_a_id: str | None = None
     terminal_b_id: str | None = None

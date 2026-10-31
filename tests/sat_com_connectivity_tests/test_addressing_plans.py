@@ -14,6 +14,7 @@ from sat_com_connectivity.inter_satellite_link_connectivity.models import (
     PossibleOpticalLink,
     OpticISLVisibilityConstraintResult,
 )
+from sat_com_model.models import OpticalInterSatelliteLinkModel
 from sat_com_model.models import (
     InterSatelliteLinkDirection,
     InterSatelliteLinkOrientation,
@@ -23,6 +24,8 @@ from sat_com_model.models import (
     Satellite,
     OpticalTerminalConfiguration,
 )
+
+ADVANCED = OpticalInterSatelliteLinkModel.ADVANCED
 
 ADDRESSING_PLANS = (
     "sat_com_connectivity.inter_satellite_link_connectivity.addressing_plans"
@@ -368,7 +371,9 @@ class TestWalkerBuildAssociationsOrbital:
         shell = make_walker_shell()
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
-        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(
+            shell, optical_link_model=ADVANCED
+        )
         plan.grid = [(0, 1, InterSatelliteLinkDirection.ORBITAL)]
         return plan, sat_a, sat_b
 
@@ -511,7 +516,9 @@ class TestWalkerBuildAssociationsOrbital:
 
     def test_satellite_lookup_uses_object_id_not_topology_id(self):
         shell = make_walker_shell()
-        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(
+            shell, optical_link_model=ADVANCED
+        )
         plan.grid = [(10, 20, InterSatelliteLinkDirection.ORBITAL)]
         sat_a = make_4_terminal_satellite(object_id=10, topology_id=99, shell=shell)
         sat_b = make_4_terminal_satellite(object_id=20, topology_id=88, shell=shell)
@@ -530,7 +537,9 @@ class TestWalkerBuildAssociationsAdjacent:
         shell = make_walker_shell()
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
-        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(
+            shell, optical_link_model=ADVANCED
+        )
         plan.grid = [(0, 1, InterSatelliteLinkDirection.ADJACENT)]
         return plan, sat_a, sat_b
 
@@ -627,7 +636,9 @@ class TestWalkerStaticTerminalSelection:
         sat_b = make_4_terminal_satellite(1, 1, shell)
         sat_c = make_4_terminal_satellite(2, 2, shell)
 
-        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(
+            shell, optical_link_model=ADVANCED
+        )
         plan.grid = [
             (0, 1, InterSatelliteLinkDirection.ADJACENT),
             (2, 1, InterSatelliteLinkDirection.ADJACENT),
@@ -664,7 +675,9 @@ class TestWalkerStaticTerminalSelection:
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
 
-        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(
+            shell, optical_link_model=ADVANCED
+        )
         plan.grid = [(0, 1, InterSatelliteLinkDirection.ADJACENT)]
 
         with patch_geometry():
@@ -683,7 +696,9 @@ class TestWalkerStaticTerminalSelection:
         sat_b = make_4_terminal_satellite(1, 1, shell)
         sat_c = make_4_terminal_satellite(2, 2, shell)
 
-        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(
+            shell, optical_link_model=ADVANCED
+        )
         plan.grid = [
             (0, 1, InterSatelliteLinkDirection.ORBITAL),
             (2, 1, InterSatelliteLinkDirection.ORBITAL),
@@ -709,7 +724,9 @@ class TestWalkerStaticTerminalSelection:
         sat_b = make_4_terminal_satellite(1, 1, shell)
         sat_c = make_4_terminal_satellite(2, 2, shell)
 
-        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(
+            shell, optical_link_model=ADVANCED
+        )
         plan.grid = [
             (0, 1, InterSatelliteLinkDirection.ORBITAL),
             (2, 1, InterSatelliteLinkDirection.ORBITAL),
@@ -734,7 +751,9 @@ class TestWalkerUnknownDirection:
         shell = make_walker_shell()
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
-        plan = FullMeshWalkerDeltaStaticAddressingPlan(shell)
+        plan = FullMeshWalkerDeltaStaticAddressingPlan(
+            shell, optical_link_model=ADVANCED
+        )
         plan.grid = [(0, 1, InterSatelliteLinkDirection.UNDEFINED)]
 
         with pytest.raises(ValueError):
@@ -774,7 +793,7 @@ class TestSSOBuildAssociationsOrbital:
 
     def _setup(self, n: int = 2):
         shell = make_sso_shell(amount_of_satellite=n)
-        plan = SSODawnDuskStaticAddressingPlan(shell)
+        plan = SSODawnDuskStaticAddressingPlan(shell, optical_link_model=ADVANCED)
         plan.grid = [(0, 1, InterSatelliteLinkDirection.ORBITAL)]
         satellites = [make_4_terminal_satellite(i, i, shell) for i in range(n)]
         return plan, satellites
@@ -889,7 +908,7 @@ class TestSSOBuildAssociationsOrbital:
 
     def test_satellite_lookup_uses_object_id(self):
         shell = make_sso_shell()
-        plan = SSODawnDuskStaticAddressingPlan(shell)
+        plan = SSODawnDuskStaticAddressingPlan(shell, optical_link_model=ADVANCED)
         plan.grid = [(10, 20, InterSatelliteLinkDirection.ORBITAL)]
         sat_a = make_4_terminal_satellite(object_id=10, topology_id=99, shell=shell)
         sat_b = make_4_terminal_satellite(object_id=20, topology_id=88, shell=shell)
@@ -906,7 +925,7 @@ class TestSSOBuildAssociationsOrbital:
 
     def test_all_candidates_booked_raises_warnings(self):
         shell = make_sso_shell()
-        plan = SSODawnDuskStaticAddressingPlan(shell)
+        plan = SSODawnDuskStaticAddressingPlan(shell, optical_link_model=ADVANCED)
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
         plan.grid = [
@@ -928,7 +947,7 @@ class TestSSOBuildAssociationsOrbital:
 
     def test_booked_fallback_emits_warning(self):
         shell = make_sso_shell()
-        plan = SSODawnDuskStaticAddressingPlan(shell)
+        plan = SSODawnDuskStaticAddressingPlan(shell, optical_link_model=ADVANCED)
         sat_a = make_4_terminal_satellite(0, 0, shell)
         sat_b = make_4_terminal_satellite(1, 1, shell)
         sat_c = make_4_terminal_satellite(2, 2, shell)

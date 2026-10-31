@@ -7,6 +7,7 @@ from sat_com_model.models import (
     OpticalLinkTerminal,
     InterSatelliteLinkDirection,
     InterSatelliteLink,
+    OpticalInterSatelliteLinkModel,
 )
 
 
@@ -102,6 +103,16 @@ class LinkAssociation(BaseModel):
     temporary_unavailable: bool = Field(default=False)
 
     recovery_time: datetime | None = Field(default=None)
+
+    """
+    BASIC: the constraints are None by design. ADVANCED: a new or updated link
+    must carry both constraints, the SimulationManager rejects it otherwise.
+    Defaults to ADVANCED: an association that forgets to say it was computed
+    without metrics fails loudly instead of being silently stored as basic.
+    """
+    optical_link_model: OpticalInterSatelliteLinkModel = Field(
+        default=OpticalInterSatelliteLinkModel.ADVANCED
+    )
 
     model_config = {"arbitrary_types_allowed": True}
 

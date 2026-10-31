@@ -103,10 +103,12 @@ class BaseConfigurationManager(ConfigurationManager):
         :return:
         """
 
+        optical_link_model = self.simulation_property.optical_inter_satellite_link_model
+
         for shell in simulation_manager.get_walker_shells():
             static_link_addressing_plan = AvailableAddressingPlans.from_string(
                 shell.static_addressing_plan
-            ).build(walker_shell=shell)
+            ).build(walker_shell=shell, optical_link_model=optical_link_model)
 
             simulation_manager.shell_addressing_plans.append(
                 (shell, static_link_addressing_plan)
@@ -115,7 +117,7 @@ class BaseConfigurationManager(ConfigurationManager):
         for sso_shell in simulation_manager.get_sso_shells():
             static_sso_shell_addressing_plan = AvailableAddressingPlans.from_string(
                 sso_shell.static_addressing_plan
-            ).build(sso_shell=sso_shell)
+            ).build(sso_shell=sso_shell, optical_link_model=optical_link_model)
 
             simulation_manager.shell_addressing_plans.append(
                 (sso_shell, static_sso_shell_addressing_plan)

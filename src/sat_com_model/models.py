@@ -24,6 +24,25 @@ from .exceptions import (
 )
 
 
+class OpticalInterSatelliteLinkModel(str, Enum):
+    """
+    How optical inter-satellite links (OISL) are computed.
+
+    - BASIC (default): links follow the addressing plan. Terminals are only
+      connection slots: their pointing configuration is ignored, no optical
+      metrics (elevation, azimuth, angular velocity...) are computed and links
+      are never dropped for geometry. Only the distance is computed.
+    - ADVANCED: every link is checked against its terminals configuration and
+      carries its optical constraints.
+
+    A strategy that needs the metrics (e.g. inter-shell assignment) computes them
+    for the links it manages, whatever the simulation model.
+    """
+
+    BASIC = "basic"
+    ADVANCED = "advanced"
+
+
 class InterSatelliteLinkDirection(str, Enum):
     ORBITAL = "orbital"
     ADJACENT = "adjacent"
@@ -321,10 +340,6 @@ class OpticalTerminalConfiguration(BaseModel):
     los_central_angle_max_degrees: float = Field(
         default=80
     )  # Unused I don't remember what is it
-
-    enable_dynamic_reassignment: bool = Field(
-        default=True
-    )  # Not used anymore will be removed
 
 
 class OpticalTerminalInstallationConfiguration(BaseModel):
@@ -788,6 +803,19 @@ class InterSatelliteLink(Link):
     recovery_time: datetime.datetime | None = Field(default=None)
 
     estimated_duration: float = Field(default=None)
+
+    """
+    Model the link was computed with. BASIC: source_constraint and
+    destination_constraint are None by design. ADVANCED: they are always set.
+    """
+    optical_link_model: OpticalInterSatelliteLinkModel = Field(
+        default=OpticalInterSatelliteLinkModel.BASIC
+    )
+
+    @property
+    def has_optical_metrics(self) -> bool:
+        """True when the constraints were computed (advanced model)."""
+        return self.optical_link_model == OpticalInterSatelliteLinkModel.ADVANCED
 
     def connect(
         self,

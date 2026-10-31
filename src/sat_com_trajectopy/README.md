@@ -1,11 +1,13 @@
-from sat_com_application.time_managers import TimeManagerfrom sat_com_application.time_managers import TimeManager
-
 # sat_com_trajectopy Package
 
 > **Deprecated, being phased out.** The ground-to-space geometry of `angle_utils`
-> (geodetic -> cartesian conversion, elevation angles, distances) moved to
-> `sat_com_connectivity.utils`. The `sat_com_trajectopy.angle_utils` functions
-> still work but emit a `FutureWarning` and will be removed.
+> moved to [`sat_com_connectivity.utils`](../sat_com_connectivity/README.md#geometry-utilities-sat_com_connectivityutils).
+> The `sat_com_trajectopy.angle_utils` functions still work but emit a
+> `FutureWarning` and will be removed:
+> `latitude_longitude_altitude_to_x_y_z`, `ground_to_up_vector`, `get_elevation_angle`,
+> `get_elevation_angle_and_distance`, `satellites_to_ecef`, `compute_elevations`,
+> `compute_elevations_and_distances`.
+> They now use the WGS72 ellipsoid instead of a sphere.
 ### Description
 This package implement physics management. It implements movements models and provide distance calculation model.
 Implemented movement models:

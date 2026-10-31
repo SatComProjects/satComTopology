@@ -30,6 +30,7 @@ from sat_com_model.models import (
     InterSatelliteLinkDirection,
     DawnDuskSSOShell,
     InterSatelliteLinkOrientation,
+    OpticalInterSatelliteLinkModel,
 )
 
 # ---------------------------------------------------------------------------
@@ -111,6 +112,130 @@ def _is_inter_shell_capable(terminal: OpticalLinkTerminal) -> bool:
     )
 
 
+# ---------------------------------------------------------------------------
+# BASIC optical link model: terminals are connection slots, no metrics.
+# ---------------------------------------------------------------------------
+
+# Orientation pairs tried in order for a grid link (a, b). The grid stores links
+# as (min id, max id), so the "natural" pair is wrong for wrap-around links
+# (last satellite <-> first satellite, last plane <-> plane 0): the next pairs
+# resolve them, since those links come last in the grid.
+_BASIC_ORIENTATION_PREFERENCES = {
+    InterSatelliteLinkDirection.ORBITAL: [
+        (
+            InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD,
+            InterSatelliteLinkOrientation.INTRA_PLANE_BACKWARD,
+        ),
+        (
+            InterSatelliteLinkOrientation.INTRA_PLANE_BACKWARD,
+            InterSatelliteLinkOrientation.INTRA_PLANE_FORWARD,
+        ),
+    ],
+    # Left / right has no physical meaning without metrics: any free
+    # inter-plane terminal will do.
+    InterSatelliteLinkDirection.ADJACENT: [
+        (
+            InterSatelliteLinkOrientation.INTER_PLANE_RIGHT,
+            InterSatelliteLinkOrientation.INTER_PLANE_LEFT,
+        ),
+        (
+            InterSatelliteLinkOrientation.INTER_PLANE_LEFT,
+            InterSatelliteLinkOrientation.INTER_PLANE_RIGHT,
+        ),
+        (
+            InterSatelliteLinkOrientation.INTER_PLANE_RIGHT,
+            InterSatelliteLinkOrientation.INTER_PLANE_RIGHT,
+        ),
+        (
+            InterSatelliteLinkOrientation.INTER_PLANE_LEFT,
+            InterSatelliteLinkOrientation.INTER_PLANE_LEFT,
+        ),
+    ],
+}
+
+
+def _first_free_terminal(
+    satellite: Satellite,
+    orientation: InterSatelliteLinkOrientation,
+    booked: set[OpticalLinkTerminal],
+) -> OpticalLinkTerminal | None:
+    for terminal in satellite.optical_link_terminals:
+        if orientation in terminal.orientation_possibilities and terminal not in booked:
+            return terminal
+    return None
+
+
+def _assign_grid_terminals_without_metrics(
+    grid: list[tuple[int, int, InterSatelliteLinkDirection]],
+    satellite_lookup: dict[int, Satellite],
+) -> dict[tuple[int, int], tuple[OpticalLinkTerminal, OpticalLinkTerminal]]:
+    """
+    One terminal pair per grid link, from the terminals orientations only:
+    their pointing configuration and the satellites geometry are ignored.
+    """
+    assignment = {}
+    booked: set[OpticalLinkTerminal] = set()
+
+    for a_id, b_id, direction in grid:
+        sat_a = satellite_lookup.get(a_id)
+        sat_b = satellite_lookup.get(b_id)
+        if sat_a is None or sat_b is None:
+            warnings.warn(
+                f"Satellite id {a_id if sat_a is None else b_id} not found "
+                f"in satellite list — skipping link ({a_id}, {b_id})."
+            )
+            continue
+
+        preferences = _BASIC_ORIENTATION_PREFERENCES.get(direction)
+        if preferences is None:
+            raise ValueError(
+                f"{direction} links are not supported by the addressing plans."
+            )
+
+        for orientation_a, orientation_b in preferences:
+            terminal_a = _first_free_terminal(sat_a, orientation_a, booked)
+            terminal_b = _first_free_terminal(sat_b, orientation_b, booked)
+            if terminal_a is not None and terminal_b is not None:
+                booked.update((terminal_a, terminal_b))
+                assignment[(a_id, b_id)] = (terminal_a, terminal_b)
+                break
+        else:
+            warnings.warn(
+                f"No free {direction.name} terminal pair between satellites "
+                f"{a_id} and {b_id} — skipping link."
+            )
+
+    return assignment
+
+
+def _associations_without_metrics(
+    grid: list[tuple[int, int, InterSatelliteLinkDirection]],
+    satellite_lookup: dict[int, Satellite],
+    assignment: dict[tuple[int, int], tuple[OpticalLinkTerminal, OpticalLinkTerminal]],
+) -> list[LinkAssociation]:
+    associations = []
+    for a_id, b_id, direction in grid:
+        pair = assignment.get((a_id, b_id))
+        sat_a = satellite_lookup.get(a_id)
+        sat_b = satellite_lookup.get(b_id)
+        if pair is None or sat_a is None or sat_b is None:
+            continue
+        associations.append(
+            LinkAssociation(
+                satellite_a=sat_a,
+                terminal_a=pair[0],
+                satellite_b=sat_b,
+                terminal_b=pair[1],
+                direction=direction,
+                link=None,
+                constraint_a_to_b=None,
+                constraint_b_to_a=None,
+                optical_link_model=OpticalInterSatelliteLinkModel.BASIC,
+            )
+        )
+    return associations
+
+
 class StaticAddressingPlan(ABC):
     """
     Base class for static intra-shell addressing plans.
@@ -156,9 +281,14 @@ class LinkSelectionDebugRecord:
 
 class WalkerStaticAddressingPlan(StaticAddressingPlan):
 
-    def __init__(self, walker_shell: WalkerShell):
+    def __init__(
+        self,
+        walker_shell: WalkerShell,
+        optical_link_model: OpticalInterSatelliteLinkModel = OpticalInterSatelliteLinkModel.BASIC,
+    ):
 
         self.walker_shell = walker_shell
+        self.optical_link_model = optical_link_model
         self.grid: list[tuple[int, int, InterSatelliteLinkDirection]] = []
         self._terminal_assignment: dict[
             tuple[int, int], tuple[OpticalLinkTerminal, OpticalLinkTerminal]
@@ -474,6 +604,17 @@ class WalkerStaticAddressingPlan(StaticAddressingPlan):
     ) -> list[LinkAssociation]:
         satellite_lookup = {sat.object_id: sat for sat in satellites}
 
+        if self.optical_link_model == OpticalInterSatelliteLinkModel.BASIC:
+            # Terminals chosen once, from their orientations only; no ECI cache.
+            if not self._terminals_selected:
+                self._terminal_assignment = _assign_grid_terminals_without_metrics(
+                    self.grid, satellite_lookup
+                )
+                self._terminals_selected = True
+            return _associations_without_metrics(
+                self.grid, satellite_lookup, self._terminal_assignment
+            )
+
         self.delta_t_velocity = 1
 
         if state_cache is None:
@@ -517,8 +658,14 @@ class OldWalkerStaticAddressingPlan(StaticAddressingPlan):
 
     """
 
-    def __init__(self, walker_shell: WalkerShell):
+    def __init__(
+        self,
+        walker_shell: WalkerShell,
+        optical_link_model: OpticalInterSatelliteLinkModel = OpticalInterSatelliteLinkModel.BASIC,
+    ):
         self.walker_shell = walker_shell
+        self.optical_link_model = optical_link_model
+        self._basic_assignment = None
 
         self.grid: list[tuple[int, int, InterSatelliteLinkDirection]] = []
 
@@ -716,6 +863,15 @@ class OldWalkerStaticAddressingPlan(StaticAddressingPlan):
     ) -> list[LinkAssociation]:
         satellite_lookup = {sat.object_id: sat for sat in satellites}
 
+        if self.optical_link_model == OpticalInterSatelliteLinkModel.BASIC:
+            if self._basic_assignment is None:
+                self._basic_assignment = _assign_grid_terminals_without_metrics(
+                    self.grid, satellite_lookup
+                )
+            return _associations_without_metrics(
+                self.grid, satellite_lookup, self._basic_assignment
+            )
+
         # Lazy: satellites are only propagated when a pool needs them.
         cache = state_cache.eci(_DELTA_T_VELOCITY) if state_cache is not None else None
         return self._build_associations_from_grid(satellite_lookup, cache)
@@ -745,8 +901,14 @@ class SSODawnDuskStaticAddressingPlan(StaticAddressingPlan):
     def get_type(self) -> str:
         return self.name
 
-    def __init__(self, sso_shell: DawnDuskSSOShell):
+    def __init__(
+        self,
+        sso_shell: DawnDuskSSOShell,
+        optical_link_model: OpticalInterSatelliteLinkModel = OpticalInterSatelliteLinkModel.BASIC,
+    ):
         self.sso_shell = sso_shell
+        self.optical_link_model = optical_link_model
+        self._basic_assignment = None
 
         self.grid: list[tuple[int, int, InterSatelliteLinkDirection]] = (
             generate_sun_synchronous_constellation_grid(
@@ -878,6 +1040,20 @@ class SSODawnDuskStaticAddressingPlan(StaticAddressingPlan):
     ) -> list[LinkAssociation]:
         satellite_lookup = {sat.object_id: sat for sat in satellites}
 
+        if self.optical_link_model == OpticalInterSatelliteLinkModel.BASIC:
+            for _, _, direction in self.grid:
+                if direction != InterSatelliteLinkDirection.ORBITAL:
+                    raise NotImplementedError(
+                        f"{direction} direction links are not implemented yet."
+                    )
+            if self._basic_assignment is None:
+                self._basic_assignment = _assign_grid_terminals_without_metrics(
+                    self.grid, satellite_lookup
+                )
+            return _associations_without_metrics(
+                self.grid, satellite_lookup, self._basic_assignment
+            )
+
         # Lazy: satellites are only propagated when a pool needs them.
         cache = state_cache.eci(_DELTA_T_VELOCITY) if state_cache is not None else None
         return self._build_associations_from_grid(satellite_lookup, cache)
@@ -889,8 +1065,12 @@ class FullMeshWalkerStarStaticAddressingPlan(WalkerStaticAddressingPlan):
     def get_type(self) -> str:
         return self.name
 
-    def __init__(self, walker_shell: WalkerShell):
-        super().__init__(walker_shell)
+    def __init__(
+        self,
+        walker_shell: WalkerShell,
+        optical_link_model: OpticalInterSatelliteLinkModel = OpticalInterSatelliteLinkModel.BASIC,
+    ):
+        super().__init__(walker_shell, optical_link_model)
 
         self.grid = generate_walker_star_constellation_grid(
             number_orbits=self.walker_shell.amount_of_orbit_plane,
@@ -905,8 +1085,12 @@ class FullMeshWalkerDeltaStaticAddressingPlan(WalkerStaticAddressingPlan):
     def get_type(self) -> str:
         return self.name
 
-    def __init__(self, walker_shell: WalkerShell):
-        super().__init__(walker_shell)
+    def __init__(
+        self,
+        walker_shell: WalkerShell,
+        optical_link_model: OpticalInterSatelliteLinkModel = OpticalInterSatelliteLinkModel.BASIC,
+    ):
+        super().__init__(walker_shell, optical_link_model)
 
         self.grid = generate_walker_delta_constellation_grid(
             number_orbits=self.walker_shell.amount_of_orbit_plane,
@@ -921,8 +1105,12 @@ class CheckerboardWalkerStarStaticAddressingPlan(WalkerStaticAddressingPlan):
     def get_type(self) -> str:
         return self.name
 
-    def __init__(self, walker_shell: WalkerShell):
-        super().__init__(walker_shell)
+    def __init__(
+        self,
+        walker_shell: WalkerShell,
+        optical_link_model: OpticalInterSatelliteLinkModel = OpticalInterSatelliteLinkModel.BASIC,
+    ):
+        super().__init__(walker_shell, optical_link_model)
 
         self.grid = generate_checkerboard_walker_star_constellation_grid(
             number_orbits=self.walker_shell.amount_of_orbit_plane,
@@ -952,8 +1140,12 @@ class CheckerboardWalkerDeltaStaticAddressingPlan(WalkerStaticAddressingPlan):
                 "to be commensurate (gcd >= 2) to avoid disconnected patterns."
             )
 
-    def __init__(self, walker_shell: WalkerShell):
-        super().__init__(walker_shell)
+    def __init__(
+        self,
+        walker_shell: WalkerShell,
+        optical_link_model: OpticalInterSatelliteLinkModel = OpticalInterSatelliteLinkModel.BASIC,
+    ):
+        super().__init__(walker_shell, optical_link_model)
 
         self.grid = generate_checkerboard_walker_delta_constellation_grid(
             number_orbits=self.walker_shell.amount_of_orbit_plane,
@@ -975,8 +1167,12 @@ class EmptyAddressingPlan(WalkerStaticAddressingPlan):
     def get_type(self) -> str:
         return "EMPTY"
 
-    def __init__(self, walker_shell: WalkerShell):
-        super().__init__(walker_shell)
+    def __init__(
+        self,
+        walker_shell: WalkerShell,
+        optical_link_model: OpticalInterSatelliteLinkModel = OpticalInterSatelliteLinkModel.BASIC,
+    ):
+        super().__init__(walker_shell, optical_link_model)
 
 
 class AvailableAddressingPlans(str, Enum):

@@ -1,5 +1,3 @@
-from sat_com_application.simulation_manager import SimulationManager
-
 # sat_com_builder Package
 ## Description
 This package is used the build a simulation based on the sat_com_model.
@@ -35,6 +33,30 @@ from sat_com_builder.models import SimulationProperty
 object_configuration_manager = BaseConfigurationManager(SimulationProperty())
 
 simulation_manager = object_configuration_manager.load_simulation()
+```
+
+### Inter-satellite link options
+Two `SimulationProperty` fields select how inter-satellite links are computed:
+
+| Field | Values | Default |
+|---|---|---|
+| `inter_satellite_link_connection_strategy` | `intra-shell-static-connectivity`, `inter-shell-sso-priority` | `intra-shell-static-connectivity` |
+| `optical_inter_satellite_link_model` | `basic`, `advanced` | `basic` |
+
+- `basic`: links follow each shell addressing plan, no optical metric is computed
+  and links are never dropped for geometry. Only the distance is computed.
+- `advanced`: every link is checked against its optical terminals configuration
+  (elevation, azimuth, range, angular velocity, line of sight) and carries its
+  optical constraints.
+
+With `inter-shell-sso-priority`, the inter-shell links are always computed with the
+optical metrics; the model only applies to the intra-shell links. See
+[sat_com_connectivity](../sat_com_connectivity/README.md#inter-satellite-link-connectivity).
+
+```yaml
+simulation_property:
+  inter_satellite_link_connection_strategy: "inter-shell-sso-priority"
+  optical_inter_satellite_link_model: "advanced"
 ```
 
 ### Create an Empty Simulation

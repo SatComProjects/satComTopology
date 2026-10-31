@@ -169,9 +169,9 @@ The tutorials aren't on gitlab yet, to have an access:
 louis.barbier at isae-supaero.fr
 
 ## Performance 📈
-- [Performance Using Optical Links Advanced Model](docs/performance/README.md): bootstrap and tick
-  time, broken down by stage, on Starlink Group 2, Starlink Group 7, OneWeb and Starlink Group 2 + SSO,
-  with 100 ground stations. Regenerate it with
+- [Performance Using Optical Links Advanced Model and Basic Model](docs/performance/README.md):
+  bootstrap and tick time, broken down by stage, on Starlink Group 2, Starlink Group 7, OneWeb and
+  Starlink Group 2 + SSO, with 100 ground stations. Regenerate it with
   `python tests/performance_scripts/benchmark_constellations.py`.
 
 ## Contributing

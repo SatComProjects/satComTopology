@@ -43,6 +43,14 @@ class InterSatelliteConnectivityStrategy(ABC):
     """
     state_cache: SatelliteStateCache | None = None
 
+    """
+    True when the strategy computes optical metrics itself, for the links it
+    manages, whatever the simulation optical link model (BASIC or ADVANCED).
+    The addressing plans it calls follow the simulation model; the strategy
+    runs first and has the last word on the terminals it books.
+    """
+    requires_oisl_metrics: bool = False
+
     @abstractmethod
     def compute_strategy(self) -> InterSatelliteConnectivityResult:
         pass
@@ -96,6 +104,10 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
     """
 
     type: str = "inter-shell-sso-priority"
+
+    # Inter-shell links are chosen from the satellites geometry: their metrics
+    # are always computed (ADVANCED), even in a BASIC simulation.
+    requires_oisl_metrics: bool = True
 
     def __init__(
         self,
@@ -202,6 +214,7 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                         )
                     )
                     unassigned_pool.append(terminal)
+                    continue
 
                 estimated_recover_time = max(0.0, estimated_recover_time)
 
@@ -358,6 +371,7 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                                 link=displaced_link,
                                 constraint_a_to_b=None,
                                 constraint_b_to_a=None,
+                                optical_link_model=displaced_link.optical_link_model,
                             )
                         )
                     else:
@@ -441,6 +455,7 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                                 link=existing_link,
                                 constraint_a_to_b=association.constraint_a_to_b,
                                 constraint_b_to_a=association.constraint_b_to_a,
+                                optical_link_model=association.optical_link_model,
                             )
                         )
                     else:
@@ -454,6 +469,7 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                                 link=existing_link,
                                 constraint_a_to_b=association.constraint_a_to_b,
                                 constraint_b_to_a=association.constraint_b_to_a,
+                                optical_link_model=association.optical_link_model,
                             )
                         )
                         ledger.add_new(
@@ -466,6 +482,7 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                                 link=None,
                                 constraint_a_to_b=association.constraint_a_to_b,
                                 constraint_b_to_a=association.constraint_b_to_a,
+                                optical_link_model=association.optical_link_model,
                             )
                         )
                 else:
@@ -479,6 +496,7 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                             link=None,
                             constraint_a_to_b=association.constraint_a_to_b,
                             constraint_b_to_a=association.constraint_b_to_a,
+                            optical_link_model=association.optical_link_model,
                         )
                     )
 
@@ -511,6 +529,7 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                     link=existing_link,
                     constraint_a_to_b=None,
                     constraint_b_to_a=None,
+                    optical_link_model=existing_link.optical_link_model,
                 )
             )
         for link_key, existing_link in existing_link_lookup.items():
@@ -530,6 +549,7 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
                     link=existing_link,
                     constraint_a_to_b=None,
                     constraint_b_to_a=None,
+                    optical_link_model=existing_link.optical_link_model,
                 )
             )
 
@@ -618,6 +638,7 @@ class IntraShellStaticConnectivity(InterSatelliteConnectivityStrategy):
                                 link=existing_link,
                                 constraint_a_to_b=association.constraint_a_to_b,
                                 constraint_b_to_a=association.constraint_b_to_a,
+                                optical_link_model=association.optical_link_model,
                             )
                         )
                     else:
@@ -631,6 +652,7 @@ class IntraShellStaticConnectivity(InterSatelliteConnectivityStrategy):
                                 link=existing_link,
                                 constraint_a_to_b=None,
                                 constraint_b_to_a=None,
+                                optical_link_model=existing_link.optical_link_model,
                             )
                         )
                         ledger.add_new(
@@ -643,6 +665,7 @@ class IntraShellStaticConnectivity(InterSatelliteConnectivityStrategy):
                                 link=None,
                                 constraint_a_to_b=association.constraint_a_to_b,
                                 constraint_b_to_a=association.constraint_b_to_a,
+                                optical_link_model=association.optical_link_model,
                             )
                         )
                 else:
@@ -656,6 +679,7 @@ class IntraShellStaticConnectivity(InterSatelliteConnectivityStrategy):
                             link=None,
                             constraint_a_to_b=association.constraint_a_to_b,
                             constraint_b_to_a=association.constraint_b_to_a,
+                            optical_link_model=association.optical_link_model,
                         )
                     )
 
@@ -677,6 +701,7 @@ class IntraShellStaticConnectivity(InterSatelliteConnectivityStrategy):
                     link=existing_link,
                     constraint_a_to_b=None,
                     constraint_b_to_a=None,
+                    optical_link_model=existing_link.optical_link_model,
                 )
             )
 

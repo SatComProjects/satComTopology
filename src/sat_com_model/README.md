@@ -80,6 +80,10 @@ Physical constraints of one terminal (CONDOR gen1 defaults):
 | `maximum_range_distance_km` | 7800 km | Maximum ISL range |
 | `maximum_angular_velocity_degree_per_second` | 1°/s | Max LOS angular rate |
 
+These constraints are only used by the **advanced** optical link model (see
+`OpticalInterSatelliteLinkModel` below). In the basic model, the default, a
+terminal is a connection slot: only its orientation is used.
+
 ### OpticalLinkTerminal
 
 One physical terminal mounted on a satellite. Key fields:
@@ -122,7 +126,7 @@ Links are bidirectional — source and destination are symmetric for routing pur
 
 | Class | Connects | Extra fields |
 |---|---|---|
-| **InterSatelliteLink** | Satellite ↔ Satellite | `inter_satellite_direction`, `source_constraint`, `destination_constraint`, `source_optical_terminal`, `destination_optical_terminal` |
+| **InterSatelliteLink** | Satellite ↔ Satellite | `inter_satellite_direction`, `source_constraint`, `destination_constraint`, `source_optical_terminal`, `destination_optical_terminal`, `optical_link_model`, `distance_km` |
 | **GroundStationLink** | Satellite ↔ GroundStation | `elevation_above_horizon_angle`, `estimated_link_duration` |
 | **UserTerminalLink** | Satellite ↔ UserTerminal | `elevation_above_horizon_angle`, `estimated_link_duration` |
 | **GroundObjectLink** | GroundObject ↔ GroundObject | Static ground-to-ground backbone |
@@ -168,9 +172,29 @@ link.unbind_terminals()
 | `INTER_SHELL` | Cross-shell (different constellation layer) |
 | `UNDEFINED` | Not yet assigned |
 
+### OpticalInterSatelliteLinkModel
+
+How optical inter-satellite links are computed, set for the whole simulation by
+`SimulationProperty.optical_inter_satellite_link_model`:
+
+| Value | Meaning |
+|---|---|
+| `BASIC` (default) | Links follow the addressing plans. No optical metric is computed: `source_constraint` and `destination_constraint` are `None` by design. |
+| `ADVANCED` | Links are checked against their terminals configuration every tick. The constraints are always set. |
+
+Each **InterSatelliteLink** records the model it was computed with in
+`optical_link_model`, and `has_optical_metrics` is `True` for `ADVANCED`. A `None`
+constraint is therefore expected on a basic link and never happens on an advanced
+one. In a basic simulation, a strategy that needs the metrics (inter-shell links)
+still produces advanced links.
+
+`distance_km` is the straight-line distance between the two satellites, set by the
+`SimulationManager` at every update: computed from the satellites positions for a
+basic link, the range of the constraints for an advanced one.
+
 ### OpticalConstraint
 
-Snapshot of the physical link state at the time of assignment:
+Snapshot of the physical link state at the time of assignment (advanced model only):
 
 | Field | Description |
 |---|---|

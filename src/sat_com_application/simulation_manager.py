@@ -55,10 +55,31 @@ from sat_com_model.models import (
     OpticalLinkTerminal,
     OpticalConstraint,
     InterSatelliteLinkDirection,
+    OpticalInterSatelliteLinkModel,
 )
 from sat_com_model.specifications import (
     SourceDestinationMatchWithLinkSpecification,
 )
+
+
+def _to_optical_constraint(constraint) -> OpticalConstraint | None:
+    return OpticalConstraint(**constraint.model_dump()) if constraint else None
+
+
+def _check_optical_metrics(association) -> None:
+    """
+    A None constraint is expected for a BASIC link (no metrics by design) and
+    is a bug for an ADVANCED one.
+    """
+    if association.optical_link_model != OpticalInterSatelliteLinkModel.ADVANCED:
+        return
+    if association.constraint_a_to_b is None or association.constraint_b_to_a is None:
+        raise ValueError(
+            "Advanced optical link without optical constraints between satellites "
+            f"{association.satellite_a.topology_uniq_id} and "
+            f"{association.satellite_b.topology_uniq_id}: the strategy or the "
+            "addressing plan must compute them, or mark the link BASIC."
+        )
 
 
 def get_object_by_object_id(
@@ -387,9 +408,14 @@ class SimulationManager:
         terminal_b: OpticalLinkTerminal = None,
         satellite_a_constraint: OpticalConstraint = None,
         satellite_b_constraint: OpticalConstraint = None,
+        distance_km: float | None = None,
+        optical_link_model: OpticalInterSatelliteLinkModel | None = None,
     ) -> InterSatelliteLink:
         """
         Create inter-satellite link between two satellites
+        :param distance_km: straight-line distance, set before the creation event
+        :param optical_link_model: BASIC or ADVANCED; when None, ADVANCED if
+            constraints are given, BASIC otherwise
         :param inter_satellite_link_direction:
         :param satellite_b_constraint:
         :param satellite_a_constraint:
@@ -409,6 +435,17 @@ class SimulationManager:
             destination_constraint=satellite_b_constraint,
             inter_satellite_direction=inter_satellite_link_direction,
         )
+        if optical_link_model is None:
+            has_constraints = (
+                satellite_a_constraint is not None or satellite_b_constraint is not None
+            )
+            optical_link_model = (
+                OpticalInterSatelliteLinkModel.ADVANCED
+                if has_constraints
+                else OpticalInterSatelliteLinkModel.BASIC
+            )
+        inter_satellite_link.optical_link_model = optical_link_model
+        inter_satellite_link.distance_km = distance_km
 
         satellite_a.links.append(inter_satellite_link)
         satellite_b.links.append(inter_satellite_link)
@@ -1266,9 +1303,13 @@ class SimulationManager:
         satellite_b: Satellite,
         temporary_unavailable: bool = False,
         recovery_time: datetime.datetime | None = None,
+        distance_km: float | None = None,
+        optical_link_model: OpticalInterSatelliteLinkModel | None = None,
     ):
         """
 
+        :param distance_km: straight-line distance, set before the update event
+        :param optical_link_model: BASIC or ADVANCED, kept unchanged when None
         :param inter_satellite_link:
         :param optical_constraint_a_to_b:
         :param optical_constraint_b_to_a:
@@ -1296,6 +1337,10 @@ class SimulationManager:
 
         inter_satellite_link.temporary_unavailable = temporary_unavailable
         inter_satellite_link.recovery_time = recovery_time
+        if distance_km is not None:
+            inter_satellite_link.distance_km = distance_km
+        if optical_link_model is not None:
+            inter_satellite_link.optical_link_model = optical_link_model
 
         self.__publish_event(
             self.event_factories.isl_event_factory.updated(inter_satellite_link)
@@ -1427,19 +1472,28 @@ class SimulationManager:
                 ),
             )
 
+        kept_or_created = update_result.updated_links + update_result.new_links
+        for association in kept_or_created:
+            _check_optical_metrics(association)
+        # Computed before any update/creation, so every published event
+        # carries the distance of the current time step.
+        distances_km = self.__inter_satellite_distances_km(kept_or_created)
+
         for updated_link in update_result.updated_links:
             self.update_inter_satellite_link(
                 inter_satellite_link=updated_link.link,
-                optical_constraint_a_to_b=OpticalConstraint(
-                    **updated_link.constraint_a_to_b.model_dump()
+                optical_constraint_a_to_b=_to_optical_constraint(
+                    updated_link.constraint_a_to_b
                 ),
-                optical_constraint_b_to_a=OpticalConstraint(
-                    **updated_link.constraint_b_to_a.model_dump()
+                optical_constraint_b_to_a=_to_optical_constraint(
+                    updated_link.constraint_b_to_a
                 ),
                 satellite_a=updated_link.satellite_a,
                 satellite_b=updated_link.satellite_b,
                 temporary_unavailable=updated_link.temporary_unavailable,
                 recovery_time=updated_link.recovery_time,
+                distance_km=distances_km[id(updated_link)],
+                optical_link_model=updated_link.optical_link_model,
             )
 
         for new_link in update_result.new_links:
@@ -1448,14 +1502,42 @@ class SimulationManager:
                 satellite_b=new_link.satellite_b,
                 terminal_a=new_link.terminal_a,
                 terminal_b=new_link.terminal_b,
-                satellite_a_constraint=OpticalConstraint(
-                    **new_link.constraint_a_to_b.model_dump()
+                satellite_a_constraint=_to_optical_constraint(
+                    new_link.constraint_a_to_b
                 ),
-                satellite_b_constraint=OpticalConstraint(
-                    **new_link.constraint_b_to_a.model_dump()
+                satellite_b_constraint=_to_optical_constraint(
+                    new_link.constraint_b_to_a
                 ),
                 inter_satellite_link_direction=new_link.direction,
+                distance_km=distances_km[id(new_link)],
+                optical_link_model=new_link.optical_link_model,
             )
+
+    def __inter_satellite_distances_km(self, associations) -> dict[int, float]:
+        """
+        Distance of each association, keyed by id(association). ADVANCED links
+        reuse the range of their constraints; BASIC links get the straight-line
+        distance from the satellites ECI positions, in one batch.
+        """
+        distances = {}
+        basic = []
+        for association in associations:
+            if (
+                association.optical_link_model
+                == OpticalInterSatelliteLinkModel.ADVANCED
+            ):
+                distances[id(association)] = (
+                    association.constraint_a_to_b.range_distance_km
+                )
+            else:
+                basic.append(association)
+
+        computed = self.satellite_state_cache.distances_km(
+            [(a.satellite_a, a.satellite_b) for a in basic]
+        )
+        for association, distance in zip(basic, computed):
+            distances[id(association)] = float(distance)
+        return distances
 
     def update_ground_station_links(self):
         """

@@ -3,6 +3,12 @@
 ## Description
 This package is the python library that generates constellations sets of two elements
 
+## Earth constants
+The TLEs are generated with the SGP4 `WGS72` gravity model. Every Earth constant
+used to prepare them (gravitational parameter `MU_KM3_S2`, radius `RE_KM`, `J2`,
+`J4`) comes from `sat_com_model.constants`, where they are defined once with the
+WGS72 values of SGP4. No Earth constant is hard-coded in this package.
+
 ## How To Use ?
 Do you need to design a constellation ? A Walker Constellation ?
 Walker Constellation: satellite constellation composed of one or multiple orbits with multiple satellites.
