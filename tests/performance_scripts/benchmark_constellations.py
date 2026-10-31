@@ -2,7 +2,7 @@
 Benchmark of the optical inter-satellite link (OISL) advanced model on reference
 constellations: bootstrap time (load_simulation) then tick time, both broken
 down by stage, for each constellation and for both optical inter-satellite link
-models (advanced and basic).
+models: basic (the default) first, then advanced.
 
 - docs/performance/ (versioned): README.md and the two plots (bootstrap.png,
   ticks.png). The page keeps the history of every run.
@@ -412,28 +412,31 @@ def _counts(simulation_manager) -> dict:
 # Summary, data files and gnuplot (working files go to dist/, images to docs/)
 # ---------------------------------------------------------------------------
 
-OPTICAL_LINK_MODELS = ["advanced", "basic"]
+# Basic first: the default model, the one most simulations use.
+OPTICAL_LINK_MODELS = ["basic", "advanced"]
 
 SECTION_TITLES = {
-    "advanced": "Performance Using Optical Links Advanced Model",
     "basic": "Performance Using Optical Links Basic Model",
+    "advanced": "Performance Using Optical Links Advanced Model",
 }
 
 SECTION_INTRODUCTIONS = {
+    "basic": (
+        "`optical_inter_satellite_link_model: basic`, the default, used by most "
+        "simulations. Links follow the addressing plans: terminals are only "
+        "connection slots, no optical metric is computed and links are never "
+        "dropped for geometry. Only the straight-line distance is computed. In "
+        "Starlink G2 + SSO, the inter-shell links are still computed by the "
+        "inter-shell strategy, which needs the optical metrics: only the "
+        "intra-shell links are basic.\n"
+    ),
     "advanced": (
-        "`optical_inter_satellite_link_model: advanced`. Every optical "
+        "`optical_inter_satellite_link_model: advanced`, optional: enable it only "
+        "when the simulation needs the optical terminal constraints. Every optical "
         "inter-satellite link is checked against its terminals configuration "
         "(elevation, azimuth, range, angular velocity, line of sight) and carries "
         "its optical constraints. Links can be dropped when the geometry breaks "
         "them.\n"
-    ),
-    "basic": (
-        "`optical_inter_satellite_link_model: basic` (the default). Links follow "
-        "the addressing plans: terminals are only connection slots, no optical "
-        "metric is computed and links are never dropped for geometry. Only the "
-        "straight-line distance is computed. In Starlink G2 + SSO, the inter-shell "
-        "links are still computed by the inter-shell strategy, which needs the "
-        "optical metrics: only the intra-shell links are basic.\n"
     ),
 }
 

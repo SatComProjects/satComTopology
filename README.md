@@ -40,8 +40,8 @@ This project si the laboratory 🔬 where you can **design** your topologies.
 ### Performance 📈
 Bootstrap and tick time on Starlink Group 2, Starlink Group 7, OneWeb and Starlink Group 2 + SSO,
 with 100 ground stations, broken down by stage: [performance page](docs/performance/README.md).
-- [Performance Using Optical Links Advanced Model](docs/performance/README.md#performance-using-optical-links-advanced-model)
-- [Performance Using Optical Links Basic Model](docs/performance/README.md#performance-using-optical-links-basic-model)
+- [Performance Using Optical Links Basic Model](docs/performance/README.md#performance-using-optical-links-basic-model) (default)
+- [Performance Using Optical Links Advanced Model](docs/performance/README.md#performance-using-optical-links-advanced-model) (optional)
 
 Regenerate it with `python tests/performance_scripts/benchmark_constellations.py`.
 
