@@ -1,4 +1,5 @@
 import json
+import warnings
 
 import networkx as nx
 from networkx.readwrite import json_graph
@@ -18,34 +19,57 @@ class Adapter:
         pass
 
 
+def _node_link_data(graph: nx.Graph) -> dict:
+    """
+    Node-link export with the edges under "edges", on every supported networkx
+    version: `edges=` exists from networkx 3.4, older versions name it `link=`.
+    """
+    try:
+        return json_graph.node_link_data(graph, edges="edges")
+    except TypeError:
+        return json_graph.node_link_data(graph, link="edges")
+
+
 class NetworkXAdapter(Adapter):
     simulation_manager: SimulationManager
-    networkx_builder: NetworkxBuilder
+    networkx_builder: NetworkxBuilder | None
 
     def __init__(self, simulation_manager: SimulationManager):
         self.simulation_manager = simulation_manager
+        self.networkx_builder = None
 
     def set_networkx_builder(self, networkx_builder: NetworkxBuilder):
         self.networkx_builder = networkx_builder
 
     def create_full_networkx_graph(
         self,
-        export_link_length: bool = False,
+        export_link_length: bool | None = None,
         export_object_position: bool = False,
         enable_export_flows_data: bool = False,
+        export_model_data: bool = False,
     ) -> nx.Graph:
         """
-        Return the networkx graph of the simulation.
-        :param enable_export_flows_data: If true the links flows figures will be exported
-        :param export_link_length: if true the link length will be added to data
+        Return the networkx graph of the simulation. Every edge has its
+        distance in "distance_km".
+        :param export_link_length: deprecated and ignored, the distance is always exported
         :param export_object_position: if true the object position will be exported to data
+        :param enable_export_flows_data: If true the links flows figures will be exported
+        :param export_model_data: if true the full model of every node and edge is
+            exported under "model_data"
         :return: nx.Graph containing the simulation
         """
+        if export_link_length is not None:
+            warnings.warn(
+                "export_link_length is deprecated and ignored: every edge now has "
+                "its distance in 'distance_km'.",
+                FutureWarning,
+                stacklevel=2,
+            )
         self.networkx_builder = NetworkxBuilder(
             simulation_manager=self.simulation_manager,
-            export_link_length=export_link_length,
             export_positions=export_object_position,
             enable_export_flows_data=enable_export_flows_data,
+            export_model_data=export_model_data,
         )
 
         self.networkx_builder.add_topology_objects()
@@ -64,13 +88,7 @@ class NetworkXAdapter(Adapter):
             self.create_full_networkx_graph()
 
         with open(output_directory, "w") as file:
-            file.write(
-                json.dumps(
-                    json_graph.node_link_data(
-                        self.networkx_builder.build(), edges="edges"
-                    )
-                )
-            )
+            file.write(json.dumps(_node_link_data(self.networkx_builder.build())))
             file.close()
 
 

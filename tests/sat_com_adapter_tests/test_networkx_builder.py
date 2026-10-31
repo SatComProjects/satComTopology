@@ -26,8 +26,8 @@ class TestNetworkxBuilder:
         return NetworkxBuilder(simulation_manager, export_positions=True)
 
     @pytest.fixture
-    def network_builder_export_link_length(self, simulation_manager):
-        return NetworkxBuilder(simulation_manager, export_link_length=True)
+    def network_builder_export_model_data(self, simulation_manager):
+        return NetworkxBuilder(simulation_manager, export_model_data=True)
 
     @pytest.fixture
     def network_builder_export_flows_data(self, simulation_manager):
@@ -75,7 +75,7 @@ class TestNetworkxBuilder:
         assert node_data["type"] == "satellite"
         assert node_data["object_id"] == topology_object.object_id
 
-    def test_add_link_without_any_data(self, network_builder, topology_object, link):
+    def test_add_link_default_data(self, network_builder, topology_object, link):
         network_builder.add_link(link)
 
         assert network_builder.graph.has_edge(
@@ -85,25 +85,16 @@ class TestNetworkxBuilder:
         edge_data = network_builder.graph.get_edge_data(
             link.source.topology_uniq_id, link.destination.topology_uniq_id
         )
-        assert edge_data["type"] == "inter_satellite"
-        assert "distance" not in edge_data
-        assert "used_capacity_between_previous_and_last_hop" not in edge_data
+        assert edge_data == {
+            "type": "inter_satellite",
+            "source_id": "satellite-1",
+            "destination_id": "satellite-2",
+            "distance_km": 1000.0,
+        }
 
-    def test_add_link_with_link_length(
-        self, network_builder_export_link_length, topology_object, link
-    ):
-        network_builder_export_link_length.add_link(link)
-
-        assert network_builder_export_link_length.graph.has_edge(
-            link.source.topology_uniq_id, link.destination.topology_uniq_id
-        )
-
-        edge_data = network_builder_export_link_length.graph.get_edge_data(
-            link.source.topology_uniq_id, link.destination.topology_uniq_id
-        )
-        assert edge_data["type"] == "inter_satellite"
-        assert "distance" in edge_data
-        assert "used_capacity_between_previous_and_last_hop" not in edge_data
+    def test_export_link_length_is_deprecated(self, simulation_manager):
+        with pytest.warns(FutureWarning, match="distance_km"):
+            NetworkxBuilder(simulation_manager, export_link_length=True)
 
     def test_add_link_with_link_flows_data(
         self,
@@ -122,7 +113,7 @@ class TestNetworkxBuilder:
             link.source.topology_uniq_id, link.destination.topology_uniq_id
         )
         assert edge_data["type"] == "inter_satellite"
-        assert "distance" not in edge_data
+        assert edge_data["distance_km"] == 1000.0
         assert "used_capacity_between_previous_and_last_hop" in edge_data
 
         assert (
@@ -147,6 +138,7 @@ class TestNetworkxBuilder:
         node_data = network_builder.graph.nodes["satellite-1"]
         assert node_data["orbital_phase"] == "ascending"
         assert "position" not in node_data
+        assert "model_data" not in node_data
 
     def test_add_satellites_with_position(
         self, network_builder_export_position, simulation_manager
@@ -209,18 +201,23 @@ class TestNetworkxBuilder:
         assert node_data["label"] == "CityA"
         assert "position" in node_data
 
-    def test_add_ground_station_links(self, network_builder, simulation_manager):
+    def test_add_ground_station_links(
+        self, network_builder_export_model_data, simulation_manager
+    ):
         ground_station_link = Mock()
         ground_station_link.model_dump.return_value = dict({"disabled": False})
         ground_station_link.source.topology_uniq_id = "ground-1"
         ground_station_link.destination.topology_uniq_id = "satellite-1"
+        ground_station_link.distance_km = 850.0
         ground_station_link.disabled = False
         simulation_manager.get_ground_stations_links.return_value = [
             ground_station_link
         ]
 
-        network_builder.add_ground_station_links()
+        network_builder_export_model_data.add_ground_station_links()
 
-        assert network_builder.graph.has_edge("ground-1", "satellite-1")
-        edge_data = network_builder.graph.get_edge_data("ground-1", "satellite-1")
+        graph = network_builder_export_model_data.graph
+        assert graph.has_edge("ground-1", "satellite-1")
+        edge_data = graph.get_edge_data("ground-1", "satellite-1")
         assert edge_data["model_data"]["disabled"] is False
+        assert edge_data["distance_km"] == 850.0
