@@ -13,6 +13,7 @@ This project si the laboratory 🔬 where you can **design** your topologies.
 * [Welcome to the SatComTopology project 🛰️](#welcome-to-the-satcomtopology-project-)
   * [Features 📢](#features-)
     * [Packages 📦](#packages-)
+    * [Performance 📈](#performance-)
   * [Installation 📃](#installation-)
     * [Install Main Version from GitLab](#install-main-version-from-gitlab)
     * [Install Main Version from GitHub](#install-main-version-from-github)
@@ -22,7 +23,6 @@ This project si the laboratory 🔬 where you can **design** your topologies.
       * [Export a Simulation](#export-a-simulation)
       * [I just want my constellation in the good format](#i-just-want-my-constellation-in-the-good-format)
   * [Tutorials 🎓](#tutorials-)
-  * [Performance 📈](#performance-)
   * [Contributing](#contributing)
   * [License ⚖️](#license-)
 <!-- TOC -->
@@ -36,6 +36,14 @@ This project si the laboratory 🔬 where you can **design** your topologies.
 - sat_com_application: [Topology Application](src/sat_com_application/README.md)
 - sat_com_topology_traffic: [Topology Traffic](src/sat_com_traffic/README.md) (Bêta version)
 - sat_com_connectivity: [Topology Connectivity](src/sat_com_connectivity/README.md)
+
+### Performance 📈
+Bootstrap and tick time on Starlink Group 2, Starlink Group 7, OneWeb and Starlink Group 2 + SSO,
+with 100 ground stations, broken down by stage: [performance page](docs/performance/README.md).
+- [Performance Using Optical Links Advanced Model](docs/performance/README.md#performance-using-optical-links-advanced-model)
+- [Performance Using Optical Links Basic Model](docs/performance/README.md#performance-using-optical-links-basic-model)
+
+Regenerate it with `python tests/performance_scripts/benchmark_constellations.py`.
 
 ## Installation 📃
 Uninstall if already installed:
@@ -167,12 +175,6 @@ Here are some tutorials in the Jupyter Notebook format:
 
 The tutorials aren't on gitlab yet, to have an access:
 louis.barbier at isae-supaero.fr
-
-## Performance 📈
-- [Performance Using Optical Links Advanced Model and Basic Model](docs/performance/README.md):
-  bootstrap and tick time, broken down by stage, on Starlink Group 2, Starlink Group 7, OneWeb and
-  Starlink Group 2 + SSO, with 100 ground stations. Regenerate it with
-  `python tests/performance_scripts/benchmark_constellations.py`.
 
 ## Contributing
 The contributing guide is [here](https://github.com/elbarbi/satComTopology/blob/develop/CONTRIBUTING.md).
