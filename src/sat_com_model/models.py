@@ -973,7 +973,14 @@ class InterSatelliteLink(Link):
 class GroundToSpaceLink(Link):
     elevation_above_horizon_angle: float = Field(default=None)
 
+    """Seconds until the disconnection at the last update (-1 when unknown)."""
     estimated_link_duration: float = Field(default=None)
+
+    """
+    Predicted time the satellite drops below the minimum elevation, set when the
+    link is created. Absolute, so it never gets stale between updates.
+    """
+    estimated_disconnection_time: datetime.datetime | None = Field(default=None)
 
     def get_ground_object(self) -> GroundObject:
         return (

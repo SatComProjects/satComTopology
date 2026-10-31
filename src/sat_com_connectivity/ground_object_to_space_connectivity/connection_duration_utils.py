@@ -4,12 +4,15 @@ import math
 
 import numpy as np
 
+from sat_com_connectivity.satellite_state_cache import EciCache, SatelliteStateCache
 from sat_com_connectivity.utils import (
     get_elevation_angle,
+    ground_to_up_vector,
     latitude_longitude_altitude_to_x_y_z,
 )
 from sat_com_model.constants import (
     KM_TO_METER,
+    MU_KM3_S2,
     OMEGA_EARTH,
     GMST_RATE_DEG_PER_DAY,
     GMST_J2000_DEG,
@@ -28,6 +31,141 @@ def _gmst(t: datetime.datetime) -> float:
     # IAU 1982 approximation
     theta = math.radians(GMST_J2000_DEG + GMST_RATE_DEG_PER_DAY * d) % (2 * math.pi)
     return theta
+
+
+# ---------------------------------------------------------------------------
+# Vectorised estimation, for every new ground link of a time step at once.
+# ---------------------------------------------------------------------------
+
+# Predictions are made up to this horizon: a link still above the minimum
+# elevation at the end is reported with the horizon as its duration.
+DURATION_HORIZON_SECONDS = 1200.0
+
+# Elevation sampling step; the threshold crossing is then refined linearly.
+DURATION_GRID_STEP_SECONDS = 10.0
+
+
+def _two_body_positions(
+    positions_km: np.ndarray, velocities_km_s: np.ndarray, times_s: np.ndarray
+) -> np.ndarray:
+    """
+    Keplerian (two-body) propagation from position and velocity, with the f and
+    g functions of the eccentric anomaly change. Vectorised over satellites
+    (N, 3) and times (T,), returns (N, T, 3) km in the same inertial frame.
+
+    J2 and drag are ignored: over one pass (a few minutes) their effect on the
+    predicted disconnection time is a fraction of a second.
+    """
+    r0 = np.linalg.norm(positions_km, axis=1)
+    v0_squared = np.einsum("ij,ij->i", velocities_km_s, velocities_km_s)
+    semi_major_axis = 1.0 / (2.0 / r0 - v0_squared / MU_KM3_S2)
+    mean_motion = np.sqrt(MU_KM3_S2 / semi_major_axis**3)
+    sigma0 = np.einsum("ij,ij->i", positions_km, velocities_km_s) / np.sqrt(MU_KM3_S2)
+
+    e_cos = (1.0 - r0 / semi_major_axis)[:, None]
+    e_sin = (sigma0 / np.sqrt(semi_major_axis))[:, None]
+    mean_anomaly_change = mean_motion[:, None] * times_s[None, :]
+
+    # Kepler's equation in the eccentric anomaly change, by Newton iterations.
+    delta_e = mean_anomaly_change.copy()
+    for _ in range(6):
+        residual = (
+            delta_e
+            - e_cos * np.sin(delta_e)
+            + e_sin * (1.0 - np.cos(delta_e))
+            - mean_anomaly_change
+        )
+        derivative = 1.0 - e_cos * np.cos(delta_e) + e_sin * np.sin(delta_e)
+        delta_e -= residual / derivative
+
+    f = 1.0 - (semi_major_axis / r0)[:, None] * (1.0 - np.cos(delta_e))
+    g = times_s[None, :] - np.sqrt(semi_major_axis**3 / MU_KM3_S2)[:, None] * (
+        delta_e - np.sin(delta_e)
+    )
+    return (
+        f[..., None] * positions_km[:, None, :]
+        + g[..., None] * velocities_km_s[:, None, :]
+    )
+
+
+def estimate_disconnection_delays(
+    satellites: list[Satellite],
+    ground_objects: list[GroundObject],
+    now: datetime.datetime,
+    state_cache: SatelliteStateCache | None = None,
+    horizon_seconds: float = DURATION_HORIZON_SECONDS,
+    step_seconds: float = DURATION_GRID_STEP_SECONDS,
+) -> np.ndarray:
+    """
+    Seconds until each satellite drops below the minimum elevation of its ground
+    object (pair i = satellites[i], ground_objects[i]), for all pairs at once.
+
+    The satellites are propagated from their current position and velocity
+    (two-body), the Earth rotates, and the elevation is sampled every
+    `step_seconds` up to `horizon_seconds`; the crossing is refined linearly.
+    A pair still visible at the horizon gets `horizon_seconds`; a pair already
+    below the minimum elevation gets 0.
+
+    Compared with estimate_time_until_disconnection (exact, ~1 ms and ~16 SGP4
+    calls per pair), the error is below 0.25 s for LEO passes, for a cost of a
+    few milliseconds per hundreds of pairs.
+    """
+    if len(satellites) == 0:
+        return np.empty(0)
+
+    eci_cache = state_cache.eci(0.0) if state_cache is not None else EciCache(0.0)
+    states = [eci_cache.get(satellite) for satellite in satellites]
+    positions = np.stack([position for position, _ in states])
+    velocities = np.stack([velocity for _, velocity in states])
+
+    ground_coordinates = [
+        ground_object.get_coordinates().to_latitude_longitude_altitude()
+        for ground_object in ground_objects
+    ]
+    ground_ecef_km = (
+        np.array([latitude_longitude_altitude_to_x_y_z(*c) for c in ground_coordinates])
+        / KM_TO_METER
+    )
+    up = np.array([ground_to_up_vector(c) for c in ground_coordinates])
+    thresholds = np.array(
+        [g.ground_object_domain.elevation_above_horizon for g in ground_objects]
+    )
+
+    times = np.arange(0.0, horizon_seconds + step_seconds, step_seconds)
+    satellite_eci = _two_body_positions(positions, velocities, times)
+
+    # Inertial -> Earth-fixed: rotation by the sidereal angle at each time.
+    sidereal_rate = math.radians(GMST_RATE_DEG_PER_DAY) / SECONDS_PER_DAY
+    theta = _gmst(now) + sidereal_rate * times
+    cos_t, sin_t = np.cos(theta), np.sin(theta)
+    satellite_ecef = np.stack(
+        [
+            satellite_eci[..., 0] * cos_t + satellite_eci[..., 1] * sin_t,
+            -satellite_eci[..., 0] * sin_t + satellite_eci[..., 1] * cos_t,
+            satellite_eci[..., 2],
+        ],
+        axis=-1,
+    )
+
+    line_of_sight = satellite_ecef - ground_ecef_km[:, None, :]
+    sin_elevation = np.einsum("ntk,nk->nt", line_of_sight, up) / np.linalg.norm(
+        line_of_sight, axis=2
+    )
+    elevations = np.degrees(np.arcsin(np.clip(sin_elevation, -1.0, 1.0)))
+
+    below = elevations < thresholds[:, None]
+    has_crossing = below.any(axis=1)
+    first_below = below.argmax(axis=1)
+    already_below = has_crossing & (first_below == 0)
+
+    k = np.maximum(first_below, 1)
+    rows = np.arange(len(elevations))
+    before, after = elevations[rows, k - 1], elevations[rows, k]
+    fraction = np.where(before != after, (before - thresholds) / (before - after), 0.0)
+    delays = (k - 1 + fraction) * step_seconds
+
+    delays = np.where(has_crossing, delays, horizon_seconds)
+    return np.where(already_below, 0.0, delays)
 
 
 def _ecef_to_eci(r_ecef: np.ndarray, gmst: float) -> np.ndarray:

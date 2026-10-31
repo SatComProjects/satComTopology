@@ -253,7 +253,9 @@ class DefaultGSLEventFactory(AbstractGSLEventFactory):
             satellite_id=link.get_satellite().topology_uniq_id,
             ground_station_id=link.get_ground_station().topology_uniq_id,
             elevation_angle=link.elevation_above_horizon_angle,
+            distance_km=link.distance_km,
             estimated_duration=link.estimated_link_duration,
+            estimated_disconnection_time=link.estimated_disconnection_time,
         )
 
     def updated(self, link: GroundStationLink) -> GSLUpdatedEvent:
@@ -264,6 +266,7 @@ class DefaultGSLEventFactory(AbstractGSLEventFactory):
             elevation_above_horizon_angle=link.elevation_above_horizon_angle,
             distance_km=link.distance_km,
             estimated_link_duration=link.estimated_link_duration,
+            estimated_disconnection_time=link.estimated_disconnection_time,
         )
 
     def removed(self, link: GroundStationLink) -> GSLRemovedEvent:
@@ -283,6 +286,7 @@ class DefaultUTLEventFactory(AbstractUTLEventFactory):
             user_terminal_id=link.get_user_terminal().topology_uniq_id,
             elevation_above_horizon_angle=link.elevation_above_horizon_angle,
             estimated_link_duration=link.estimated_link_duration,
+            estimated_disconnection_time=link.estimated_disconnection_time,
         )
 
     def updated(self, link: UserTerminalLink) -> UTLUpdatedEvent:
@@ -293,6 +297,7 @@ class DefaultUTLEventFactory(AbstractUTLEventFactory):
             elevation_above_horizon_angle=link.elevation_above_horizon_angle,
             distance_km=link.distance_km,
             estimated_link_duration=link.estimated_link_duration,
+            estimated_disconnection_time=link.estimated_disconnection_time,
         )
 
     def removed(self, link: UserTerminalLink) -> UTLRemovedEvent:

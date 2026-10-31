@@ -267,6 +267,9 @@ class ConnectToEverythingInRangeStrategy(GroundToSpaceConnectionStrategy):
     deprecation_message = _RANGE_STRATEGY_DEPRECATION.format(
         replacement="everything-visible"
     )
+    # Visibility from the ground distance: an elevation-based duration
+    # would contradict it.
+    estimates_link_duration = False
     description = "[DEPRECATED] Connect to all satellites in range. Do not maintain connectivity, recomputed each timestep."
 
     def __init__(self, **kwargs):
@@ -363,6 +366,9 @@ class ConnectToBestRangeUntilDisconnectionStrategyOrdered(
     deprecation_message = _RANGE_STRATEGY_DEPRECATION.format(
         replacement="best-angle-until-disconnection-ordered"
     )
+    # Visibility from the ground distance: an elevation-based duration
+    # would contradict it.
+    estimates_link_duration = False
     description = "[DEPRECATED] Connect to the closest satellite. If shell white lists are configured, prioritize shells in the order specified. Maintain the connection until the satellite is no longer in range."
 
     def __init__(self, **kwargs):
@@ -470,6 +476,9 @@ class ConnectToBestRangeUntilDisconnectionStrategy(GroundToSpaceConnectionStrate
     deprecation_message = _RANGE_STRATEGY_DEPRECATION.format(
         replacement="best-angle-until-disconnection"
     )
+    # Visibility from the ground distance: an elevation-based duration
+    # would contradict it.
+    estimates_link_duration = False
     description = "[DEPRECATED] Connect to the closest satellite. If shell white lists are configured, consider all white-listed shells equally (no priority order). Maintain the connection until the satellite is no longer in range."
 
     def __init__(self, **kwargs):

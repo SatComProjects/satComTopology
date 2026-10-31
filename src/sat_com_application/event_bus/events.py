@@ -141,6 +141,7 @@ class GSLCreatedEvent(Event):
     distance_km: float | None = None
     elevation_angle: float | None = None
     estimated_duration: float | None = None
+    estimated_disconnection_time: datetime | None = None
 
 
 class GSLUpdatedEvent(Event):
@@ -151,6 +152,7 @@ class GSLUpdatedEvent(Event):
     distance_km: float | None = None
     elevation_above_horizon_angle: float | None = None
     estimated_link_duration: float | None = None
+    estimated_disconnection_time: datetime | None = None
 
 
 class GSLRemovedEvent(Event):
@@ -171,6 +173,7 @@ class UTLCreatedEvent(Event):
     distance_km: float | None = None
     elevation_above_horizon_angle: float | None = None
     estimated_link_duration: float | None = None
+    estimated_disconnection_time: datetime | None = None
 
 
 class UTLUpdatedEvent(Event):
@@ -181,6 +184,7 @@ class UTLUpdatedEvent(Event):
     distance_km: float | None = None
     elevation_above_horizon_angle: float | None = None
     estimated_link_duration: float | None = None
+    estimated_disconnection_time: datetime | None = None
 
 
 class UTLRemovedEvent(Event):

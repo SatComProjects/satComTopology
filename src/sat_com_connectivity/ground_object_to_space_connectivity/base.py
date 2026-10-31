@@ -30,6 +30,13 @@ class GroundToSpaceConnectionStrategy(ABC):
     is emitted the first time the strategy is used.
     """
     deprecation_message: str | None = None
+
+    """
+    True when the strategy decides visibility from the elevation angle: the
+    SimulationManager then estimates the duration of its new links (time until
+    the satellite drops below the minimum elevation).
+    """
+    estimates_link_duration: bool = True
     _deprecation_warning_emitted: bool = False
 
     def __init__(self, **kwargs):

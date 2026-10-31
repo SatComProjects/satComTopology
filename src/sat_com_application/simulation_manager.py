@@ -13,6 +13,9 @@ from sat_com_application.event_bus.events import (
 from sat_com_application.event_bus.factories import EventFactories
 from sat_com_application.models import AssociationState
 from sat_com_application.time_managers import SimulationTimeManager
+from sat_com_connectivity.ground_object_to_space_connectivity.connection_duration_utils import (
+    estimate_disconnection_delays,
+)
 from sat_com_connectivity.satellite_state_cache import SatelliteStateCache
 from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
     GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
@@ -43,6 +46,7 @@ from sat_com_model.models import (
     Link,
     InterSatelliteLink,
     GroundStationLink,
+    GroundToSpaceLink,
     UserTerminalLink,
     Flow,
     Shell,
@@ -465,6 +469,7 @@ class SimulationManager:
         elevation_above_horizon_angle: float = 0,
         estimated_link_duration: float = None,
         distance_km: float | None = None,
+        estimated_disconnection_time: datetime.datetime | None = None,
     ) -> GroundStationLink:
         """
         Create a ground station link between a satellite and a ground station and append it to the simulation.
@@ -482,6 +487,7 @@ class SimulationManager:
         )
         ground_station_link.estimated_link_duration = estimated_link_duration
         ground_station_link.distance_km = distance_km
+        ground_station_link.estimated_disconnection_time = estimated_disconnection_time
 
         satellite.links.append(ground_station_link)
         ground_station.links.append(ground_station_link)
@@ -501,6 +507,7 @@ class SimulationManager:
         elevation_above_horizon_angle: float = 0,
         estimated_link_duration: float = None,
         distance_km: float | None = None,
+        estimated_disconnection_time: datetime.datetime | None = None,
     ) -> UserTerminalLink:
         """
         Create a user terminal link between a satellite and a user terminal
@@ -515,6 +522,7 @@ class SimulationManager:
         user_terminal_link.elevation_above_horizon_angle = elevation_above_horizon_angle
         user_terminal_link.estimated_link_duration = estimated_link_duration
         user_terminal_link.distance_km = distance_km
+        user_terminal_link.estimated_disconnection_time = estimated_disconnection_time
 
         satellite.links.append(user_terminal_link)
         user_terminal.links.append(user_terminal_link)
@@ -1271,8 +1279,8 @@ class SimulationManager:
         ground_to_space_link: GroundStationLink,
         ground_to_space_constraints: GroundToSpaceConstraints,
     ):
-        ground_to_space_link.estimated_link_duration = (
-            ground_to_space_constraints.estimated_connection_time or -1
+        ground_to_space_link.estimated_link_duration = self.__link_duration(
+            ground_to_space_link, ground_to_space_constraints
         )
         ground_to_space_link.elevation_above_horizon_angle = (
             ground_to_space_constraints.elevation_angle_above_horizon or -1
@@ -1288,8 +1296,8 @@ class SimulationManager:
         user_terminal_link: UserTerminalLink,
         ground_to_space_constraints: GroundToSpaceConstraints,
     ):
-        user_terminal_link.estimated_link_duration = (
-            ground_to_space_constraints.estimated_connection_time or -1
+        user_terminal_link.estimated_link_duration = self.__link_duration(
+            user_terminal_link, ground_to_space_constraints
         )
         user_terminal_link.elevation_above_horizon_angle = (
             ground_to_space_constraints.elevation_angle_above_horizon or -1
@@ -1370,78 +1378,132 @@ class SimulationManager:
 
         self.connect_every_satellite_with_every_ground_stations_and_disable_un_connected()
 
-    def __update_user_terminal_links_default(self):
+    def __current_time(self) -> datetime.datetime | None:
+        return self.time_manager.current_time if self.time_manager else None
+
+    def __remaining_duration(self, link: GroundToSpaceLink) -> float | None:
+        """Seconds until the predicted disconnection, None when not predicted."""
+        now = self.__current_time()
+        if link.estimated_disconnection_time is None or now is None:
+            return None
+        return max(0.0, (link.estimated_disconnection_time - now).total_seconds())
+
+    def __link_duration(
+        self,
+        link: GroundToSpaceLink,
+        ground_to_space_constraints: GroundToSpaceConstraints,
+    ) -> float:
+        if ground_to_space_constraints.estimated_connection_time is not None:
+            return ground_to_space_constraints.estimated_connection_time
+        remaining = self.__remaining_duration(link)
+        return remaining if remaining is not None else -1
+
+    def __update_ground_object_links(self, ground_objects, link_type, create_link):
         """
-        This method will delete all user terminals links and will create new ones according to the current strategy
-        :return:
+        Apply the ground-to-space strategies to every ground object:
+        1. compute the result of every strategy,
+        2. estimate the duration of every new link of an elevation-based
+           strategy, in one batch,
+        3. apply the results (removals, creations, updates).
+        A strategy only reads the links of its own ground object, so computing
+        them all before applying any gives the same links.
         """
         satellites = self.get_satellites()
 
-        for terminal in self.get_user_terminals():
-            update_response = self.ground_to_space_connection_strategies.get(
-                terminal.ground_object_domain.ground_to_space_connections_strategy
-            ).compute_ground_object_connection_strategy(terminal, satellites)
+        computed = []
+        for ground_object in ground_objects:
+            strategy = self.ground_to_space_connection_strategies.get(
+                ground_object.ground_object_domain.ground_to_space_connections_strategy
+            )
+            result = strategy.compute_ground_object_connection_strategy(
+                ground_object, satellites
+            )
+            computed.append((ground_object, strategy, result))
 
-            for link in update_response.obsolete_links:
+        now = self.__current_time()
+        to_estimate = [
+            (ground_object, connection)
+            for ground_object, strategy, result in computed
+            if strategy.estimates_link_duration
+            for connection in result.new_ground_object_connections
+        ]
+        disconnection_times = {}
+        if now is not None and to_estimate:
+            delays = estimate_disconnection_delays(
+                [connection.satellite for _, connection in to_estimate],
+                [ground_object for ground_object, _ in to_estimate],
+                now,
+                self.satellite_state_cache,
+            )
+            for (_, connection), delay in zip(to_estimate, delays):
+                disconnection_times[id(connection)] = now + datetime.timedelta(
+                    seconds=float(delay)
+                )
+
+        for ground_object, _, result in computed:
+            for link in result.obsolete_links:
                 self.remove_link(link)
 
-            for new_connection in update_response.new_ground_object_connections:
-                self.create_and_add_user_terminal_link_connection(
-                    satellite=new_connection.satellite,
-                    user_terminal=terminal,
-                    elevation_above_horizon_angle=new_connection.ground_to_space_constraints.elevation_angle_above_horizon
+            for new_connection in result.new_ground_object_connections:
+                constraints = new_connection.ground_to_space_constraints
+                disconnection_time = disconnection_times.get(id(new_connection))
+                if disconnection_time is not None:
+                    duration = (disconnection_time - now).total_seconds()
+                else:
+                    duration = constraints.estimated_connection_time or -1
+                create_link(
+                    new_connection.satellite,
+                    ground_object,
+                    elevation_above_horizon_angle=constraints.elevation_angle_above_horizon
                     or -1,
-                    estimated_link_duration=new_connection.ground_to_space_constraints.estimated_connection_time
-                    or -1,
-                    distance_km=new_connection.ground_to_space_constraints.distance_km
-                    or -1,
+                    estimated_link_duration=duration,
+                    distance_km=constraints.distance_km or -1,
+                    estimated_disconnection_time=disconnection_time,
                 )
-            for updates in update_response.updated_links:
-                if not isinstance(updates.ground_to_space_link, UserTerminalLink):
-                    raise TypeError("A Ground Station Link was expected")
 
-                self.update_user_terminal_link(
-                    user_terminal_link=updates.ground_to_space_link,
-                    ground_to_space_constraints=updates.ground_to_space_constraints,
-                )
+            for update in result.updated_links:
+                if not isinstance(update.ground_to_space_link, link_type):
+                    raise TypeError(f"A {link_type.__name__} was expected")
+                if link_type is GroundStationLink:
+                    self.update_ground_station_link(
+                        ground_to_space_link=update.ground_to_space_link,
+                        ground_to_space_constraints=update.ground_to_space_constraints,
+                    )
+                else:
+                    self.update_user_terminal_link(
+                        user_terminal_link=update.ground_to_space_link,
+                        ground_to_space_constraints=update.ground_to_space_constraints,
+                    )
+
+        # Links kept without an update (until-disconnection strategies): their
+        # elevation and distance were refreshed by the strategy, refresh the
+        # remaining duration too.
+        for ground_object in ground_objects:
+            for link in ground_object.links:
+                if isinstance(link, GroundToSpaceLink):
+                    remaining = self.__remaining_duration(link)
+                    if remaining is not None:
+                        link.estimated_link_duration = remaining
+
+    def __update_user_terminal_links_default(self):
+        """
+        Update every user terminal link according to its ground object strategy.
+        """
+        self.__update_ground_object_links(
+            self.get_user_terminals(),
+            UserTerminalLink,
+            self.create_and_add_user_terminal_link_connection,
+        )
 
     def __update_ground_station_links_default(self):
         """
-        This method will delete all ground station links and will create new ones according to the current strategy
-        :return:
+        Update every ground station link according to its ground object strategy.
         """
-        satellites = self.get_satellites()
-
-        for ground_station in self.get_ground_stations():
-            update_response: ComputedGroundObjectConnectionsResult = (
-                self.ground_to_space_connection_strategies.get(
-                    ground_station.ground_object_domain.ground_to_space_connections_strategy
-                ).compute_ground_object_connection_strategy(ground_station, satellites)
-            )
-
-            for link in update_response.obsolete_links:
-                self.remove_link(link)
-
-            for new_connection in update_response.new_ground_object_connections:
-                self.create_and_add_ground_station_link_connection(
-                    satellite=new_connection.satellite,
-                    ground_station=ground_station,
-                    elevation_above_horizon_angle=new_connection.ground_to_space_constraints.elevation_angle_above_horizon
-                    or -1,
-                    estimated_link_duration=new_connection.ground_to_space_constraints.estimated_connection_time
-                    or -1,
-                    distance_km=new_connection.ground_to_space_constraints.distance_km
-                    or -1,
-                )
-
-            for updates in update_response.updated_links:
-                if not isinstance(updates.ground_to_space_link, GroundStationLink):
-                    raise TypeError("A Ground Station Link was expected")
-
-                self.update_ground_station_link(
-                    ground_to_space_link=updates.ground_to_space_link,
-                    ground_to_space_constraints=updates.ground_to_space_constraints,
-                )
+        self.__update_ground_object_links(
+            self.get_ground_stations(),
+            GroundStationLink,
+            self.create_and_add_ground_station_link_connection,
+        )
 
     def __update_inter_satellite_links_default(self):
         """

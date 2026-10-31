@@ -410,14 +410,24 @@ class BaseConfigurationManager(ConfigurationManager):
 
         return simulation
 
-    def load_simulation(self) -> SimulationManager:
+    def load_simulation(self, print_timings: bool = False) -> SimulationManager:
+        """
+        Build the simulation from the configuration.
+        :param print_timings: print the duration of every loading stage. The
+            durations are always available afterwards in `self.load_timings`
+            (stage name -> seconds).
+        :return: the SimulationManager of the loaded simulation
+        """
         import time
+
+        self.load_timings: dict[str, float] = {}
 
         def timed_step(name: str, func):
             start = time.perf_counter()
             result = func()
-            end = time.perf_counter()
-            print(f"{name:<55} | {end - start:.4f} s")
+            self.load_timings[name] = time.perf_counter() - start
+            if print_timings:
+                print(f"{name:<55} | {self.load_timings[name]:.4f} s")
             return result
 
         simulation = timed_step(

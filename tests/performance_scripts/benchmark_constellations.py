@@ -32,7 +32,6 @@ import json
 import math
 import os
 import platform
-import re
 import resource
 import shutil
 import statistics
@@ -59,7 +58,7 @@ SCENARIOS = {
     "starlink_g2_sso": "Starlink G2 + SSO",
 }
 
-# Bootstrap stages printed by BaseConfigurationManager.load_simulation, grouped
+# Bootstrap stages timed by BaseConfigurationManager.load_simulation, grouped
 # into the categories shared with the tick stages.
 BOOTSTRAP_STAGES = {
     "__load_satellite_configuration": "satellites",
@@ -310,8 +309,6 @@ def build_simulation_property(scenario: str, optical_link_model: str = "advanced
 # Measurement (child process)
 # ---------------------------------------------------------------------------
 
-_STAGE_LINE = re.compile(r"^(\S.*?)\s+\|\s+([0-9.]+) s$")
-
 
 def _categorise(
     stages: dict[str, float], mapping: dict[str, str], total: float
@@ -332,19 +329,15 @@ def run_scenario(
 
     simulation_property = build_simulation_property(scenario, optical_link_model)
 
-    captured = io.StringIO()
+    configuration_manager = BaseConfigurationManager(
+        simulation_property=simulation_property
+    )
+    # Silence the remaining library output (e.g. plan debug reports).
     t0 = time.perf_counter()
-    with contextlib.redirect_stdout(captured):
-        simulation_manager = BaseConfigurationManager(
-            simulation_property=simulation_property
-        ).load_simulation()
+    with contextlib.redirect_stdout(io.StringIO()):
+        simulation_manager = configuration_manager.load_simulation()
     bootstrap_total = time.perf_counter() - t0
-
-    bootstrap_stages = {}
-    for line in captured.getvalue().splitlines():
-        match = _STAGE_LINE.match(line.strip())
-        if match:
-            bootstrap_stages[match.group(1)] = float(match.group(2))
+    bootstrap_stages = dict(configuration_manager.load_timings)
 
     counts_after_bootstrap = _counts(simulation_manager)
 
