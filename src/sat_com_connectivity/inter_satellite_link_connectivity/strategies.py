@@ -150,8 +150,14 @@ class InterShellSSOPriorityConnectivity(InterSatelliteConnectivityStrategy):
 
                 # -------------------------------------------------------------------
                 # CASE 1.b — Terminal has a link that is already accounted in the ledger
+                # (by the satellite at its other end, processed earlier this tick).
+                # Kept link: both terminals are booked, nothing to do. Obsoleted link:
+                # this end is freed too, so it joins the pool now and can be re-linked
+                # during this tick (otherwise it would stay unlinked until the next one).
                 # -------------------------------------------------------------------
                 if ledger.is_link_accounted(terminal.link):
+                    if ledger.is_link_obsoleted(terminal.link):
+                        unassigned_pool.append(terminal)
                     continue
 
                 # -------------------------------------------------------------------
