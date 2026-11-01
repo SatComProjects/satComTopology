@@ -13,7 +13,7 @@ multi_shell_config = {
                 "elevation_above_horizon": 25,
                 "maximum_satellite_range_distance": 1200,
                 "maximum_satellite_connected_count": 1000,
-                "shell_white_lists": ["Andromeda Walker"],
+                "shells_whitelist": ["Andromeda Walker"],
                 "maximum_connected_satellites": 50,
                 "ground_to_space_connections_strategy": "fake_strategy",
             },
@@ -25,7 +25,7 @@ multi_shell_config = {
             "connectivity_properties": {
                 "elevation_above_horizon": 15,
                 "maximum_satellite_range_distance": 1500,
-                "shell_white_lists": [
+                "shells_whitelist": [
                     "Andromeda Polar",
                     "Andromeda Walker",
                 ],

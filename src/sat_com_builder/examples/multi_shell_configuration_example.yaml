@@ -12,7 +12,7 @@ simulation_property:
         elevation_above_horizon: 25
         maximum_satellite_range_distance: 1200
         maximum_satellite_connected_count: 2
-        shell_white_lists: ["Andromeda Walker"]
+        shells_whitelist: ["Andromeda Walker"]
         maximum_connected_satellites: 10
         ground_to_space_connections_strategy: "best-angle-until-disconnection"
 
@@ -22,7 +22,7 @@ simulation_property:
       connectivity_properties:
         elevation_above_horizon: 15
         maximum_satellite_range_distance: 1500
-        shell_white_lists: ["Andromeda Polar", "Andromeda Walker"]
+        shells_whitelist: ["Andromeda Polar", "Andromeda Walker"]
         maximum_connected_satellites: 5
         ground_to_space_connections_strategy: "everything-visible"
 

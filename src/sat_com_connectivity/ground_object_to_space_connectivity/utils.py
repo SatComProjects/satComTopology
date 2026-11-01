@@ -87,25 +87,25 @@ def get_best_visible_satellite_from_white_list(
     (highest elevation angle) from the first shell that has visible satellites.
 
     :param visible_satellites: List of visible satellites
-    :param ground_object: Ground object with shell_white_lists in its domain
+    :param ground_object: Ground object with shells_whitelist in its domain
     :return: Best visible satellite according to white list rules, or None if no visible satellites
     """
     if not visible_satellites:
         return None
 
     # Get shell white lists from ground object domain
-    shell_white_lists = (
+    shells_whitelist = (
         ground_object.ground_object_domain.shells_whitelist
         if ground_object.ground_object_domain
         else []
     )
 
     # If white list is empty, return satellite with highest elevation angle
-    if not shell_white_lists:
+    if not shells_whitelist:
         return max(visible_satellites, key=lambda s: s.elevation_above_horizon)
 
     # Filter visible satellites by shell identifier based on white list priority
-    for shell_identifier in shell_white_lists:
+    for shell_identifier in shells_whitelist:
         # Find all visible satellites in this shell
         satellites_in_shell = []
         for vs in visible_satellites:
@@ -140,26 +140,26 @@ def filter_visible_satellites_by_white_list(
     preserving the order of shells as they appear in the white list.
 
     :param visible_satellites: List of visible satellites
-    :param ground_object: Ground object with shell_white_lists in its domain
+    :param ground_object: Ground object with shells_whitelist in its domain
     :return: Filtered list of visible satellites
     """
     if not visible_satellites:
         return []
 
     # Get shell white lists from ground object domain
-    shell_white_lists = (
+    shells_whitelist = (
         ground_object.ground_object_domain.shells_whitelist
         if ground_object.ground_object_domain
         else []
     )
 
     # If white list is empty, return all visible satellites
-    if not shell_white_lists:
+    if not shells_whitelist:
         return visible_satellites
 
     # Filter satellites by white list, preserving order of white list
     filtered = []
-    for shell_identifier in shell_white_lists:
+    for shell_identifier in shells_whitelist:
         for vs in visible_satellites:
             if vs.satellite.shell and vs.satellite.shell.identifier == shell_identifier:
                 filtered.append(vs)
@@ -180,7 +180,7 @@ def get_closest_visible_satellite_from_white_list(
     that has visible satellites. If no satellites in that shell, tries the next shell, etc.
 
     :param visible_satellites: List of visible satellites
-    :param ground_object: Ground object with shell_white_lists in its domain
+    :param ground_object: Ground object with shells_whitelist in its domain
     :param distance_model: Distance model to compute distances
     :return: Closest satellite according to white list rules, or None if no visible satellites
     """
@@ -188,19 +188,19 @@ def get_closest_visible_satellite_from_white_list(
         return None
 
     # Get shell white lists from ground object domain
-    shell_white_lists = (
+    shells_whitelist = (
         ground_object.ground_object_domain.shells_whitelist
         if ground_object.ground_object_domain
         else []
     )
 
     # If white list is empty, return the closest satellite among all
-    if not shell_white_lists:
+    if not shells_whitelist:
         closest = distance_model.k_closest(ground_object, visible_satellites, k=1)
         return closest[0] if closest else None
 
     # Filter satellites by shell identifier based on white list priority
-    for shell_identifier in shell_white_lists:
+    for shell_identifier in shells_whitelist:
         # Find all visible satellites in this shell
         satellites_in_shell = [
             vs
@@ -236,21 +236,21 @@ def get_best_visible_satellite_from_white_list_unordered(
     among ALL satellites from ALL white-listed shells (treats all shells equally).
 
     :param visible_satellites: List of visible satellites
-    :param ground_object: Ground object with shell_white_lists in its domain
+    :param ground_object: Ground object with shells_whitelist in its domain
     :return: Best visible satellite from white-listed shells, or None if no visible satellites
     """
     if not visible_satellites:
         return None
 
     # Get shell white lists from ground object domain
-    shell_white_lists = (
+    shells_whitelist = (
         ground_object.ground_object_domain.shells_whitelist
         if ground_object.ground_object_domain
         else []
     )
 
     # If white list is empty, return satellite with highest elevation angle
-    if not shell_white_lists:
+    if not shells_whitelist:
         return max(visible_satellites, key=lambda s: s.elevation_above_horizon)
 
     # Filter visible satellites by shell identifier (no ordering, treat all equally)
@@ -260,7 +260,7 @@ def get_best_visible_satellite_from_white_list_unordered(
             if (
                 vs.satellite
                 and vs.satellite.shell
-                and vs.satellite.shell.identifier in shell_white_lists
+                and vs.satellite.shell.identifier in shells_whitelist
             ):
                 satellites_in_white_list.append(vs)
         except (AttributeError, TypeError):
@@ -288,7 +288,7 @@ def get_closest_visible_satellite_from_white_list_unordered(
     from ALL white-listed shells (treats all shells equally, no fallback priority).
 
     :param visible_satellites: List of visible satellites
-    :param ground_object: Ground object with shell_white_lists in its domain
+    :param ground_object: Ground object with shells_whitelist in its domain
     :param distance_model: Distance model to compute distances
     :return: Closest satellite from white-listed shells, or None if no visible satellites
     """
@@ -296,14 +296,14 @@ def get_closest_visible_satellite_from_white_list_unordered(
         return None
 
     # Get shell white lists from ground object domain
-    shell_white_lists = (
+    shells_whitelist = (
         ground_object.ground_object_domain.shells_whitelist
         if ground_object.ground_object_domain
         else []
     )
 
     # If white list is empty, return the closest satellite among all
-    if not shell_white_lists:
+    if not shells_whitelist:
         closest = distance_model.k_closest(ground_object, visible_satellites, k=1)
         return closest[0] if closest else None
 
@@ -316,7 +316,7 @@ def get_closest_visible_satellite_from_white_list_unordered(
             and hasattr(vs, "shell")
             and vs.shell
             and hasattr(vs.shell, "identifier")
-            and vs.shell.identifier in shell_white_lists
+            and vs.shell.identifier in shells_whitelist
         )
     ]
 

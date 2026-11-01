@@ -102,6 +102,9 @@ one raises a `FutureWarning` (`Parameter X was never used and will be removed`):
   `maximum_inter_satellite_range_distance`, `maximum_ground_station_range`,
   `maximum_user_terminal_range`
 
+Outdated: `shell_white_lists` was renamed `shells_whitelist`. It is still read, with a
+`FutureWarning` (and ignored when `shells_whitelist` is also set).
+
 ### Create an Empty Simulation
 ```python
 from sat_com_builder.configuration_manager import  EmptyConfigurationManager

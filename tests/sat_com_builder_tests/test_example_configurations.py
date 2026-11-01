@@ -1,9 +1,14 @@
 import json
+import warnings
 from pathlib import Path
 
 import pytest
 
-from sat_com_builder.models import OrbitalConnectivityProperty, SimulationProperty
+from sat_com_builder.models import (
+    GroundConnectivityProperty,
+    OrbitalConnectivityProperty,
+    SimulationProperty,
+)
 
 EXAMPLES = Path(__file__).parents[2] / "src" / "sat_com_builder" / "examples"
 
@@ -49,3 +54,28 @@ def test_unused_orbital_parameter_is_ignored_with_a_warning(parameter):
 
     assert orbital_property.adjacent_inter_satellite_shifting == 1
     assert parameter not in orbital_property.model_dump()
+
+
+def test_outdated_shell_white_lists_is_renamed_with_a_warning():
+    with pytest.warns(FutureWarning, match="rename it `shells_whitelist`"):
+        connectivity = GroundConnectivityProperty(shell_white_lists=["Walker"])
+
+    assert connectivity.shells_whitelist == ["Walker"]
+    assert "shell_white_lists" not in connectivity.model_dump()
+
+
+def test_outdated_shell_white_lists_is_ignored_when_shells_whitelist_is_set():
+    with pytest.warns(FutureWarning, match="ignored"):
+        connectivity = GroundConnectivityProperty(
+            shell_white_lists=["Old"], shells_whitelist=["New"]
+        )
+
+    assert connectivity.shells_whitelist == ["New"]
+
+
+def test_shells_whitelist_raises_no_warning():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        connectivity = GroundConnectivityProperty(shells_whitelist=["Walker"])
+
+    assert connectivity.shells_whitelist == ["Walker"]

@@ -140,9 +140,6 @@ class GroundConnectivityProperty(BaseModel):
     maximum_satellite_range_distance: float = Field(default=1000)
     maximum_satellite_connected_count: Optional[int] = None
 
-    # Deprecated
-    shell_white_lists: list[str] = Field(default_factory=list)
-
     shells_whitelist: list[str] = Field(default_factory=list)
 
     maximum_connected_satellites: Optional[int] = None
@@ -157,10 +154,26 @@ class GroundConnectivityProperty(BaseModel):
         if not isinstance(data, dict):
             return data
 
-        old = data.get("shell_white_lists")
+        if "shell_white_lists" not in data:
+            return data
+
+        data = dict(data)
+        old = data.pop("shell_white_lists")
         new = data.get("shells_whitelist")
 
-        if (not new) and old:
+        if new:
+            warnings.warn(
+                "Parameter `shell_white_lists` is outdated and ignored, because `shells_whitelist` is also set. "
+                "Remove `shell_white_lists`.",
+                FutureWarning,
+                stacklevel=2,
+            )
+        else:
+            warnings.warn(
+                "Parameter `shell_white_lists` is outdated and will be removed: rename it `shells_whitelist`.",
+                FutureWarning,
+                stacklevel=2,
+            )
             data["shells_whitelist"] = old
 
         return data
