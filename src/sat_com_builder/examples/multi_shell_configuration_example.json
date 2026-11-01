@@ -4,6 +4,9 @@
   "end_date": "2024-11-25 10:00:00.123456",
   "movement_model": "pyorbital",
   "distance_model": "sklearn",
+  "inter_satellite_link_connection_strategy": "inter-shell-sso-priority",
+  "optical_inter_satellite_link_model": "advanced",
+  "disable_ground_station_link_preload": false,
   "ground_objects_properties": [
     {
       "identifier": "Global Users",
@@ -11,13 +14,11 @@
       "type": "user_terminal",
       "connectivity_properties": {
         "elevation_above_horizon": 25,
-        "maximum_satellite_range_distance": 1200,
-        "maximum_satellite_connected_count": 1000,
-        "shell_white_lists": [
+        "shells_whitelist": [
           "Andromeda Walker"
         ],
-        "maximum_connected_satellites": 50,
-        "ground_to_space_connections_strategy": "best-angle-until-disconnection"
+        "maximum_connected_satellites": 1,
+        "ground_to_space_connections_strategy": "best-angle-until-disconnection-prefer-lower-shell"
       }
     },
     {
@@ -26,22 +27,47 @@
       "type": "ground_station",
       "connectivity_properties": {
         "elevation_above_horizon": 15,
-        "maximum_satellite_range_distance": 1500,
-        "shell_white_lists": [
+        "shells_whitelist": [
           "Andromeda Polar",
-          "Andromeda Walker"
+          "Andromeda Walker",
+          "Aurora SSO"
         ],
         "maximum_connected_satellites": 20,
         "ground_to_space_connections_strategy": "everything-visible"
+      }
+    },
+    {
+      "identifier": "Inline Points of Presence",
+      "type": "point_of_presence",
+      "ground_objects": [
+        {
+          "id": 0,
+          "label": "Paris",
+          "latitude": 48.85,
+          "longitude": 2.35,
+          "altitude": 0.0
+        },
+        {
+          "id": 1,
+          "label": "Toulouse",
+          "latitude": 43.6,
+          "longitude": 1.44,
+          "altitude": 0.1
+        }
+      ],
+      "connectivity_properties": {
+        "elevation_above_horizon": 20,
+        "maximum_connected_satellites": 2,
+        "ground_to_space_connections_strategy": "best-angle-until-disconnection-ordered"
       }
     }
   ],
   "walker_shells": [
     {
-      "identifier": "Andromeda Polar Shell 2",
       "type": "star",
+      "static_addressing_plan": "CHECKERBOARD_WALKER_STAR",
       "constellation_property": {
-        "identifier": "OneWeb",
+        "identifier": "Andromeda Polar",
         "amount_of_orbit_plane": 12,
         "amount_of_satellite_per_orbit_plane": 54,
         "inclination": 86.4,
@@ -50,10 +76,6 @@
       },
       "orbital_connectivity_property": {
         "adjacent_inter_satellite_shifting": 0,
-        "maximum_inter_satellite_count": 4,
-        "maximum_inter_satellite_range_distance": 1500.0,
-        "maximum_ground_station_range": 1200.0,
-        "maximum_user_terminal_range": 1000.0,
         "maximum_connected_ground_object": 100,
         "maximum_connected_user_terminal": 500,
         "maximum_connected_ground_station": 10
@@ -64,8 +86,72 @@
     },
     {
       "type": "delta",
+      "static_addressing_plan": "FULL_MESH_WALKER_DELTA",
+      "satellite_property": {
+        "optical_inter_satellite_link_installations": [
+          {
+            "azimuth_angle_configuration": 0.0,
+            "elevation_angle_configuration": -90.0,
+            "descriptor": "INTRA_PLANE_FORWARD",
+            "orientation_possibilities": [
+              "INTRA_PLANE_FORWARD"
+            ],
+            "optical_terminal_property": {
+              "maximum_angular_velocity_degree_per_second": 1.0,
+              "maximum_range_distance_km": 7800.0,
+              "minimum_contact_duration_seconds": 30.0,
+              "max_azimuth_degrees": 180.0,
+              "min_elevation_degrees": -25.0,
+              "max_elevation_degrees": 5.0,
+              "los_central_angle_max_degrees": 80.0
+            }
+          },
+          {
+            "azimuth_angle_configuration": -180.0,
+            "elevation_angle_configuration": -90.0,
+            "descriptor": "INTRA_PLANE_BACKWARD",
+            "orientation_possibilities": [
+              "INTRA_PLANE_BACKWARD"
+            ]
+          },
+          {
+            "azimuth_angle_configuration": 90.0,
+            "elevation_angle_configuration": -90.0,
+            "descriptor": "INTER_PLANE_LEFT",
+            "orientation_possibilities": [
+              "INTER_PLANE_LEFT"
+            ]
+          },
+          {
+            "azimuth_angle_configuration": -90.0,
+            "elevation_angle_configuration": -90.0,
+            "descriptor": "INTER_PLANE_RIGHT",
+            "orientation_possibilities": [
+              "INTER_PLANE_RIGHT"
+            ]
+          },
+          {
+            "azimuth_angle_configuration": 90.0,
+            "elevation_angle_configuration": -90.0,
+            "descriptor": "INTER_SHELL_LEFT",
+            "orientation_possibilities": [
+              "INTER_SHELL_LEFT",
+              "INTER_SHELL_RIGHT"
+            ],
+            "optical_terminal_property": {
+              "maximum_angular_velocity_degree_per_second": 1.0,
+              "maximum_range_distance_km": 7800.0,
+              "minimum_contact_duration_seconds": 30.0,
+              "max_azimuth_degrees": 180.0,
+              "min_elevation_degrees": -25.0,
+              "max_elevation_degrees": 5.0,
+              "los_central_angle_max_degrees": 80.0
+            }
+          }
+        ]
+      },
       "constellation_property": {
-        "identifier": "Andromeda Walker Shell 1",
+        "identifier": "Andromeda Walker",
         "amount_of_orbit_plane": 22,
         "amount_of_satellite_per_orbit_plane": 40,
         "inclination": 53.0,
@@ -74,21 +160,72 @@
       },
       "orbital_connectivity_property": {
         "adjacent_inter_satellite_shifting": 1,
-        "maximum_inter_satellite_count": 4,
-        "maximum_inter_satellite_range_distance": 2000.0,
-        "maximum_ground_station_range": 1500.0,
-        "maximum_user_terminal_range": 1200.0,
         "maximum_connected_ground_object": 200,
         "maximum_connected_user_terminal": 1000,
         "maximum_connected_ground_station": 50
       },
       "ground_object_white_list": [
         "Global Users",
-        "Gateway Stations"
+        "Gateway Stations",
+        "Inline Points of Presence"
       ]
     }
   ],
-  "disable_ground_station_link_preload": false,
-  "static_ground_station_link_mode": false
+  "dawn_dusk_sso_shells": [
+    {
+      "static_addressing_plan": "LINKED_SSO",
+      "satellite_property": {
+        "optical_inter_satellite_link_installations": [
+          {
+            "azimuth_angle_configuration": 0.0,
+            "elevation_angle_configuration": -90.0,
+            "descriptor": "INTRA_PLANE_FORWARD",
+            "orientation_possibilities": [
+              "INTRA_PLANE_FORWARD"
+            ]
+          },
+          {
+            "azimuth_angle_configuration": -180.0,
+            "elevation_angle_configuration": -90.0,
+            "descriptor": "INTRA_PLANE_BACKWARD",
+            "orientation_possibilities": [
+              "INTRA_PLANE_BACKWARD"
+            ]
+          },
+          {
+            "azimuth_angle_configuration": 90.0,
+            "elevation_angle_configuration": -90.0,
+            "descriptor": "INTER_SHELL_LEFT",
+            "orientation_possibilities": [
+              "INTER_SHELL_LEFT",
+              "INTER_SHELL_RIGHT"
+            ],
+            "optical_terminal_property": {
+              "maximum_angular_velocity_degree_per_second": 1.0,
+              "maximum_range_distance_km": 7800.0,
+              "minimum_contact_duration_seconds": 30.0,
+              "max_azimuth_degrees": 180.0,
+              "min_elevation_degrees": -25.0,
+              "max_elevation_degrees": 5.0,
+              "los_central_angle_max_degrees": 80.0
+            }
+          }
+        ]
+      },
+      "constellation_property": {
+        "identifier": "Aurora SSO",
+        "altitude_in_km": 600.0,
+        "amount_of_satellite": 80,
+        "epoch": "2024-11-18T10:00:00"
+      },
+      "orbital_connectivity_property": {
+        "adjacent_inter_satellite_shifting": 0,
+        "maximum_connected_ground_station": 10
+      },
+      "ground_object_white_list": [
+        "Gateway Stations"
+      ],
+      "constellation_white_list": []
+    }
+  ]
 }
-

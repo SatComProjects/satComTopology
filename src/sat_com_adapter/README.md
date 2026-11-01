@@ -19,146 +19,132 @@ NetworkX builder is the object used to create networkX graph, it will be used in
 will define what we want to export in the adapter. 
 The adapter is the layer that export the Builder into a file.
 
+##### Content
+By default the graph only holds light, useful data:
+
+| Element | Data |
+|---|---|
+| graph | `current_simulation_date`, `simulation_configuration` |
+| every node | `type`, `object_id`, `topology_uniq_id` |
+| satellite | `name`, `shell_id`, `orbital_phase` |
+| ground station, user terminal, point of presence | `label`, `ground_domain` |
+| every edge | `type`, `source_id`, `destination_id`, `distance_km` |
+| inter-satellite link | `direction` (`ORBITAL`, `ADJACENT`, `INTER_SHELL`) |
+
+- `distance_km` is the straight-line distance of the link computed by the
+  simulation. A link without one (ground-to-ground links, static ground station
+  mode) gets the straight-line distance between both positions.
+- `source_id` / `destination_id` keep the link orientation: the graph is
+  undirected, and the `source` / `target` keys of a JSON export follow the
+  adjacency order, not the link.
+
 ##### Available options
-- export_positions: boolean, if True, will export the nodes positions
-- export_link_length: boolean, if True, will export link length (distance in meters)
-- enable_export_flows_data: boolean, if True, will export data about the amount of flows crossing links in both directions
+All `False` by default:
+- `export_positions`: node `position` (longitude, latitude, altitude in meters)
+- `export_grid_coordinates`: Walker satellites `orbit_plane_id` / `satellite_number`
+- `enable_export_flows_data`: amount of flows crossing each link in both directions
+- `export_model_data`: full model of every node and edge, under `model_data` (heavy)
+
+`export_link_length` is deprecated: the distance is always exported. It is still
+accepted and emits a `FutureWarning`.
+
 ##### Code
 ```py
 from sat_com_adapter.networkx_builder.networkx_builder import NetworkxBuilder
 from sat_com_adapter.adapters import NetworkXAdapter
-from sat_com_application.simulation_manager import SimulationManager
-from sat_com_model.models import Simulation
 
-my_example_simulation = Simulation()
-example_simulation_manager = SimulationManager(my_example_simulation)
-
-network_x_builder = NetworkxBuilder(example_simulation_manager, 
-                                    export_positions=True, 
-                                    export_link_length= True, 
-                                    enable_export_flows_data= True
+network_x_builder = NetworkxBuilder(simulation_manager,
+                                    export_positions=True,
+                                    enable_export_flows_data=True,
                                     )
+network_x_builder.add_topology_objects().add_links()
+my_networkx_graph = network_x_builder.build()
 
-my_networkx_graph = network_x_builder.graph
-
-networkx_adapter = NetworkXAdapter(example_simulation_manager)
-networkx_adapter.adapt("my_out_put_directory") # Export the graph (not mandatory)
+networkx_adapter = NetworkXAdapter(simulation_manager)
+networkx_adapter.set_networkx_builder(network_x_builder)
+networkx_adapter.adapt("my_graph.json")  # Export the graph (not mandatory)
 ```
 
 #### Graph Structure
-```py
-graph_as_dict_structure = {
-    "directed": False,
-    "multigraph": False,
-    "graph": {},
-    "nodes": [
-        {
-            "type": "Satellite",
-            "id": 0,
-            "position": { # if export_positions =  True
-              "longitude": 50,
-              "latitude": 65,
-              "altitude": 500, # In kilometer ?
-            }
-        },
-        {
-            "type": "Satellite",
-            "id": 1,
-            "position": { # if export_positions =  True
-              "longitude": 50,
-              "latitude": 65,
-              "altitude": 500, # In kilometer ?
-            },
-
-        }
-    ],
-    "links": [
-        {
-            "type": "InterSatelliteLink",
-            "direction": "ORBITAL",
-            "source": 1,
-            "target": 2,
-            "used_capacity_between_previous_and_last_hop": { # if enable_export_flows_data is True
-              1: 150, # previous hop is 1 (link "source"), next hop is 2
-              2: 200  # previous hop is 2 (link "destination"), next hop is 1
-            },
-            "distance": 500000, # In meters
-        },
-        {
-            "type": "InterSatelliteLink",
-            "direction": "ADJACENT",
-            "source": 1,
-            "target": 24,
-            "used_capacity_between_previous_and_last_hop": { # if enable_export_flows_data is True
-              1: 15, # previous hop is 1 (link "source"), next hop is 2
-              24: 142  # previous hop is 24 (link "destination"), next hop is 1
-            },
-            "distance": 500000, # In meters          
-        }
-    ]
-}
-
-```
-#### With file export
-```python
-from sat_com_adapter.adapters import NetworkXAdapter
-from sat_com_application.simulation_manager import SimulationManager
-from sat_com_model.models import Simulation
-
-my_example_simulation = Simulation()
-example_simulation_manager = SimulationManager(my_example_simulation)
-
-network_x_adapter = NetworkXAdapter(example_simulation_manager)
-
-network_x_adapter.adapt("my_folder")
-```
-Result:
+Default export of a 10 × 10 Walker shell with ground stations (one node and one
+edge of each kind):
 ```json
 {
   "directed": false,
   "multigraph": false,
-  "graph": {},
+  "graph": {
+    "current_simulation_date": "2026-01-01 00:00:00.000",
+    "simulation_configuration": {"...": "..."}
+  },
   "nodes": [
     {
+      "name": "Walker Test 0",
+      "orbital_phase": "descending",
+      "shell_id": "Walker Test",
       "type": "Satellite",
+      "object_id": 0,
+      "topology_uniq_id": 0,
       "id": 0
     },
     {
-      "type": "Satellite",
-      "id": 1
+      "label": "Tokyo",
+      "ground_domain": "Ground Stations",
+      "type": "GroundStation",
+      "object_id": 0,
+      "topology_uniq_id": 100,
+      "id": 100
     }
   ],
-  "links": [
+  "edges": [
     {
-      "type": "InterSatelliteLink",
       "direction": "ORBITAL",
-      "source": 1,
-      "target": 2
+      "type": "InterSatelliteLink",
+      "source_id": 0,
+      "destination_id": 1,
+      "distance_km": 4720.702951429366,
+      "source": 0,
+      "target": 1
     },
     {
-      "type": "InterSatelliteLink",
-      "direction": "ADJACENT",
-      "source": 1,
-      "target": 24
+      "type": "GroundStationLink",
+      "source_id": 0,
+      "destination_id": 172,
+      "distance_km": 2239.7174047501844,
+      "source": 0,
+      "target": 172
     }
   ]
 }
 ```
-We have to improve the adapt() method, because now it returns a default networkx graph without any addition data.
+With `enable_export_flows_data`, each edge also has:
+```json
+"used_capacity_between_previous_and_last_hop": {"0": 150, "1": 200},
+"total_used_capacity_crossing_link": 350,
+"unidirectional_link_maximum_capacity": 1000
+```
+(`"0": 150` is the capacity used from node 0 to node 1.)
+
+#### With file export
+`adapt()` builds the default graph if none was built before, and writes it as a
+node-link JSON (edges under `"edges"`) on every supported networkx version.
+```python
+from sat_com_adapter.adapters import NetworkXAdapter
+
+network_x_adapter = NetworkXAdapter(simulation_manager)
+network_x_adapter.adapt("my_graph.json")
+```
 
 ### Without file export
 
 ```python
 from sat_com_adapter.adapters import NetworkXAdapter
-from sat_com_application.simulation_manager import SimulationManager
-from sat_com_model.models import Simulation
 
-my_example_simulation = Simulation()
-example_simulation_manager = SimulationManager(my_example_simulation)
+network_x_adapter = NetworkXAdapter(simulation_manager)
 
-network_x_adapter = NetworkXAdapter(example_simulation_manager)
-
-my_nx_graph = network_x_adapter.create_full_networkx_graph(export_link_length=True, export_object_position=True)
+my_nx_graph = network_x_adapter.create_full_networkx_graph(
+    export_object_position=True,
+    export_model_data=False,  # True: full model of every node and edge
+)
 ```
 You can still use json_graph api from networkX to export a file later.
 

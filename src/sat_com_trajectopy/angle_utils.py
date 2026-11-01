@@ -1,90 +1,65 @@
-import math
+"""
+Deprecated: these functions moved to `sat_com_connectivity.utils`.
+
+They are kept as aliases that emit a FutureWarning and call the moved function,
+so their results are the ones of `sat_com_connectivity.utils` (WGS72 ellipsoid).
+"""
+
+import functools
+import warnings
 
 
-def latitude_longitude_altitude_to_x_y_z(lat, lon, elev):
-    """
-    Method to convert latitude, longitude and elevation to cartesian coordinates
-    :param lat: Latitude
-    :param lon: Longitude
-    :param elev: Elevation
-    :return: Cartesian coordinates
-    """
-    R = 6378.137 * 1000  # Radius of the Earth in km
-    x = (R + elev) * math.cos(math.radians(lat)) * math.cos(math.radians(lon))
-    y = (R + elev) * math.cos(math.radians(lat)) * math.sin(math.radians(lon))
-    z = (R + elev) * math.sin(math.radians(lat))
-    return x, y, z
-
-
-def get_elevation_angle(
-    sat_coordinates: tuple[float, float, float],
-    gnd_coordinates: tuple[float, float, float],
-) -> float:
-    """
-    Calculate the elevation angle from a ground station to a satellite.
-
-    :param sat_coordinates: (lat, lon, alt) of satellite in degrees and meters
-    :param gnd_coordinates: (lat, lon, alt) of ground station in degrees and meters
-    :return: Elevation angle in degrees
-    """
-    # Convert both positions to ECEF
-    sat_ecef = latitude_longitude_altitude_to_x_y_z(*sat_coordinates)
-    gnd_ecef = latitude_longitude_altitude_to_x_y_z(*gnd_coordinates)
-
-    # Vector from ground to satellite
-    vector = np.array(sat_ecef) - np.array(gnd_ecef)
-
-    # Convert ground coordinates to radians
-    lat, lon = np.radians(gnd_coordinates[0]), np.radians(gnd_coordinates[1])
-
-    # ENU basis vectors
-    up = np.array([np.cos(lat) * np.cos(lon), np.cos(lat) * np.sin(lon), np.sin(lat)])
-
-    # Project vector onto "up" direction
-    distance = np.linalg.norm(vector)
-    elevation_rad = np.arcsin(np.dot(vector, up) / distance)
-
-    return np.degrees(elevation_rad)
-
-
-import numpy as np
-
-
-def ground_to_up_vector(gnd_coords: tuple[float, float, float]) -> np.ndarray:
-    """
-    Compute the ENU 'up' unit vector at the ground location.
-    """
-    lat, lon = np.radians(gnd_coords[0]), np.radians(gnd_coords[1])
-    return np.array(
-        [
-            np.cos(lat) * np.cos(lon),
-            np.cos(lat) * np.sin(lon),
-            np.sin(lat),
-        ]
-    )
-
-
-def satellites_to_ecef(satellites: list) -> np.ndarray:
-    """
-    Convert all satellites to ECEF coordinates.
-    """
-    return np.array(
-        [
-            latitude_longitude_altitude_to_x_y_z(
-                *sat.get_coordinates().to_latitude_longitude_altitude()
+def _moved_to_connectivity_utils(name: str):
+    def decorator(_placeholder):
+        @functools.wraps(_placeholder)
+        def wrapper(*args, **kwargs):
+            warnings.warn(
+                f"sat_com_trajectopy.angle_utils.{name} has moved to "
+                f"sat_com_connectivity.utils.{name}. The sat_com_trajectopy "
+                "version will be removed in a future version.",
+                FutureWarning,
+                stacklevel=2,
             )
-            for sat in satellites
-        ]
-    )
+            # Imported here: sat_com_connectivity imports this package's siblings.
+            from sat_com_connectivity import utils
+
+            return getattr(utils, name)(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
-def compute_elevations(
-    sat_ecef: np.ndarray, gnd_ecef: np.ndarray, up: np.ndarray
-) -> np.ndarray:
-    """
-    Compute elevation angles (degrees) for all satellites relative to ground station.
-    """
-    vectors = sat_ecef - gnd_ecef
-    distances = np.linalg.norm(vectors, axis=1)
-    elevation_rad = np.arcsin((vectors @ up) / distances)
-    return np.degrees(elevation_rad)
+@_moved_to_connectivity_utils("latitude_longitude_altitude_to_x_y_z")
+def latitude_longitude_altitude_to_x_y_z(lat, lon, elev):
+    """Deprecated: use sat_com_connectivity.utils.latitude_longitude_altitude_to_x_y_z."""
+
+
+@_moved_to_connectivity_utils("get_elevation_angle")
+def get_elevation_angle(sat_coordinates, gnd_coordinates):
+    """Deprecated: use sat_com_connectivity.utils.get_elevation_angle."""
+
+
+@_moved_to_connectivity_utils("get_elevation_angle_and_distance")
+def get_elevation_angle_and_distance(sat_coordinates, gnd_coordinates):
+    """Deprecated: use sat_com_connectivity.utils.get_elevation_angle_and_distance."""
+
+
+@_moved_to_connectivity_utils("ground_to_up_vector")
+def ground_to_up_vector(gnd_coords):
+    """Deprecated: use sat_com_connectivity.utils.ground_to_up_vector."""
+
+
+@_moved_to_connectivity_utils("satellites_to_ecef")
+def satellites_to_ecef(satellites):
+    """Deprecated: use sat_com_connectivity.utils.satellites_to_ecef."""
+
+
+@_moved_to_connectivity_utils("compute_elevations")
+def compute_elevations(sat_ecef, gnd_ecef, up):
+    """Deprecated: use sat_com_connectivity.utils.compute_elevations."""
+
+
+@_moved_to_connectivity_utils("compute_elevations_and_distances")
+def compute_elevations_and_distances(sat_ecef, gnd_ecef, up):
+    """Deprecated: use sat_com_connectivity.utils.compute_elevations_and_distances."""

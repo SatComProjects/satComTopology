@@ -2,7 +2,12 @@ from pathlib import Path
 
 from sat_com_builder.configuration_manager import BaseConfigurationManager
 from sat_com_builder.models import SimulationProperty
-from sat_com_model.models import InterSatelliteLink, Satellite
+from sat_com_model.models import (
+    InterSatelliteLink,
+    Satellite,
+    WalkerShell,
+    DawnDuskSSOShell,
+)
 
 
 def test_load_single_shell_simulation():
@@ -41,10 +46,6 @@ def test_load_single_shell_simulation():
                 },
                 "orbital_connectivity_property": {
                     "adjacent_inter_satellite_shifting": 0,
-                    "maximum_inter_satellite_count": 4,
-                    "maximum_inter_satellite_range_distance": 1000,
-                    "maximum_ground_station_range": 5000,
-                    "maximum_user_terminal_range": 1000,
                     "maximum_connected_ground_object": 10000,
                     "maximum_connected_user_terminal": 1000,
                     "maximum_connected_ground_station": 10,
@@ -74,13 +75,34 @@ def test_load_single_shell_simulation():
     assert simulation_manager.simulation.ground_object_domains[0].identifier == "public"
 
     # Assert that every satellite have 4 isl
+
+    for satellite in simulation_manager.get_satellites():
+        number_of_isl = len(
+            [isl for isl in satellite.links if isinstance(isl, InterSatelliteLink)]
+        )
+        assert (
+            number_of_isl == 4
+        ), f"Satellite: {satellite.topology_uniq_id} as {number_of_isl}, {[link.inter_satellite_direction for link in satellite.links]}"
+
     assert all(
-        len([link for link in satellite.links if isinstance(link, InterSatelliteLink)])
-        == 4
+        isinstance(satellite.shell, WalkerShell)
         for satellite in simulation_manager.get_satellites()
     )
+
+    assert (
+        simulation_manager.get_ground_stations()[
+            0
+        ].ground_object_domain.ground_to_space_connections_strategy
+        == "everything-visible"
+    )
+    assert (
+        simulation_manager.get_ground_stations()[0].ground_object_domain.identifier
+        == "OneWeb Ground Station"
+    )
+
     assert len(simulation_manager.get_ground_stations()[0].links) == 16
 
+    # Update Strategy
     simulation_manager.get_ground_stations()[
         0
     ].ground_object_domain.ground_to_space_connections_strategy = (
@@ -143,3 +165,66 @@ def test_load_single_shell_simulation():
     )
 
     assert satellite_connected_to_the_link.topology_uniq_id == 200
+
+
+def test_load_sso_shell_simulation():
+    base_dir = Path(__file__).parent
+    print(base_dir)
+    data_file_path = "./testing_ground_stations.txt"
+    data_file_path = Path(base_dir) / data_file_path
+
+    plain_config_sso = {
+        "simulation_name": "Single SSO Shell Simulation",
+        "start_date": "2024-11-18 00:00:00.000000",
+        "end_date": "2024-11-18 23:59:00.000000",
+        "movement_model": "pyorbital",
+        "distance_model": "sklearn",
+        "ground_objects_properties": [
+            {
+                "identifier": "OneWeb Ground Station",
+                "data_file": str(data_file_path),
+                "type": "ground_station",
+                "connectivity_properties": {
+                    "elevation_above_horizon": 20,
+                    "ground_to_space_connections_strategy": "everything-visible",
+                },
+            }
+        ],
+        "dawn_dusk_sso_shells": [
+            {
+                "constellation_property": {
+                    "identifier": "Aurora SSO",
+                    "altitude_in_km": 600.0,  # Specific to SSO
+                    "amount_of_satellite": 80,
+                },
+                "orbital_connectivity_property": {
+                    "adjacent_inter_satellite_shifting": 0,
+                    "maximum_connected_ground_object": 10000,
+                    "maximum_connected_user_terminal": 1000,
+                    "maximum_connected_ground_station": 10,
+                },
+                "ground_object_white_list": [],
+                "constellation_white_list": [],
+            }
+        ],
+    }
+    simulation_properties = SimulationProperty(**plain_config_sso)
+
+    simulation_manager = BaseConfigurationManager(
+        simulation_property=simulation_properties
+    )
+    simulation_manager = simulation_manager.load_simulation()
+
+    # Assert that every satellites are SSOShell
+    assert all(
+        isinstance(satellite.shell, DawnDuskSSOShell)
+        for satellite in simulation_manager.get_satellites()
+    )
+
+    for satellite in simulation_manager.get_satellites():
+        print(satellite.topology_uniq_id, satellite.get_coordinates().altitude)
+
+    assert all(
+        550_000 <= satellite.get_coordinates().altitude <= 650_000
+        for satellite in simulation_manager.get_satellites()
+    )

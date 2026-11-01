@@ -1,8 +1,66 @@
+"""
+NetworkX graph of a simulation.
+
+Default content, kept small so the graph stays light and easy to use:
+
+- graph: `current_simulation_date`, `simulation_configuration`
+- every node: `type`, `object_id`, `topology_uniq_id`, plus
+  - satellite: `name`, `shell_id`, `orbital_phase`
+  - ground station, user terminal, point of presence: `label`, `ground_domain`
+- every edge: `type`, `source_id`, `destination_id`, `distance_km`, plus
+  - inter-satellite link: `direction`
+
+`source_id` / `destination_id` keep the link orientation (the graph is
+undirected, and the `source` / `target` keys of a node-link export follow the
+adjacency order, not the link). `distance_km` is the straight-line distance of
+the link, computed by the simulation; when a link has none (ground-to-ground
+links, static ground station mode), it is computed from both positions.
+
+Options (constructor keyword arguments, all False by default):
+
+- `export_positions`: node `position` (longitude, latitude, altitude)
+- `export_grid_coordinates`: Walker satellites `orbit_plane_id` / `satellite_number`
+- `enable_export_flows_data`: edge flow figures
+- `export_model_data`: full pydantic dump of every node and edge, in `model_data`
+"""
+
+import warnings
+
 import networkx as nx
+import numpy as np
 
 from sat_com_application.simulation_manager import SimulationManager
-from sat_com_model.models import TopologyObject, Link, Satellite
+from sat_com_connectivity.utils import latitude_longitude_altitude_to_x_y_z
+from sat_com_model.models import (
+    TopologyObject,
+    Link,
+    Satellite,
+    InterSatelliteLink,
+    WalkerShell,
+)
 from sat_com_trajectopy.grid_mesh_calculator import calculate_satellite_mesh_coordinates
+
+
+def link_distance_km(link: Link) -> float:
+    """
+    Distance of a link: the one computed by the simulation, or the straight-line
+    distance between both positions when the link has none (None or -1).
+    """
+    if link.distance_km is not None and link.distance_km >= 0:
+        return float(link.distance_km)
+
+    source = latitude_longitude_altitude_to_x_y_z(
+        *link.source.get_coordinates().to_latitude_longitude_altitude()
+    )
+    destination = latitude_longitude_altitude_to_x_y_z(
+        *link.destination.get_coordinates().to_latitude_longitude_altitude()
+    )
+    return float(np.linalg.norm(np.subtract(source, destination))) / 1000.0
+
+
+def _ground_domain(ground_object) -> str | None:
+    domain = getattr(ground_object, "ground_object_domain", None)
+    return domain.identifier if domain else None
 
 
 class NetworkxBuilder:
@@ -10,38 +68,50 @@ class NetworkxBuilder:
     graph: nx.Graph
 
     enable_export_positions: bool
-    enable_export_link_length: bool
+    enable_export_grid_coordinates: bool
+    enable_export_flows_data: bool
+    enable_export_model_data: bool
 
     def __init__(self, simulation_manager: SimulationManager, **kwargs):
         """
-        Create a Networkx Builder.
+        Create a Networkx Builder. See the module docstring for the graph content.
         :param simulation_manager:
-        :param kwargs:
-            :arg export_positions: Enable export the satellite position
-            :arg export_link_length: Enable export the satellite link length (ground distance between links)
-            :arg enable_export_flows_data: Enable the export of the flow metric
-            :arg export_grid_coordinates: Enable the export of the grid coordinates for walker shells
+        :param kwargs: all False by default
+            :arg export_positions: export the node positions
+            :arg export_grid_coordinates: export the grid coordinates of Walker satellites
+            :arg enable_export_flows_data: export the flow figures of the links
+            :arg export_model_data: export the full model of every node and edge
+            :arg export_link_length: deprecated, the distance is always exported
         """
         self.simulation_manager = simulation_manager
         simulation_date_as_str = simulation_manager.time_manager.current_time.strftime(
             "%Y-%m-%d %H:%M:%S.%f"
         )[:-3]
 
-        simulation_configuration = simulation_manager.configuration
         self.graph = nx.Graph(
             current_simulation_date=simulation_date_as_str,
-            simulation_configuration=simulation_configuration,
+            simulation_configuration=simulation_manager.configuration,
         )
 
         self.enable_export_positions = kwargs.get("export_positions", False)
-
-        self.enable_export_link_length = kwargs.get("export_link_length", False)
-
-        self.enable_export_flows_data = kwargs.get("enable_export_flows_data", False)
-
         self.enable_export_grid_coordinates = kwargs.get(
             "export_grid_coordinates", False
         )
+        self.enable_export_flows_data = kwargs.get("enable_export_flows_data", False)
+        self.enable_export_model_data = kwargs.get("export_model_data", False)
+
+        if "export_link_length" in kwargs:
+            warnings.warn(
+                "export_link_length is deprecated and ignored: every edge now has "
+                "its distance in 'distance_km'.",
+                FutureWarning,
+                stacklevel=2,
+            )
+
+    def _model_data(self, model) -> dict:
+        if not self.enable_export_model_data:
+            return {}
+        return {"model_data": model.model_dump(mode="json")}
 
     def add_topology_object(
         self, topology_object: TopologyObject, data: dict = None
@@ -70,14 +140,16 @@ class NetworkxBuilder:
             topology_uniq_id=topology_object.topology_uniq_id,
         )
 
-        if self.enable_export_grid_coordinates and isinstance(
-            topology_object, Satellite
+        if (
+            self.enable_export_grid_coordinates
+            and isinstance(topology_object, Satellite)
+            and isinstance(topology_object.shell, WalkerShell)
         ):
             coordinates_on_grid = calculate_satellite_mesh_coordinates(
                 topology_object.object_id,
-                topology_object.walker_shell.amount_of_orbit_plane,
-                topology_object.walker_shell.amount_of_satellite_per_orbit_plane,
-                topology_object.walker_shell.adjacent_inter_satellite_shifting,
+                topology_object.shell.amount_of_orbit_plane,
+                topology_object.shell.amount_of_satellite_per_orbit_plane,
+                topology_object.shell.adjacent_inter_satellite_shifting,
             )
             data.update(
                 orbit_plane_id=coordinates_on_grid[0],
@@ -92,13 +164,9 @@ class NetworkxBuilder:
         """
         Add a Link to the Networkx Builder.
 
-        if export link length is exported, the distance meter will be exported, accessible from the
-        key "distance"
-        if used_capacity_between_previous_and_last_hop is enabled the unidirectional used capacity
-        will be exported, accessible from the key "used_capacity_between_previous_and_last_hop", with the
-        following structure:
-        For link with source=1 and destination=2:
-        The Key will always be the first node from the edge.
+        If enable_export_flows_data is enabled, the unidirectional used capacity
+        is exported under "used_capacity_between_previous_and_last_hop", keyed by
+        the first node of each direction. For a link with source=1 and destination=2:
         "used_capacity_between_previous_and_last_hop": {
              1: x, # for 1 -> 2
              2: y, # for 2 -> 1
@@ -113,13 +181,12 @@ class NetworkxBuilder:
         source = link.source
         destination = link.destination
 
-        data.update(type=link.type)
-
-        if self.enable_export_link_length:
-            distance = self.simulation_manager.simulation.get_distance_model().get_3d_distance_meters(
-                source.spatial_position, destination.spatial_position
-            )
-            data.update(distance=distance)
+        data.update(
+            type=link.type,
+            source_id=source.topology_uniq_id,
+            destination_id=destination.topology_uniq_id,
+            distance_km=link_distance_km(link),
+        )
 
         if self.enable_export_flows_data:
             flows = dict()
@@ -154,13 +221,26 @@ class NetworkxBuilder:
         :return: Networkx Builder instance.
         """
         for satellite in self.simulation_manager.get_satellites():
-            data = dict()
+            data = self._model_data(satellite)
             data.update(
+                name=satellite.satellite_name,
                 orbital_phase=(
                     "ascending" if satellite.is_ascending() else "descending"
-                )
+                ),
+                shell_id=satellite.shell.identifier if satellite.shell else None,
             )
             self.add_topology_object(satellite, data)
+
+        return self
+
+    def _add_ground_objects(self, ground_objects) -> "NetworkxBuilder":
+        for ground_object in ground_objects:
+            data = self._model_data(ground_object)
+            data.update(
+                label=ground_object.label,
+                ground_domain=_ground_domain(ground_object),
+            )
+            self.add_topology_object(ground_object, data)
 
         return self
 
@@ -169,51 +249,34 @@ class NetworkxBuilder:
         Add Ground Stations to the Networkx Builder.
         :return: Networkx Builder instance.
         """
-        for ground_station in self.simulation_manager.get_ground_stations():
-            data = dict()
-            data.update(label=ground_station.label)
-            self.add_topology_object(ground_station, data)
-
-        return self
+        return self._add_ground_objects(self.simulation_manager.get_ground_stations())
 
     def add_user_terminals(self) -> "NetworkxBuilder":
         """
         Add User Terminals to the Networkx Builder.
         :return: Networkx Builder instance.
         """
-        for user_terminal in self.simulation_manager.get_user_terminals():
-            data = dict()
-            data.update(label=user_terminal.label)
-
-            self.add_topology_object(user_terminal, data)
-
-        return self
+        return self._add_ground_objects(self.simulation_manager.get_user_terminals())
 
     def add_point_of_presences(self) -> "NetworkxBuilder":
         """
         Add Point of Presences to the Networkx Builder.
         :return: Networkx Builder instance.
         """
-        for point_of_presence in self.simulation_manager.get_point_of_presences():
-            data = dict()
-            data.update(label=point_of_presence.label)
-            self.add_topology_object(point_of_presence, data)
-
-        return self
+        return self._add_ground_objects(
+            self.simulation_manager.get_point_of_presences()
+        )
 
     def add_ground_station_links(self, without_disabled=False) -> "NetworkxBuilder":
         """
         Add Ground Station Links to the Networkx Builder.
+        :param without_disabled: skip the disabled links (static ground station mode)
         :return: Networkx Builder instance.
         """
         for ground_station_link in self.simulation_manager.get_ground_stations_links():
-
-            if not without_disabled or (
-                without_disabled and not ground_station_link.disabled
-            ):
-                self.add_link(
-                    ground_station_link, {"disabled": ground_station_link.disabled}
-                )
+            if without_disabled and ground_station_link.disabled:
+                continue
+            self.add_link(ground_station_link, self._model_data(ground_station_link))
 
         return self
 
@@ -223,7 +286,7 @@ class NetworkxBuilder:
         :return: Networkx Builder instance.
         """
         for user_terminal_link in self.simulation_manager.get_user_terminal_links():
-            self.add_link(user_terminal_link, {})
+            self.add_link(user_terminal_link, self._model_data(user_terminal_link))
 
         return self
 
@@ -235,7 +298,7 @@ class NetworkxBuilder:
         for (
             inter_satellite_link
         ) in self.simulation_manager.get_inter_satellites_links():
-            data = dict()
+            data = self._model_data(inter_satellite_link)
             data.update(direction=inter_satellite_link.inter_satellite_direction.name)
             self.add_link(inter_satellite_link, data)
 
@@ -249,7 +312,10 @@ class NetworkxBuilder:
         for (
             static_ground_object_link
         ) in self.simulation_manager.get_static_ground_object_links():
-            self.add_link(static_ground_object_link, {})
+            self.add_link(
+                static_ground_object_link,
+                self._model_data(static_ground_object_link),
+            )
 
         return self
 
@@ -261,6 +327,9 @@ class NetworkxBuilder:
         self.add_satellites()
         self.add_ground_stations()
         self.add_user_terminals()
+        # Ground-to-ground links reach the points of presence: without this,
+        # their nodes would be created by the edges, with no data.
+        self.add_point_of_presences()
 
         return self
 

@@ -13,7 +13,7 @@ multi_shell_config = {
                 "elevation_above_horizon": 25,
                 "maximum_satellite_range_distance": 1200,
                 "maximum_satellite_connected_count": 1000,
-                "shell_white_lists": ["Andromeda Walker"],
+                "shells_whitelist": ["Andromeda Walker"],
                 "maximum_connected_satellites": 50,
                 "ground_to_space_connections_strategy": "fake_strategy",
             },
@@ -25,7 +25,7 @@ multi_shell_config = {
             "connectivity_properties": {
                 "elevation_above_horizon": 15,
                 "maximum_satellite_range_distance": 1500,
-                "shell_white_lists": [
+                "shells_whitelist": [
                     "Andromeda Polar",
                     "Andromeda Walker",
                 ],
@@ -47,10 +47,6 @@ multi_shell_config = {
             },
             "orbital_connectivity_property": {
                 "adjacent_inter_satellite_shifting": 0,
-                "maximum_inter_satellite_count": 4,
-                "maximum_inter_satellite_range_distance": 1500.0,
-                "maximum_ground_station_range": 1200.0,
-                "maximum_user_terminal_range": 1000.0,
                 "maximum_connected_ground_object": 100,
                 "maximum_connected_user_terminal": 500,
                 "maximum_connected_ground_station": 10,
@@ -69,10 +65,6 @@ multi_shell_config = {
             },
             "orbital_connectivity_property": {
                 "adjacent_inter_satellite_shifting": 1,
-                "maximum_inter_satellite_count": 4,
-                "maximum_inter_satellite_range_distance": 2000.0,
-                "maximum_ground_station_range": 1500.0,
-                "maximum_user_terminal_range": 1200.0,
                 "maximum_connected_ground_object": 200,
                 "maximum_connected_user_terminal": 1000,
                 "maximum_connected_ground_station": 50,
@@ -84,5 +76,4 @@ multi_shell_config = {
         },
     ],
     "disable_ground_station_link_preload": False,
-    "static_ground_station_link_mode": False,
 }

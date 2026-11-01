@@ -60,3 +60,7 @@ class WalkerShellNotFoundError(Exception):
 
 class InvalidGroundObjectTypeError(Exception):
     pass
+
+
+class OpticalLinkTerminalNotFoundError(Exception):
+    pass

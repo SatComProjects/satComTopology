@@ -1,7 +1,10 @@
+import warnings
 from abc import ABC, abstractmethod
 
 import yaml
 
+from sat_com_application.event_bus.bus import EventBus
+from sat_com_application.event_bus.factories import EventFactories
 from sat_com_application.simulation_manager import (
     SimulationManager,
     get_object_by_object_id,
@@ -12,26 +15,39 @@ from sat_com_builder import (
     POINT_OF_PRESENCE_TYPES_STR,
     USER_TERMINAL_TYPES_STR,
 )
+from sat_com_builder.factories import TopologyObjectFactories
 from sat_com_builder.ground_objects.generate_ground_stations import (
-    generate_ground_stations_from_file,
+    generate_ground_stations_from_ground_objects,
 )
 from sat_com_builder.ground_objects.generate_point_of_presences import (
-    generate_point_of_presences,
+    generate_point_of_presences_from_ground_objects,
 )
 from sat_com_builder.ground_objects.generate_user_terminals import (
-    generate_user_terminal_from_file,
+    generate_user_terminals_from_ground_objects,
 )
-from sat_com_builder.links.inter_satellite_link_generator import (
-    create_inter_satellite_links_for_walker_constellation,
+from sat_com_builder.ground_objects.utils import generate_ground_object_from_file
+from sat_com_builder.models import (
+    SimulationProperty,
+    GroundObjectProperty,
+    GroundObjectData,
 )
-from sat_com_builder.models import SimulationProperty
 from sat_com_builder.utils import parse_date
 from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
     GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
 )
+from sat_com_connectivity.inter_satellite_link_connectivity.addressing_plans import (
+    WalkerStaticAddressingPlan,
+    SSODawnDuskStaticAddressingPlan,
+    AvailableAddressingPlans,
+)
+from sat_com_connectivity.inter_satellite_link_connectivity.strategies import (
+    IntraShellStaticConnectivity,
+    InterShellSSOPriorityConnectivity,
+)
 from sat_com_constellation.models import (
     WalkerStarConstellation,
     WalkerDeltaConstellation,
+    DawnDuskSunSynchronousOrbitConstellation,
 )
 from sat_com_model.exceptions import (
     DistanceModelUndefinedError,
@@ -40,13 +56,14 @@ from sat_com_model.exceptions import (
 from sat_com_model.models import (
     Simulation,
     GroundObjectDomain,
+    DawnDuskSSOShell,
     WalkerShell,
+    SatelliteConfiguration,
 )
 from sat_com_trajectopy.distance_models import (
     GeopyDistanceModel,
     SkLearningDistanceModel,
 )
-
 from sat_com_trajectopy.satellites.generate_satellite import (
     generate_satellites_from_walker_constellation,
 )
@@ -61,8 +78,22 @@ class ConfigurationManager(ABC):
 
 class BaseConfigurationManager(ConfigurationManager):
 
-    def __init__(self, simulation_property: SimulationProperty):
+    def __init__(
+        self,
+        simulation_property: SimulationProperty,
+        event_bus: EventBus = None,
+        event_factories: EventFactories = None,
+        topology_object_factories: TopologyObjectFactories = None,
+    ):
         self.simulation_property = simulation_property
+
+        self.event_factories = event_factories
+
+        self.topology_object_factories = (
+            topology_object_factories or TopologyObjectFactories()
+        )
+
+        self.event_bus = event_bus
 
     def __save_property_inside_simulation_manager(
         self, simulation_manager: SimulationManager
@@ -73,7 +104,7 @@ class BaseConfigurationManager(ConfigurationManager):
             )
         )
 
-    def __load_inter_satellite_configuration(
+    def __load_inter_satellite_addressing_plans_configuration(
         self, simulation_manager: SimulationManager
     ):
         """
@@ -83,10 +114,54 @@ class BaseConfigurationManager(ConfigurationManager):
         :return:
         """
 
-        for shell in self.simulation_property.walker_shells:
-            create_inter_satellite_links_for_walker_constellation(
-                simulation_manager=simulation_manager, walker_shell_properties=shell
+        optical_link_model = self.simulation_property.optical_inter_satellite_link_model
+
+        for shell in simulation_manager.get_walker_shells():
+            static_link_addressing_plan = AvailableAddressingPlans.from_string(
+                shell.static_addressing_plan
+            ).build(walker_shell=shell, optical_link_model=optical_link_model)
+
+            simulation_manager.shell_addressing_plans.append(
+                (shell, static_link_addressing_plan)
             )
+
+        for sso_shell in simulation_manager.get_sso_shells():
+            static_sso_shell_addressing_plan = AvailableAddressingPlans.from_string(
+                sso_shell.static_addressing_plan
+            ).build(sso_shell=sso_shell, optical_link_model=optical_link_model)
+
+            simulation_manager.shell_addressing_plans.append(
+                (sso_shell, static_sso_shell_addressing_plan)
+            )
+
+    def __load_inter_satellite_links_configuration(
+        self, simulation_manager: SimulationManager
+    ):
+        isl_connection_strategy = (
+            self.simulation_property.inter_satellite_link_connection_strategy
+        )
+
+        if isl_connection_strategy == IntraShellStaticConnectivity.type:
+            strategy = IntraShellStaticConnectivity(
+                satellites=simulation_manager.get_satellites(),
+                shell_and_plans=simulation_manager.shell_addressing_plans,
+                state_cache=simulation_manager.satellite_state_cache,
+            )
+
+        elif isl_connection_strategy == InterShellSSOPriorityConnectivity.type:
+            strategy = InterShellSSOPriorityConnectivity(
+                satellites=simulation_manager.get_satellites(),
+                shell_and_plans=simulation_manager.shell_addressing_plans,
+                state_cache=simulation_manager.satellite_state_cache,
+            )
+        else:
+            raise ValueError(
+                f"Unknown inter-satellite connection strategy: {isl_connection_strategy}"
+            )
+
+        simulation_manager.inter_satellite_link_connection_strategy = strategy
+
+        simulation_manager.update_inter_satellite_links()
 
     def __load_static_ground_to_ground_link_configuration(
         self, simulation_manager: SimulationManager
@@ -131,13 +206,25 @@ class BaseConfigurationManager(ConfigurationManager):
         :return:
         """
 
-        simulation_manager.static_ground_station_link_mode = (
-            self.simulation_property.static_ground_station_link_mode
-        )
-
         if not self.simulation_property.disable_ground_station_link_preload:
             simulation_manager.update_ground_station_links()
             simulation_manager.update_user_terminal_links()
+
+    @staticmethod
+    def __read_ground_object_data(
+        ground_object: GroundObjectProperty,
+    ) -> list[GroundObjectData]:
+        """
+        Collect the ground object data of a domain: the data file first, then the inline ground objects.
+        """
+        ground_object_data = []
+        if ground_object.data_file is not None:
+            ground_object_data.extend(
+                generate_ground_object_from_file(ground_object.data_file)
+            )
+        if ground_object.ground_objects is not None:
+            ground_object_data.extend(ground_object.ground_objects)
+        return ground_object_data
 
     def __load_ground_object_configuration(self, simulation_manager: SimulationManager):
         """
@@ -148,13 +235,27 @@ class BaseConfigurationManager(ConfigurationManager):
 
         for ground_object in self.simulation_property.ground_objects_properties:
 
+            if ground_object.connectivity_properties.shells_whitelist is not None:
+                shell_identifiers = [
+                    shell.identifier for shell in simulation_manager.get_shells()
+                ]
+                for (
+                    shell_whitelisted_id
+                ) in ground_object.connectivity_properties.shells_whitelist:
+                    if shell_whitelisted_id not in shell_identifiers:
+                        warnings.warn(
+                            f"Whitelisted shell: {shell_whitelisted_id} not present yet in the simulation shells.\n"
+                            "Current shell identifiers in the simulation: "
+                            + str(shell_identifiers)
+                        )
+
             ground_object_domain = GroundObjectDomain(
                 identifier=ground_object.identifier,
                 type=ground_object.type,
                 elevation_above_horizon=ground_object.connectivity_properties.elevation_above_horizon,
                 maximum_satellite_range_distance=ground_object.connectivity_properties.maximum_satellite_range_distance,
                 maximum_satellite_connected_count=ground_object.connectivity_properties.maximum_satellite_connected_count,
-                shell_white_lists=ground_object.connectivity_properties.shell_white_lists,
+                shells_whitelist=ground_object.connectivity_properties.shells_whitelist,
                 maximum_connected_satellites=ground_object.connectivity_properties.maximum_connected_satellites,
                 ground_to_space_connections_strategy=ground_object.connectivity_properties.ground_to_space_connections_strategy,
             )
@@ -171,26 +272,31 @@ class BaseConfigurationManager(ConfigurationManager):
                 ground_object_domain=ground_object_domain
             )
 
+            ground_object_data = self.__read_ground_object_data(ground_object)
+
             if ground_object.type in GROUND_STATION_TYPES_STR:
-                ground_stations = generate_ground_stations_from_file(
-                    ground_station_file_path=ground_object.data_file,
+                ground_stations = generate_ground_stations_from_ground_objects(
+                    ground_objects=ground_object_data,
                     ground_object_domain=ground_object_domain,
+                    factory=self.topology_object_factories.ground_station_factory,
                 )
 
                 simulation_manager.add_all_ground_stations(ground_stations)
 
             elif ground_object.type in USER_TERMINAL_TYPES_STR:
 
-                user_terminals = generate_user_terminal_from_file(
-                    user_terminal_file_path=ground_object.data_file,
+                user_terminals = generate_user_terminals_from_ground_objects(
+                    ground_objects=ground_object_data,
                     ground_object_domain=ground_object_domain,
+                    factory=self.topology_object_factories.user_terminal_factory,
                 )
                 simulation_manager.add_all_user_terminals(user_terminals)
 
             elif ground_object.type in POINT_OF_PRESENCE_TYPES_STR:
-                point_of_presences = generate_point_of_presences(
-                    point_of_presence_file_path=ground_object.data_file,
+                point_of_presences = generate_point_of_presences_from_ground_objects(
+                    ground_objects=ground_object_data,
                     ground_object_domain=ground_object_domain,
+                    factory=self.topology_object_factories.point_of_presence_factory,
                 )
                 simulation_manager.add_all_point_of_presences(point_of_presences)
 
@@ -199,9 +305,49 @@ class BaseConfigurationManager(ConfigurationManager):
                     "Invalid ground object type: " + str(ground_object.type)
                 )
 
-    def __load_satellite_configuration(self, simulation_manager: SimulationManager):
+    def __load_sso_configuration(self, simulation_manager: SimulationManager):
         """
-        Load the simulation related to the satellites
+        Load the simulation related to the satellites with sun synchronous orbit constellation.
+        :param simulation_manager:
+        :return:
+        """
+        movement_model = self.simulation_property.movement_model
+
+        for sso_shell in self.simulation_property.dawn_dusk_sso_shells:
+            if sso_shell.constellation_property.epoch is None:
+                sso_shell.constellation_property.epoch = (
+                    simulation_manager.time_manager.current_time
+                )
+
+            sun_synchronous_orbit = DawnDuskSunSynchronousOrbitConstellation(
+                sun_synchronous_orbit_constellation_property=sso_shell.constellation_property,
+            )
+
+            sso_shell = DawnDuskSSOShell(
+                satellite_configuration=SatelliteConfiguration(
+                    **sso_shell.satellite_property.model_dump()
+                ),
+                **sso_shell.constellation_property.model_dump(),
+                **sso_shell.model_dump(),
+            )
+
+            simulation_manager.add_sso_shell(sso_shell)
+
+            if movement_model == "pyorbital":
+                satellites = generate_satellites_from_walker_constellation(
+                    constellation=sun_synchronous_orbit,
+                    timer_manager=simulation_manager.time_manager,
+                    shell=sso_shell,
+                    satellite_factory=self.topology_object_factories.satellite_factory,
+                )
+            else:
+                raise ValueError("Invalid movement model: " + str(movement_model))
+
+            simulation_manager.add_all_satellites(satellites)
+
+    def __load_walker_configuration(self, simulation_manager: SimulationManager):
+        """
+        Load the simulation related to the satellites with walker constellation.
         :param simulation_manager:
         :return:
         """
@@ -224,23 +370,38 @@ class BaseConfigurationManager(ConfigurationManager):
                 raise ValueError("Walker constellation type not found: " + shell.type)
 
             walker_shell = WalkerShell(
-                **shell.constellation_property.model_dump(), **shell.model_dump()
+                satellite_configuration=SatelliteConfiguration(
+                    **shell.satellite_property.model_dump()
+                ),
+                **shell.constellation_property.model_dump(),
+                **shell.orbital_connectivity_property.model_dump(),
+                **shell.model_dump(),
             )
 
             simulation_manager.add_walker_shell(walker_shell)
 
             if movement_model == "pyorbital":
                 satellites = generate_satellites_from_walker_constellation(
-                    walker_constellation=shell_constellation,
+                    constellation=shell_constellation,
                     timer_manager=simulation_manager.time_manager,
+                    shell=walker_shell,
+                    satellite_factory=self.topology_object_factories.satellite_factory,
                 )
             else:
                 raise ValueError("Invalid movement model: " + str(movement_model))
 
-            for satellite in satellites:
-                satellite.walker_shell = walker_shell
-
             simulation_manager.add_all_satellites(satellites)
+
+    def __load_satellite_configuration(self, simulation_manager: SimulationManager):
+        """
+        Load the simulation related to the satellites
+        :param simulation_manager:
+        :return:
+        """
+
+        self.__load_walker_configuration(simulation_manager=simulation_manager)
+
+        self.__load_sso_configuration(simulation_manager=simulation_manager)
 
     def __load_time_manager(self, simulation_manager: SimulationManager):
 
@@ -279,27 +440,90 @@ class BaseConfigurationManager(ConfigurationManager):
 
         return simulation
 
-    def load_simulation(self) -> SimulationManager:
-        simulation = self.__create_and_load_simulation()
+    def load_simulation(self, print_timings: bool = False) -> SimulationManager:
+        """
+        Build the simulation from the configuration.
+        :param print_timings: print the duration of every loading stage. The
+            durations are always available afterwards in `self.load_timings`
+            (stage name -> seconds).
+        :return: the SimulationManager of the loaded simulation
+        """
+        import time
 
-        simulation_manager = SimulationManager(simulation=simulation)
+        self.load_timings: dict[str, float] = {}
 
-        self.__save_property_inside_simulation_manager(simulation_manager)
+        def timed_step(name: str, func):
+            start = time.perf_counter()
+            result = func()
+            self.load_timings[name] = time.perf_counter() - start
+            if print_timings:
+                print(f"{name:<55} | {self.load_timings[name]:.4f} s")
+            return result
 
-        self.__load_time_manager(simulation_manager=simulation_manager)
-
-        self.__load_satellite_configuration(simulation_manager=simulation_manager)
-
-        self.__load_ground_object_configuration(simulation_manager=simulation_manager)
-
-        self.__load_inter_satellite_configuration(simulation_manager=simulation_manager)
-
-        self.__load_satellite_to_ground_link_configuration(
-            simulation_manager=simulation_manager
+        simulation = timed_step(
+            "__create_and_load_simulation",
+            lambda: self.__create_and_load_simulation(),
         )
 
-        self.__load_static_ground_to_ground_link_configuration(
-            simulation_manager=simulation_manager
+        simulation_manager = timed_step(
+            "SimulationManager init",
+            lambda: SimulationManager(
+                simulation=simulation,
+                event_bus=self.event_bus,
+                event_factories=self.event_factories,
+            ),
+        )
+
+        timed_step(
+            "__save_property_inside_simulation_manager",
+            lambda: self.__save_property_inside_simulation_manager(simulation_manager),
+        )
+
+        timed_step(
+            "__load_time_manager",
+            lambda: self.__load_time_manager(simulation_manager=simulation_manager),
+        )
+
+        timed_step(
+            "__load_satellite_configuration",
+            lambda: self.__load_satellite_configuration(
+                simulation_manager=simulation_manager
+            ),
+        )
+
+        timed_step(
+            "__load_ground_object_configuration",
+            lambda: self.__load_ground_object_configuration(
+                simulation_manager=simulation_manager
+            ),
+        )
+
+        timed_step(
+            "__load_inter_satellite_addressing_plans_configuration",
+            lambda: self.__load_inter_satellite_addressing_plans_configuration(
+                simulation_manager=simulation_manager
+            ),
+        )
+
+        timed_step(
+            "__load_inter_satellite_links_configuration",
+            lambda: self.__load_inter_satellite_links_configuration(
+                simulation_manager=simulation_manager
+            ),
+        )
+
+        timed_step(
+            "__load_satellite_to_ground_link_configuration",
+            lambda: self.__load_satellite_to_ground_link_configuration(
+                simulation_manager=simulation_manager
+            ),
+        )
+
+        timed_step(
+            "__load_static_ground_to_ground_link_configuration",
+            lambda: self.__load_static_ground_to_ground_link_configuration(
+                simulation_manager=simulation_manager
+            ),
         )
 
         return simulation_manager
@@ -336,9 +560,19 @@ class YamlConfigurationManager(BaseConfigurationManager):
 
     configuration_path: str
 
-    def __init__(self, configuration_path: str):
+    def __init__(
+        self,
+        configuration_path: str,
+        event_bus: EventBus = None,
+        event_factories: EventFactories = None,
+        topology_object_factories: TopologyObjectFactories = None,
+    ):
         with open(configuration_path, "r") as file:
             plain_configuration = yaml.safe_load(file)
-            self.configuration_path = configuration_path
-            super().__init__(SimulationProperty(**plain_configuration))
-            file.close()
+        self.configuration_path = configuration_path
+        super().__init__(
+            SimulationProperty(**plain_configuration),
+            event_bus=event_bus,
+            event_factories=event_factories,
+            topology_object_factories=topology_object_factories,
+        )

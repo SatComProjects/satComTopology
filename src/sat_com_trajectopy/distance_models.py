@@ -6,6 +6,7 @@ from geopy.distance import distance
 from sklearn.metrics.pairwise import haversine_distances
 from sklearn.neighbors import BallTree
 
+from sat_com_model.constants import EARTH_MEAN_RADIUS_KM, EARTH_RADIUS_KM
 from sat_com_model.models import (
     DistanceModel,
     SpatialPosition,
@@ -210,7 +211,7 @@ def execute_balltree_query_with_haversine_distance(
 ) -> list:
     positions_rad = np.radians(input_to_query_positions)
 
-    distance_max = distance_max_km / 6371
+    distance_max = distance_max_km / EARTH_MEAN_RADIUS_KM
 
     tree = BallTree(np.deg2rad(group_of_positions_to_search_in), metric="haversine")
     indices = tree.query_radius(positions_rad, r=distance_max, return_distance=False)
@@ -303,7 +304,6 @@ def calculate_topology_objects_in_range_of_topology_objects(
 
 
 class SkLearningDistanceModel(DistanceModel):
-    EARTH_RADIUS_KM = 6371.009
 
     def get_3d_distance_meters(
         self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
@@ -345,7 +345,7 @@ class SkLearningDistanceModel(DistanceModel):
         distance_scale_1 = get_sklearn_haversine_distances(
             spatial_position_1, spatial_position_2
         )[0, 1]
-        return distance_scale_1 * self.EARTH_RADIUS_KM * 1000
+        return distance_scale_1 * EARTH_RADIUS_KM * 1000
 
     def get_ground_distance_km(
         self, spatial_position_1: SpatialPosition, spatial_position_2: SpatialPosition
@@ -360,7 +360,7 @@ class SkLearningDistanceModel(DistanceModel):
         distance_scale_1 = get_sklearn_haversine_distances(
             spatial_position_1, spatial_position_2
         )[0, 1]
-        return distance_scale_1 * self.EARTH_RADIUS_KM
+        return distance_scale_1 * EARTH_MEAN_RADIUS_KM
 
     def k_closest(
         self,
@@ -436,7 +436,7 @@ class SkLearningDistanceModel(DistanceModel):
             [query_position_longitude_latitude]
         )
 
-        distance_max = range_in_km / self.EARTH_RADIUS_KM
+        distance_max = range_in_km / EARTH_MEAN_RADIUS_KM
 
         indices = tree.query_radius(
             query_position_longitude_latitude_radian,

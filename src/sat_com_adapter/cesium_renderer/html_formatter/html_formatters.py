@@ -18,7 +18,7 @@ class HtmlFormatter:
         self.model = model
 
     def format(self) -> str:
-        return self._format_dict(self.model.model_dump())
+        return self._format_dict(self.model.model_dump(mode="json"))
 
     def _format_dict(self, data: dict, level: int = 0) -> str:
         html_output = "<table border='1' style='border-collapse: collapse;'>"

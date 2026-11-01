@@ -1,0 +1,346 @@
+from abc import abstractmethod, ABC
+from dataclasses import field, dataclass
+
+from sat_com_application.event_bus.events import (
+    ISLCreatedEvent,
+    ISLUpdatedEvent,
+    ISLRemovedEvent,
+    GSLCreatedEvent,
+    GSLUpdatedEvent,
+    GSLRemovedEvent,
+    UTLCreatedEvent,
+    UTLUpdatedEvent,
+    UTLRemovedEvent,
+    TopologyObjectCreatedEvent,
+    TopologyObjectUpdatedEvent,
+    TopologyObjectRemovedEvent,
+)
+from sat_com_model.models import (
+    InterSatelliteLink,
+    GroundStationLink,
+    UserTerminalLink,
+    OpticalConstraint,
+    TopologyObject,
+)
+
+
+class AbstractISLEventFactory(ABC):
+
+    @abstractmethod
+    def created(
+        self,
+        link: InterSatelliteLink,
+    ) -> ISLCreatedEvent: ...
+
+    @abstractmethod
+    def updated(
+        self,
+        link: InterSatelliteLink,
+    ) -> ISLUpdatedEvent:
+        pass
+
+    @abstractmethod
+    def removed(self, link: InterSatelliteLink) -> ISLRemovedEvent:
+        pass
+
+
+class AbstractGSLEventFactory(ABC):
+
+    @abstractmethod
+    def created(self, link: GroundStationLink) -> GSLCreatedEvent:
+        pass
+
+    @abstractmethod
+    def updated(self, link: GroundStationLink) -> GSLUpdatedEvent:
+        pass
+
+    @abstractmethod
+    def removed(self, link: GroundStationLink) -> GSLRemovedEvent:
+        pass
+
+
+class AbstractUTLEventFactory(ABC):
+
+    @abstractmethod
+    def created(self, link: UserTerminalLink) -> UTLCreatedEvent:
+        pass
+
+    @abstractmethod
+    def updated(self, link: UserTerminalLink) -> UTLUpdatedEvent:
+        pass
+
+    @abstractmethod
+    def removed(self, link: UserTerminalLink) -> UTLRemovedEvent:
+        pass
+
+
+def _terminal_id(terminal) -> str | None:
+    return str(terminal.terminal_id) if terminal is not None else None
+
+
+def _link_distance_km(link: InterSatelliteLink) -> float | None:
+    """Distance set by the SimulationManager, or the range of the constraints."""
+    if link.distance_km is not None:
+        return link.distance_km
+    return _constraint_field(link.source_constraint, "range_distance_km")
+
+
+def _optical_link_model(link: InterSatelliteLink) -> str | None:
+    model = getattr(link, "optical_link_model", None)
+    return model.value if model is not None else None
+
+
+def _constraint_field(constraint: OpticalConstraint | None, field: str) -> float | None:
+    """
+    Safely read one field from an OpticalConstraint.
+    Returns None if the constraint is None or the field itself is None.
+    """
+    if constraint is None:
+        return None
+    return getattr(constraint, field, None)
+
+
+class AbstractTopologyObjectEventFactory(ABC):
+    @abstractmethod
+    def created(self, topology_object: TopologyObject) -> TopologyObjectCreatedEvent:
+        pass
+
+    @abstractmethod
+    def updated(self, topology_object: TopologyObject) -> TopologyObjectUpdatedEvent:
+        pass
+
+    @abstractmethod
+    def removed(self, topology_object: TopologyObject) -> TopologyObjectRemovedEvent:
+        pass
+
+
+class DefaultISLEventFactory(AbstractISLEventFactory):
+
+    def created(self, link: InterSatelliteLink) -> ISLCreatedEvent:
+        return ISLCreatedEvent(
+            link_id=link.link_id.hex,
+            satellite_a_id=link.source.topology_uniq_id,
+            satellite_b_id=link.destination.topology_uniq_id,
+            direction=link.inter_satellite_direction,
+            terminal_a_id=_terminal_id(link.source_optical_terminal),
+            terminal_b_id=_terminal_id(link.destination_optical_terminal),
+            azimuth_a_deg=_constraint_field(
+                link.source_constraint, "azimuth_angle_degree"
+            ),
+            relative_azimuth_a_deg=_constraint_field(
+                link.source_constraint, "relative_azimuth_angle_degree"
+            ),
+            elevation_a_deg=_constraint_field(
+                link.source_constraint, "elevation_angle_degree"
+            ),
+            angular_velocity_a_deg_s=_constraint_field(
+                link.source_constraint, "angular_velocity_rate_degree_per_second"
+            ),
+            azimuth_b_deg=_constraint_field(
+                link.destination_constraint, "azimuth_angle_degree"
+            ),
+            relative_azimuth_b_deg=_constraint_field(
+                link.destination_constraint, "relative_azimuth_angle_degree"
+            ),
+            elevation_b_deg=_constraint_field(
+                link.destination_constraint, "elevation_angle_degree"
+            ),
+            angular_velocity_b_deg_s=_constraint_field(
+                link.destination_constraint, "angular_velocity_rate_degree_per_second"
+            ),
+            distance_km=_link_distance_km(link),
+            optical_link_model=_optical_link_model(link),
+            range_rate=_constraint_field(link.source_constraint, "range_rate"),
+            los_min_altitude_km=_constraint_field(
+                link.source_constraint, "los_min_altitude_km"
+            ),
+            estimated_duration_a=_constraint_field(
+                link.source_constraint, "estimated_duration"
+            ),
+            estimated_duration_b=_constraint_field(
+                link.destination_constraint, "estimated_duration"
+            ),
+        )
+
+    def updated(self, link: InterSatelliteLink) -> ISLUpdatedEvent:
+        return ISLUpdatedEvent(
+            link_id=link.link_id.hex,
+            satellite_a_id=link.get_satellite_source().topology_uniq_id,
+            satellite_b_id=link.get_satellite_destination().topology_uniq_id,
+            terminal_a_id=_terminal_id(link.source_optical_terminal),
+            direction=link.inter_satellite_direction,
+            terminal_b_id=_terminal_id(link.destination_optical_terminal),
+            azimuth_a_deg=_constraint_field(
+                link.source_constraint, "azimuth_angle_degree"
+            ),
+            relative_azimuth_a_deg=_constraint_field(
+                link.source_constraint, "relative_azimuth_angle_degree"
+            ),
+            elevation_a_deg=_constraint_field(
+                link.source_constraint, "elevation_angle_degree"
+            ),
+            angular_velocity_a_deg_s=_constraint_field(
+                link.source_constraint, "angular_velocity_rate_degree_per_second"
+            ),
+            azimuth_b_deg=_constraint_field(
+                link.destination_constraint, "azimuth_angle_degree"
+            ),
+            relative_azimuth_b_deg=_constraint_field(
+                link.destination_constraint, "relative_azimuth_angle_degree"
+            ),
+            elevation_b_deg=_constraint_field(
+                link.destination_constraint, "elevation_angle_degree"
+            ),
+            angular_velocity_b_deg_s=_constraint_field(
+                link.destination_constraint, "angular_velocity_rate_degree_per_second"
+            ),
+            distance_km=_link_distance_km(link),
+            optical_link_model=_optical_link_model(link),
+            range_rate=_constraint_field(link.source_constraint, "range_rate"),
+            los_min_altitude_km=_constraint_field(
+                link.source_constraint, "los_min_altitude_km"
+            ),
+            temporary_unavailable=link.temporary_unavailable,
+            recovery_time=link.recovery_time,
+        )
+
+    def removed(self, link: InterSatelliteLink) -> ISLRemovedEvent:
+        # Must be called BEFORE unbind_terminals() — terminals are still set here
+        return ISLRemovedEvent(
+            link_id=link.link_id.hex,
+            satellite_a_id=link.get_satellite_source().topology_uniq_id,
+            satellite_b_id=link.get_satellite_destination().topology_uniq_id,
+            terminal_a_id=_terminal_id(link.source_optical_terminal),
+            direction=link.inter_satellite_direction,
+            terminal_b_id=_terminal_id(link.destination_optical_terminal),
+            azimuth_a_deg=_constraint_field(
+                link.source_constraint, "azimuth_angle_degree"
+            ),
+            relative_azimuth_a_deg=_constraint_field(
+                link.source_constraint, "relative_azimuth_angle_degree"
+            ),
+            elevation_a_deg=_constraint_field(
+                link.source_constraint, "elevation_angle_degree"
+            ),
+            angular_velocity_a_deg_s=_constraint_field(
+                link.source_constraint, "angular_velocity_rate_degree_per_second"
+            ),
+            azimuth_b_deg=_constraint_field(
+                link.destination_constraint, "azimuth_angle_degree"
+            ),
+            elevation_b_deg=_constraint_field(
+                link.destination_constraint, "elevation_angle_degree"
+            ),
+            angular_velocity_b_deg_s=_constraint_field(
+                link.destination_constraint, "angular_velocity_rate_degree_per_second"
+            ),
+            distance_km=_link_distance_km(link),
+            optical_link_model=_optical_link_model(link),
+            range_rate=_constraint_field(link.source_constraint, "range_rate"),
+            los_min_altitude_km=_constraint_field(
+                link.source_constraint, "los_min_altitude_km"
+            ),
+            temporary_unavailable=link.temporary_unavailable,
+            recovery_time=link.recovery_time,
+        )
+
+
+class DefaultGSLEventFactory(AbstractGSLEventFactory):
+
+    def created(self, link: GroundStationLink) -> GSLCreatedEvent:
+        return GSLCreatedEvent(
+            link_id=link.link_id.hex,
+            satellite_id=link.get_satellite().topology_uniq_id,
+            ground_station_id=link.get_ground_station().topology_uniq_id,
+            elevation_angle=link.elevation_above_horizon_angle,
+            distance_km=link.distance_km,
+            estimated_duration=link.estimated_link_duration,
+            estimated_disconnection_time=link.estimated_disconnection_time,
+        )
+
+    def updated(self, link: GroundStationLink) -> GSLUpdatedEvent:
+        return GSLUpdatedEvent(
+            link_id=link.link_id.hex,
+            satellite_id=link.get_satellite().topology_uniq_id,
+            ground_station_id=link.get_ground_station().topology_uniq_id,
+            elevation_above_horizon_angle=link.elevation_above_horizon_angle,
+            distance_km=link.distance_km,
+            estimated_link_duration=link.estimated_link_duration,
+            estimated_disconnection_time=link.estimated_disconnection_time,
+        )
+
+    def removed(self, link: GroundStationLink) -> GSLRemovedEvent:
+        return GSLRemovedEvent(
+            link_id=link.link_id.hex,
+            satellite_id=link.get_satellite().topology_uniq_id,
+            ground_station_id=link.get_ground_station().topology_uniq_id,
+        )
+
+
+class DefaultUTLEventFactory(AbstractUTLEventFactory):
+
+    def created(self, link: UserTerminalLink) -> UTLCreatedEvent:
+        return UTLCreatedEvent(
+            link_id=link.link_id.hex,
+            satellite_id=link.get_satellite().topology_uniq_id,
+            user_terminal_id=link.get_user_terminal().topology_uniq_id,
+            elevation_above_horizon_angle=link.elevation_above_horizon_angle,
+            estimated_link_duration=link.estimated_link_duration,
+            estimated_disconnection_time=link.estimated_disconnection_time,
+        )
+
+    def updated(self, link: UserTerminalLink) -> UTLUpdatedEvent:
+        return UTLUpdatedEvent(
+            link_id=link.link_id.hex,
+            satellite_id=link.get_satellite().topology_uniq_id,
+            user_terminal_id=link.get_user_terminal().topology_uniq_id,
+            elevation_above_horizon_angle=link.elevation_above_horizon_angle,
+            distance_km=link.distance_km,
+            estimated_link_duration=link.estimated_link_duration,
+            estimated_disconnection_time=link.estimated_disconnection_time,
+        )
+
+    def removed(self, link: UserTerminalLink) -> UTLRemovedEvent:
+        return UTLRemovedEvent(
+            link_id=link.link_id.hex,
+            satellite_id=link.get_satellite().topology_uniq_id,
+            user_terminal_id=link.get_user_terminal().topology_uniq_id,
+        )
+
+
+class DefaultTopologyObjectEventFactory(AbstractTopologyObjectEventFactory):
+
+    def created(self, topology_object: TopologyObject) -> TopologyObjectCreatedEvent:
+        return TopologyObjectCreatedEvent(
+            topology_object_uniq_id=topology_object.topology_uniq_id,
+            topology_object_type=topology_object.get_type(),
+            position=topology_object.get_coordinates().to_longitude_latitude_altitude(),
+        )
+
+    def updated(self, topology_object: TopologyObject) -> TopologyObjectUpdatedEvent:
+        return TopologyObjectUpdatedEvent(
+            topology_object_uniq_id=topology_object.topology_uniq_id,
+            position=topology_object.get_coordinates().to_longitude_latitude_altitude(),
+        )
+
+    def removed(self, topology_object: TopologyObject) -> TopologyObjectRemovedEvent:
+        return TopologyObjectRemovedEvent(
+            topology_object_uniq_id=topology_object.topology_uniq_id,
+            position=topology_object.get_coordinates().to_longitude_latitude_altitude(),
+        )
+
+
+@dataclass
+class EventFactories:
+    isl_event_factory: AbstractISLEventFactory = field(
+        default_factory=DefaultISLEventFactory
+    )
+    gsl_event_factory: AbstractGSLEventFactory = field(
+        default_factory=DefaultGSLEventFactory
+    )
+    utl_event_factory: AbstractUTLEventFactory = field(
+        default_factory=DefaultUTLEventFactory
+    )
+    topology_object_event_factory: AbstractTopologyObjectEventFactory = field(
+        default_factory=DefaultTopologyObjectEventFactory
+    )

@@ -33,11 +33,11 @@ from sat_com_model.models import (
 SATELLITE_RADIUS = 30000
 
 
-def _get_walker_shell_identifier(satellite: Satellite):
+def _get_shell_identifier(satellite: Satellite):
     """
-    walker_shell is Optional on Satellite (e.g. satellites created manually without a shell).
+    shell is Optional on Satellite (e.g. satellites created manually without a shell).
     """
-    return satellite.walker_shell.identifier if satellite.walker_shell else None
+    return satellite.shell.identifier if satellite.shell else None
 
 
 def _get_ground_object_domain_identifier(ground_object: GroundObject):
@@ -74,12 +74,13 @@ class CesiumFormat:
         description: str,
         on_ground: bool,
         properties: dict,
+        random_id: bool = False,
     ):
         source = link.source
         destination = link.destination
 
         link_unique_id = get_link_cesium_unique_identifier(
-            source.topology_uniq_id, destination.topology_uniq_id
+            source.topology_uniq_id, destination.topology_uniq_id, random_id
         )
 
         if properties is None:
@@ -108,7 +109,7 @@ class CesiumFormat:
 
     def create_satellite(self, satellite: Satellite, properties: dict = None):
         satellites_cesium_property = self.shells_customs_properties.get(
-            _get_walker_shell_identifier(satellite),
+            _get_shell_identifier(satellite),
             self.cesium_property.cesium_renderer_shell_property,
         )
 
@@ -322,16 +323,19 @@ class CesiumFormat:
         self, inter_satellite_link: InterSatelliteLink, properties: dict = None
     ):
         satellites_property = self.shells_customs_properties.get(
-            _get_walker_shell_identifier(inter_satellite_link.source),
+            _get_shell_identifier(inter_satellite_link.source),
             self.cesium_property.cesium_renderer_shell_property,
         )
 
-        display_color = (
-            satellites_property.orbital_inter_satellite_link_color
-            if inter_satellite_link.inter_satellite_direction
-            == InterSatelliteLinkDirection.ORBITAL
-            else satellites_property.adjacent_inter_satellite_link_color
-        )
+        link_color_decision_map = {
+            InterSatelliteLinkDirection.ORBITAL: satellites_property.orbital_inter_satellite_link_color,
+            InterSatelliteLinkDirection.ADJACENT: satellites_property.adjacent_inter_satellite_link_color,
+            InterSatelliteLinkDirection.INTER_SHELL: satellites_property.inter_shell_satellite_link_color,
+        }
+
+        display_color = link_color_decision_map[
+            inter_satellite_link.inter_satellite_direction
+        ]
 
         html_description = HtmlFormatter(inter_satellite_link).format()
 

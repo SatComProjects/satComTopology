@@ -12,10 +12,10 @@ def _cesium_format() -> CesiumJavaScriptFormat:
     return CesiumJavaScriptFormat(CesiumProperty())
 
 
-def test_create_satellite_without_walker_shell_does_not_raise():
+def test_create_satellite_without_shell_does_not_raise():
     """
-    walker_shell is Optional on Satellite (e.g. a satellite created by hand, without
-    going through a WalkerConstellation). create_satellite used to crash with
+    shell is Optional on Satellite (e.g. a satellite created by hand, without
+    going through a constellation). create_satellite used to crash with
     `AttributeError: 'NoneType' object has no attribute 'identifier'`.
     """
     satellite = create_fake_satellite_with_object_id(0)

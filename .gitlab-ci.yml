@@ -53,6 +53,7 @@ test:
     - pip install -r requirements.txt # --extra-index-url "${PRIVATE_PYPI_URL}"
     - pip install pytest # --extra-index-url "${PRIVATE_PYPI_URL}"
     - pip install esprima beautifulsoup4
+    - pip install -e .
     - pytest
 
 

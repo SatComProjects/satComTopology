@@ -19,6 +19,7 @@ from sat_com_model.models import (
     UserTerminalLink,
     Satellite,
     GroundObjectLink,
+    InterSatelliteLinkDirection,
 )
 
 
@@ -176,6 +177,20 @@ class CesiumRenderer:
 
         return self
 
+    def add_link(self, link: Link, color: str = "RED") -> "CesiumRenderer":
+        self.append_next(
+            self.cesium_format.create_link(
+                link=link,
+                color=color,
+                width=3.0,
+                description=HtmlFormatter(link).format(),
+                properties={},
+                on_ground=False,
+                random_id=True,
+            )
+        )
+        return self
+
     def add_route_from_link(
         self, link: Link, underlined: bool = False, color: str = "RED"
     ) -> "CesiumRenderer":
@@ -252,6 +267,29 @@ class CesiumRenderer:
             )
         return self
 
+    def add_inter_satellite_filtered_by_direction(
+        self, filtered_directions: list[InterSatelliteLinkDirection]
+    ) -> "CesiumRenderer":
+        for link in self.simulation_manager.get_inter_satellites_links():
+            if link.inter_satellite_direction in filtered_directions:
+                self.append_next(
+                    self.cesium_format.create_inter_satellite_link(
+                        inter_satellite_link=link
+                    )
+                )
+        return self
+
+    def add_filtered_inter_satellite_links(
+        self, links: list[InterSatelliteLink]
+    ) -> "CesiumRenderer":
+        for link in links:
+            self.append_next(
+                self.cesium_format.create_inter_satellite_link(
+                    inter_satellite_link=link
+                )
+            )
+        return self
+
     def add_flows(self) -> "CesiumRenderer":
         """
         Add network traffic to the render. This will render independent traffic without links.
@@ -281,7 +319,11 @@ class CesiumHtmlRenderer(CesiumRenderer):
 
     def render(self) -> str:
         html_code = get_full_html(
-            self.cesium_token, "\n".join(self.elements_to_display)
+            self.cesium_token,
+            "\n".join(self.elements_to_display),
+            clock_time=self.simulation_manager.time_manager.current_time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
         )
         return html_code
 

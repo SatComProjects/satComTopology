@@ -1,15 +1,41 @@
+import asyncio
+import datetime
+import time
 import uuid
 from typing import Callable
 
+from typing_extensions import deprecated
+
+from sat_com_application.event_bus.bus import EventBus
+from sat_com_application.event_bus.events import (
+    Event,
+)
+from sat_com_application.event_bus.factories import EventFactories
+from sat_com_application.models import AssociationState
 from sat_com_application.time_managers import SimulationTimeManager
+from sat_com_connectivity.ground_object_to_space_connectivity.connection_duration_utils import (
+    estimate_disconnection_delays,
+)
+from sat_com_connectivity.satellite_state_cache import SatelliteStateCache
 from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
     GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
+)
+from sat_com_connectivity.ground_object_to_space_connectivity.models import (
+    ComputedGroundObjectConnectionsResult,
+    GroundToSpaceConstraints,
+)
+from sat_com_connectivity.inter_satellite_link_connectivity.addressing_plans import (
+    StaticAddressingPlan,
+)
+from sat_com_connectivity.inter_satellite_link_connectivity.strategies import (
+    InterSatelliteConnectivityStrategy,
 )
 from sat_com_model.exceptions import (
     TopologyObjectNotFoundError,
     LinkNotFoundError,
     WalkerShellNotFoundError,
     GroundObjectDomainNotFoundError,
+    OpticalLinkTerminalNotFoundError,
 )
 from sat_com_model.models import (
     Simulation,
@@ -20,17 +46,44 @@ from sat_com_model.models import (
     Link,
     InterSatelliteLink,
     GroundStationLink,
+    GroundToSpaceLink,
     UserTerminalLink,
     Flow,
-    WalkerShell,
+    Shell,
     GroundObjectDomain,
     GroundObject,
     GroundObjectLink,
     PointOfPresence,
+    WalkerShell,
+    DawnDuskSSOShell,
+    OpticalLinkTerminal,
+    OpticalConstraint,
+    InterSatelliteLinkDirection,
+    OpticalInterSatelliteLinkModel,
 )
 from sat_com_model.specifications import (
     SourceDestinationMatchWithLinkSpecification,
 )
+
+
+def _to_optical_constraint(constraint) -> OpticalConstraint | None:
+    return OpticalConstraint(**constraint.model_dump()) if constraint else None
+
+
+def _check_optical_metrics(association) -> None:
+    """
+    A None constraint is expected for a BASIC link (no metrics by design) and
+    is a bug for an ADVANCED one.
+    """
+    if association.optical_link_model != OpticalInterSatelliteLinkModel.ADVANCED:
+        return
+    if association.constraint_a_to_b is None or association.constraint_b_to_a is None:
+        raise ValueError(
+            "Advanced optical link without optical constraints between satellites "
+            f"{association.satellite_a.topology_uniq_id} and "
+            f"{association.satellite_b.topology_uniq_id}: the strategy or the "
+            "addressing plan must compute them, or mark the link BASIC."
+        )
 
 
 def get_object_by_object_id(
@@ -91,23 +144,44 @@ class SimulationManager:
 
     simulation: Simulation
 
-    time_manager: SimulationTimeManager
-
-    static_ground_station_link_mode: bool
+    time_manager: SimulationTimeManager | None
 
     ground_to_space_connection_strategies: dict = dict()
 
-    def __init__(self, simulation: Simulation):
+    def __init__(
+        self,
+        simulation: Simulation,
+        event_bus: EventBus = None,
+        event_factories: EventFactories = None,
+    ):
         self.simulation = simulation
         self.configuration = dict()
+
+        self.event_factories = event_factories or EventFactories()
+
+        self.event_bus = event_bus
         self.enabled_update_functions = None
-        self.static_ground_station_link_mode = False
+        self.time_manager = None
+
+        # Satellite state shared by every connectivity computation (ground
+        # links, inter-satellite links, every shell). Dropped at each tick.
+        self.satellite_state_cache = SatelliteStateCache()
 
         self.ground_to_space_connection_strategies = {}
         for name, cls in GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY.items():
             kwargs = {"distance_model": self.simulation.distance_model}
 
-            self.ground_to_space_connection_strategies[name] = cls(**kwargs)
+            strategy = cls(**kwargs)
+            # Set as an attribute, not a constructor argument, so registered
+            # custom strategies with a fixed __init__ signature keep working.
+            strategy.state_cache = self.satellite_state_cache
+            self.ground_to_space_connection_strategies[name] = strategy
+
+        self.shell_addressing_plans: list[tuple[Shell, StaticAddressingPlan]] = list()
+
+        self.inter_satellite_link_connection_strategy: (
+            InterSatelliteConnectivityStrategy | None
+        ) = None
 
     def set_time_manager(self, time_manager: SimulationTimeManager):
         self.time_manager = time_manager
@@ -123,8 +197,35 @@ class SimulationManager:
             return self.enabled_update_functions
 
     def __update(self):
+        # The cache also detects time changes by itself; this covers movement
+        # models whose clock does not move (test doubles).
+        self.satellite_state_cache.invalidate()
+
         for update_function in self.update_protocol:
+            t0 = time.perf_counter()
+
             update_function()
+
+            t1 = time.perf_counter()
+            elapsed_ms = (t1 - t0) * 1000
+
+            if self.time_manager and self.time_manager.verbose:
+                print(
+                    f"[Simulation Update Protocol] {update_function.__name__}: {elapsed_ms:.2f} ms"
+                )
+
+    def __publish_event(self, event: Event):
+        if self.event_bus is None:
+            return
+
+        if self.time_manager:
+            event.sim_time = self.time_manager.current_time
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.event_bus.publish(event))
+        except RuntimeError:
+            asyncio.run(self.event_bus.publish(event))
 
     def append_flows(self, list_of_flows: list[list]) -> set[Link]:
         """
@@ -146,6 +247,10 @@ class SimulationManager:
         satellite.topology_uniq_id = self.simulation.request_an_id()
         self.simulation.satellites.append(satellite)
 
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.created(satellite)
+        )
+
     def add_ground_station(self, ground_station: GroundStation):
         """
         Add ground station to the simulation. Automatically attribute an uniq topology id.
@@ -154,6 +259,10 @@ class SimulationManager:
         """
         ground_station.topology_uniq_id = self.simulation.request_an_id()
         self.simulation.ground_stations.append(ground_station)
+
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.created(ground_station)
+        )
 
     def add_user_terminals(self, user_terminal: UserTerminal):
         """
@@ -164,6 +273,10 @@ class SimulationManager:
         user_terminal.topology_uniq_id = self.simulation.request_an_id()
         self.simulation.user_terminals.append(user_terminal)
 
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.created(user_terminal)
+        )
+
     def add_point_of_presence(self, point_of_presence: PointOfPresence):
         """
         Add point of presence to the simulation. Automatically attribute an uniq topology id
@@ -172,6 +285,12 @@ class SimulationManager:
         """
         point_of_presence.topology_uniq_id = self.simulation.request_an_id()
         self.simulation.point_of_presences.append(point_of_presence)
+
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.created(
+                point_of_presence
+            )
+        )
 
     def get_all_topology_objects(self) -> list[TopologyObject]:
         """
@@ -257,22 +376,87 @@ class SimulationManager:
 
         raise TopologyObjectNotFoundError()
 
+    def bind_optical_inter_satellite_links(
+        self,
+        satellite_a: Satellite,
+        satellite_b: Satellite,
+        terminal_a: OpticalLinkTerminal,
+        terminal_b: OpticalLinkTerminal,
+        link: InterSatelliteLink,
+    ):
+        if link not in self.simulation.inter_satellite_links:
+            raise LinkNotFoundError("This link does not exist in the simulation")
+
+        if terminal_a not in satellite_a.optical_link_terminals:
+            raise OpticalLinkTerminalNotFoundError(
+                "Optical link terminal a does not belong to satellite a"
+            )
+
+        if terminal_b not in satellite_b.optical_link_terminals:
+            raise OpticalLinkTerminalNotFoundError(
+                "Optical link terminal does not belong to satellite b"
+            )
+
+        terminal_a.link = link
+        terminal_b.link = link
+
     def create_and_add_inter_satellite_link_connection(
-        self, satellite_a: Satellite, satellite_b: Satellite
+        self,
+        satellite_a: Satellite,
+        satellite_b: Satellite,
+        inter_satellite_link_direction: InterSatelliteLinkDirection = None,
+        terminal_a: OpticalLinkTerminal = None,
+        terminal_b: OpticalLinkTerminal = None,
+        satellite_a_constraint: OpticalConstraint = None,
+        satellite_b_constraint: OpticalConstraint = None,
+        distance_km: float | None = None,
+        optical_link_model: OpticalInterSatelliteLinkModel | None = None,
     ) -> InterSatelliteLink:
         """
         Create inter-satellite link between two satellites
+        :param distance_km: straight-line distance, set before the creation event
+        :param optical_link_model: BASIC or ADVANCED; when None, ADVANCED if
+            constraints are given, BASIC otherwise
+        :param inter_satellite_link_direction:
+        :param satellite_b_constraint:
+        :param satellite_a_constraint:
+        :param terminal_b:
+        :param terminal_a:
         :param satellite_a: Satellite instance A
         :param satellite_b: Satellite instance B
         :return: InterSatelliteLink instance
         """
         inter_satellite_link = InterSatelliteLink()
-        inter_satellite_link.connect(satellite_a, satellite_b)
+        inter_satellite_link.connect(
+            source=satellite_a,
+            destination=satellite_b,
+            source_optical_terminal=terminal_a,
+            destination_optical_terminal=terminal_b,
+            source_constraint=satellite_a_constraint,
+            destination_constraint=satellite_b_constraint,
+            inter_satellite_direction=inter_satellite_link_direction,
+        )
+        if optical_link_model is None:
+            has_constraints = (
+                satellite_a_constraint is not None or satellite_b_constraint is not None
+            )
+            optical_link_model = (
+                OpticalInterSatelliteLinkModel.ADVANCED
+                if has_constraints
+                else OpticalInterSatelliteLinkModel.BASIC
+            )
+        inter_satellite_link.optical_link_model = optical_link_model
+        inter_satellite_link.distance_km = distance_km
 
         satellite_a.links.append(inter_satellite_link)
         satellite_b.links.append(inter_satellite_link)
 
         self.simulation.inter_satellite_links.append(inter_satellite_link)
+
+        self.__publish_event(
+            self.event_factories.isl_event_factory.created(inter_satellite_link)
+        )
+
         return inter_satellite_link
 
     def create_and_add_ground_station_link_connection(
@@ -280,9 +464,13 @@ class SimulationManager:
         satellite: Satellite,
         ground_station: GroundStation,
         elevation_above_horizon_angle: float = 0,
+        estimated_link_duration: float = None,
+        distance_km: float | None = None,
+        estimated_disconnection_time: datetime.datetime | None = None,
     ) -> GroundStationLink:
         """
         Create a ground station link between a satellite and a ground station and append it to the simulation.
+        :param estimated_link_duration:
         :param satellite: Satellite instance
         :param ground_station: GroundStation instance
         :param elevation_above_horizon_angle:
@@ -294,11 +482,19 @@ class SimulationManager:
         ground_station_link.elevation_above_horizon_angle = (
             elevation_above_horizon_angle
         )
+        ground_station_link.estimated_link_duration = estimated_link_duration
+        ground_station_link.distance_km = distance_km
+        ground_station_link.estimated_disconnection_time = estimated_disconnection_time
 
         satellite.links.append(ground_station_link)
         ground_station.links.append(ground_station_link)
 
         self.simulation.ground_station_links.append(ground_station_link)
+
+        self.__publish_event(
+            self.event_factories.gsl_event_factory.created(ground_station_link)
+        )
+
         return ground_station_link
 
     def create_and_add_user_terminal_link_connection(
@@ -306,9 +502,13 @@ class SimulationManager:
         satellite: Satellite,
         user_terminal: UserTerminal,
         elevation_above_horizon_angle: float = 0,
+        estimated_link_duration: float = None,
+        distance_km: float | None = None,
+        estimated_disconnection_time: datetime.datetime | None = None,
     ) -> UserTerminalLink:
         """
         Create a user terminal link between a satellite and a user terminal
+        :param estimated_link_duration:
         :param elevation_above_horizon_angle:
         :param satellite: Satellite instance
         :param user_terminal: User terminal instance
@@ -317,11 +517,19 @@ class SimulationManager:
         user_terminal_link = UserTerminalLink()
         user_terminal_link.connect(satellite, user_terminal)
         user_terminal_link.elevation_above_horizon_angle = elevation_above_horizon_angle
+        user_terminal_link.estimated_link_duration = estimated_link_duration
+        user_terminal_link.distance_km = distance_km
+        user_terminal_link.estimated_disconnection_time = estimated_disconnection_time
 
         satellite.links.append(user_terminal_link)
         user_terminal.links.append(user_terminal_link)
 
         self.simulation.user_terminal_links.append(user_terminal_link)
+
+        self.__publish_event(
+            self.event_factories.utl_event_factory.created(user_terminal_link)
+        )
+
         return user_terminal_link
 
     def create_and_add_ground_object_link_connection(
@@ -441,6 +649,19 @@ class SimulationManager:
             object_1.get_coordinates(), object_2.get_coordinates()
         )
 
+    def get_3d_distance_between_two_topology_object_km(
+        self, object_1: TopologyObject, object_2: TopologyObject
+    ) -> float:
+        """
+        Get distance between two topology object in km.
+        :param object_1: Topology object A
+        :param object_2: Topology object  B
+        :return: float: Distance between two topology objects
+        """
+        return self.simulation.get_distance_model().get_3d_distance_km(
+            object_1.get_coordinates(), object_2.get_coordinates()
+        )
+
     def get_closest_satellite_to_a_ground_station(
         self,
         ground_station: GroundStation,
@@ -493,18 +714,51 @@ class SimulationManager:
         ground_station_link.source.links.remove(ground_station_link)
         ground_station_link.destination.links.remove(ground_station_link)
 
+        ground_station_link.flows.clear()
+
         self.simulation.ground_station_links.remove(ground_station_link)
 
-    def remove_inter_satellite_link(self, inter_satellite_link: InterSatelliteLink):
+        self.__publish_event(
+            self.event_factories.gsl_event_factory.removed(ground_station_link)
+        )
+
+    def remove_inter_satellite_link(
+        self,
+        inter_satellite_link: InterSatelliteLink,
+        association_state: AssociationState = None,
+    ):
         """
         Remove an Inter satellite  link
+        :param association_state:
         :param inter_satellite_link: Inter satellite Link to remove
         :return:
         """
+        inter_satellite_link.unbind_terminals()
+
+        inter_satellite_link.flows.clear()
+
         inter_satellite_link.source.links.remove(inter_satellite_link)
         inter_satellite_link.destination.links.remove(inter_satellite_link)
 
         self.simulation.inter_satellite_links.remove(inter_satellite_link)
+
+        # Update information to notify the link status
+        if association_state is not None:
+            source_constraint, destination_constraint = (
+                association_state.get_link_source_and_destination_optical_constraint_ordered(
+                    inter_satellite_link
+                )
+            )
+            inter_satellite_link.source_constraint = source_constraint
+            inter_satellite_link.destination_constraint = destination_constraint
+            inter_satellite_link.temporary_unavailable = (
+                association_state.temporary_unavailable
+            )
+            inter_satellite_link.recovery_time = association_state.recovery_time
+
+        self.__publish_event(
+            self.event_factories.isl_event_factory.removed(inter_satellite_link)
+        )
 
     def remove_user_terminal_link(self, user_terminal_link: UserTerminalLink):
         """
@@ -516,7 +770,13 @@ class SimulationManager:
         user_terminal_link.source.links.remove(user_terminal_link)
         user_terminal_link.destination.links.remove(user_terminal_link)
 
+        user_terminal_link.flows.clear()
+
         self.simulation.user_terminal_links.remove(user_terminal_link)
+
+        self.__publish_event(
+            self.event_factories.utl_event_factory.removed(user_terminal_link)
+        )
 
     def remove_all_ground_station_links(
         self, ground_station_links: list[GroundStationLink]
@@ -666,76 +926,6 @@ class SimulationManager:
 
         return list_link
 
-    def connect_every_satellite_with_every_ground_stations(self):
-        """
-        This method will connect every satellite with every ground station, it will clear existing ground stations
-        links
-        :return:
-        """
-        self.simulation.ground_station_links.clear()
-
-        for ground_station in self.get_ground_stations():
-            for satellite in self.get_satellites():
-                self.create_and_add_ground_station_link_connection(
-                    satellite, ground_station
-                )
-
-    def connect_every_satellite_with_every_user_terminals_and_disable_un_connected(
-        self,
-    ):
-        """
-        This method will connect every satellite with every user terminal, it will clear existing user terminals
-        links
-        :return:
-        """
-        self.simulation.ground_station_links.clear()
-
-        for user_terminal in self.get_user_terminals():
-            simulation_domain = self.get_ground_object_domain(user_terminal.domain)
-            satellites_in_range = self.simulation.get_distance_model().spatial_position_on_ground_in_range(
-                user_terminal,
-                self.get_satellites(),
-                int(simulation_domain.maximum_satellite_range_distance),
-            )
-            for satellite in self.get_satellites():
-                created_user_terminal_link = (
-                    self.create_and_add_user_terminal_link_connection(
-                        satellite, user_terminal
-                    )
-                )
-
-                created_user_terminal_link.disabled = (
-                    satellite not in satellites_in_range
-                )
-
-    def connect_every_satellite_with_every_ground_stations_and_disable_un_connected(
-        self,
-    ):
-        """
-        This method will connect every satellite with every ground station, it will clear existing ground stations
-        links
-        :return:
-        """
-        self.simulation.ground_station_links.clear()
-
-        for ground_station in self.get_ground_stations():
-            simulation_domain = self.get_ground_object_domain(ground_station.domain)
-            satellites_in_range = self.simulation.get_distance_model().spatial_position_on_ground_in_range(
-                ground_station,
-                self.get_satellites(),
-                int(simulation_domain.maximum_satellite_range_distance),
-            )
-            for satellite in self.get_satellites():
-                created_ground_station_link = (
-                    self.create_and_add_ground_station_link_connection(
-                        satellite, ground_station
-                    )
-                )
-
-                created_ground_station_link.disabled = (
-                    satellite not in satellites_in_range
-                )
-
     def get_ground_station_link(
         self, ground_station: GroundStation, satellite: Satellite
     ):
@@ -802,6 +992,7 @@ class SimulationManager:
 
         return satellites_connected
 
+    @deprecated("Use ground_connectives_strategies instead")
     def connect_user_terminal_to_satellites(
         self, user_terminal: UserTerminal, maximum_satellite_range_distance: float
     ):
@@ -831,6 +1022,7 @@ class SimulationManager:
                     "An object of type " + type(satellite).__name__ + " wasn't expected"
                 )
 
+    @deprecated("Use ground_connectives_strategies instead")
     def connect_ground_station_to_satellites(
         self,
         ground_station: GroundStation,
@@ -905,6 +1097,10 @@ class SimulationManager:
         else:
             raise ValueError("Topology object type unknown: " + topology_object.type)
 
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.removed(topology_object)
+        )
+
         return topology_object
 
     def remove_cascade_topology_object(self, topology_object: TopologyObject):
@@ -922,6 +1118,9 @@ class SimulationManager:
             self.simulation.point_of_presences.remove(topology_object)
         else:
             raise ValueError("Topology object type unknown: " + topology_object.type)
+        self.__publish_event(
+            self.event_factories.topology_object_event_factory.removed(topology_object)
+        )
 
     def remove_cascade_topology_object_by_id(
         self, topology_object_id: int
@@ -980,84 +1179,350 @@ class SimulationManager:
         for point_of_presence in self.simulation.point_of_presences:
             self.remove_cascade_topology_object(point_of_presence)
 
-    def __update_user_terminal_links_in_static_mode(self):
+    def get_walker_shell_satellites(self):
         """
-        This method will disable all ground station link that aren't connected
+        Get all satellites in walker shell
+        :return: List of satellites in walker shell
+        """
+        return [
+            satellite
+            for satellite in self.get_satellites()
+            if isinstance(satellite.shell, WalkerShell)
+        ]
+
+    def get_sso_shell_satellites(self):
+        """
+        Get all satellites in sso shell
+        :return: List of satellites in sso shell
+        """
+        return [
+            satellite
+            for satellite in self.get_satellites()
+            if isinstance(satellite.shell, DawnDuskSSOShell)
+        ]
+
+    def update_ground_station_link(
+        self,
+        ground_to_space_link: GroundStationLink,
+        ground_to_space_constraints: GroundToSpaceConstraints,
+    ):
+        ground_to_space_link.estimated_link_duration = self.__link_duration(
+            ground_to_space_link, ground_to_space_constraints
+        )
+        ground_to_space_link.elevation_above_horizon_angle = (
+            ground_to_space_constraints.elevation_angle_above_horizon or -1
+        )
+        ground_to_space_link.distance_km = ground_to_space_constraints.distance_km or -1
+
+        self.__publish_event(
+            self.event_factories.gsl_event_factory.updated(ground_to_space_link)
+        )
+
+    def update_user_terminal_link(
+        self,
+        user_terminal_link: UserTerminalLink,
+        ground_to_space_constraints: GroundToSpaceConstraints,
+    ):
+        user_terminal_link.estimated_link_duration = self.__link_duration(
+            user_terminal_link, ground_to_space_constraints
+        )
+        user_terminal_link.elevation_above_horizon_angle = (
+            ground_to_space_constraints.elevation_angle_above_horizon or -1
+        )
+        user_terminal_link.distance_km = ground_to_space_constraints.distance_km or -1
+
+        self.__publish_event(
+            self.event_factories.utl_event_factory.updated(user_terminal_link)
+        )
+
+    def update_inter_satellite_link(
+        self,
+        inter_satellite_link: InterSatelliteLink,
+        optical_constraint_a_to_b: OpticalConstraint,
+        optical_constraint_b_to_a: OpticalConstraint,
+        satellite_a: Satellite,
+        satellite_b: Satellite,
+        temporary_unavailable: bool = False,
+        recovery_time: datetime.datetime | None = None,
+        distance_km: float | None = None,
+        optical_link_model: OpticalInterSatelliteLinkModel | None = None,
+    ):
+        """
+
+        :param distance_km: straight-line distance, set before the update event
+        :param optical_link_model: BASIC or ADVANCED, kept unchanged when None
+        :param inter_satellite_link:
+        :param optical_constraint_a_to_b:
+        :param optical_constraint_b_to_a:
+        :param satellite_a:
+        :param satellite_b:
+        :param temporary_unavailable:
+        :param recovery_time:
         :return:
         """
-        self.simulation.user_terminal_links.clear()
 
-        self.connect_every_satellite_with_every_ground_stations_and_disable_un_connected()
+        # This check is very important as the order might have been changed during the verification
+        source_constraint = (
+            optical_constraint_a_to_b
+            if satellite_a == inter_satellite_link.get_satellite_source()
+            else optical_constraint_b_to_a
+        )
+        destination_constraint = (
+            optical_constraint_b_to_a
+            if satellite_b == inter_satellite_link.get_satellite_destination()
+            else optical_constraint_a_to_b
+        )
 
-    def __update_ground_stations_in_static_mode(self):
+        inter_satellite_link.source_constraint = source_constraint
+        inter_satellite_link.destination_constraint = destination_constraint
+
+        inter_satellite_link.temporary_unavailable = temporary_unavailable
+        inter_satellite_link.recovery_time = recovery_time
+        if distance_km is not None:
+            inter_satellite_link.distance_km = distance_km
+        if optical_link_model is not None:
+            inter_satellite_link.optical_link_model = optical_link_model
+
+        self.__publish_event(
+            self.event_factories.isl_event_factory.updated(inter_satellite_link)
+        )
+
+    def __current_time(self) -> datetime.datetime | None:
+        return self.time_manager.current_time if self.time_manager else None
+
+    def __remaining_duration(self, link: GroundToSpaceLink) -> float | None:
+        """Seconds until the predicted disconnection, None when not predicted."""
+        now = self.__current_time()
+        if link.estimated_disconnection_time is None or now is None:
+            return None
+        return max(0.0, (link.estimated_disconnection_time - now).total_seconds())
+
+    def __link_duration(
+        self,
+        link: GroundToSpaceLink,
+        ground_to_space_constraints: GroundToSpaceConstraints,
+    ) -> float:
+        if ground_to_space_constraints.estimated_connection_time is not None:
+            return ground_to_space_constraints.estimated_connection_time
+        remaining = self.__remaining_duration(link)
+        return remaining if remaining is not None else -1
+
+    def __update_ground_object_links(self, ground_objects, link_type, create_link):
         """
-        This method will disable all ground station link that aren't connected
-        :return:
+        Apply the ground-to-space strategies to every ground object:
+        1. compute the result of every strategy,
+        2. estimate the duration of every new link of an elevation-based
+           strategy, in one batch,
+        3. apply the results (removals, creations, updates).
+        A strategy only reads the links of its own ground object, so computing
+        them all before applying any gives the same links.
         """
-        self.simulation.ground_station_links.clear()
+        satellites = self.get_satellites()
 
-        self.connect_every_satellite_with_every_ground_stations_and_disable_un_connected()
+        computed = []
+        for ground_object in ground_objects:
+            strategy = self.ground_to_space_connection_strategies.get(
+                ground_object.ground_object_domain.ground_to_space_connections_strategy
+            )
+            result = strategy.compute_ground_object_connection_strategy(
+                ground_object, satellites
+            )
+            computed.append((ground_object, strategy, result))
+
+        now = self.__current_time()
+        to_estimate = [
+            (ground_object, connection)
+            for ground_object, strategy, result in computed
+            if strategy.estimates_link_duration
+            for connection in result.new_ground_object_connections
+        ]
+        disconnection_times = {}
+        if now is not None and to_estimate:
+            delays = estimate_disconnection_delays(
+                [connection.satellite for _, connection in to_estimate],
+                [ground_object for ground_object, _ in to_estimate],
+                now,
+                self.satellite_state_cache,
+            )
+            for (_, connection), delay in zip(to_estimate, delays):
+                disconnection_times[id(connection)] = now + datetime.timedelta(
+                    seconds=float(delay)
+                )
+
+        for ground_object, _, result in computed:
+            for link in result.obsolete_links:
+                self.remove_link(link)
+
+            for new_connection in result.new_ground_object_connections:
+                constraints = new_connection.ground_to_space_constraints
+                disconnection_time = disconnection_times.get(id(new_connection))
+                if disconnection_time is not None:
+                    duration = (disconnection_time - now).total_seconds()
+                else:
+                    duration = constraints.estimated_connection_time or -1
+                create_link(
+                    new_connection.satellite,
+                    ground_object,
+                    elevation_above_horizon_angle=constraints.elevation_angle_above_horizon
+                    or -1,
+                    estimated_link_duration=duration,
+                    distance_km=constraints.distance_km or -1,
+                    estimated_disconnection_time=disconnection_time,
+                )
+
+            for update in result.updated_links:
+                if not isinstance(update.ground_to_space_link, link_type):
+                    raise TypeError(f"A {link_type.__name__} was expected")
+                if link_type is GroundStationLink:
+                    self.update_ground_station_link(
+                        ground_to_space_link=update.ground_to_space_link,
+                        ground_to_space_constraints=update.ground_to_space_constraints,
+                    )
+                else:
+                    self.update_user_terminal_link(
+                        user_terminal_link=update.ground_to_space_link,
+                        ground_to_space_constraints=update.ground_to_space_constraints,
+                    )
+
+        # Links kept without an update (until-disconnection strategies): their
+        # elevation and distance were refreshed by the strategy, refresh the
+        # remaining duration too.
+        for ground_object in ground_objects:
+            for link in ground_object.links:
+                if isinstance(link, GroundToSpaceLink):
+                    remaining = self.__remaining_duration(link)
+                    if remaining is not None:
+                        link.estimated_link_duration = remaining
 
     def __update_user_terminal_links_default(self):
         """
-        This method will delete all user terminals links and will create new ones according to the current strategy
+        Update every user terminal link according to its ground object strategy.
+        """
+        self.__update_ground_object_links(
+            self.get_user_terminals(),
+            UserTerminalLink,
+            self.create_and_add_user_terminal_link_connection,
+        )
+
+    def __update_ground_station_links_default(self):
+        """
+        Update every ground station link according to its ground object strategy.
+        """
+        self.__update_ground_object_links(
+            self.get_ground_stations(),
+            GroundStationLink,
+            self.create_and_add_ground_station_link_connection,
+        )
+
+    def __update_inter_satellite_links_default(self):
+        """
+        Update ISL. Now we only have static ISL so the logic is easy.
         :return:
         """
-        for terminal in self.get_user_terminals():
-            update_response = self.ground_to_space_connection_strategies.get(
-                terminal.ground_object_domain.ground_to_space_connections_strategy
-            ).compute_ground_object_connection_strategy(terminal, self.get_satellites())
+        if self.inter_satellite_link_connection_strategy is None:
+            raise ValueError("Inter Satellite Link Connection Strategy is None")
 
-            for link in update_response.obsolete_links:
-                self.remove_link(link)
+        update_result = self.inter_satellite_link_connection_strategy.compute_strategy()
 
-            for new_connection in update_response.new_ground_object_connections:
-                self.create_and_add_user_terminal_link_connection(
-                    satellite=new_connection.satellite,
-                    user_terminal=terminal,
-                    elevation_above_horizon_angle=new_connection.connection_info.get(
-                        "elevation_above_horizon", -1
+        for obsolete_link in update_result.obsolete_links:
+            self.remove_inter_satellite_link(
+                obsolete_link.link,
+                AssociationState(
+                    optical_constraint_a_to_b=(
+                        OpticalConstraint(
+                            **obsolete_link.constraint_a_to_b.model_dump()
+                        )
+                        if obsolete_link.constraint_a_to_b
+                        else None
                     ),
-                )
-
-    def __update_ground_stations_default(self):
-        """
-        This method will delete all ground station links and will create new ones according to the current strategy
-        :return:
-        """
-        for ground_station in self.get_ground_stations():
-            update_response = self.ground_to_space_connection_strategies.get(
-                ground_station.ground_object_domain.ground_to_space_connections_strategy
-            ).compute_ground_object_connection_strategy(
-                ground_station, self.get_satellites()
+                    optical_constraint_b_to_a=(
+                        OpticalConstraint(
+                            **obsolete_link.constraint_b_to_a.model_dump()
+                        )
+                        if obsolete_link.constraint_b_to_a
+                        else None
+                    ),
+                    satellite_a=obsolete_link.satellite_a,
+                    satellite_b=obsolete_link.satellite_b,
+                    temporary_unavailable=obsolete_link.temporary_unavailable,
+                    recovery_time=obsolete_link.recovery_time,
+                ),
             )
 
-            for link in update_response.obsolete_links:
-                self.remove_link(link)
+        kept_or_created = update_result.updated_links + update_result.new_links
+        for association in kept_or_created:
+            _check_optical_metrics(association)
+        # Computed before any update/creation, so every published event
+        # carries the distance of the current time step.
+        distances_km = self.__inter_satellite_distances_km(kept_or_created)
 
-            for new_connection in update_response.new_ground_object_connections:
-                self.create_and_add_ground_station_link_connection(
-                    satellite=new_connection.satellite,
-                    ground_station=ground_station,
-                    elevation_above_horizon_angle=new_connection.connection_info.get(
-                        "elevation_above_horizon", -1
-                    ),
+        for updated_link in update_result.updated_links:
+            self.update_inter_satellite_link(
+                inter_satellite_link=updated_link.link,
+                optical_constraint_a_to_b=_to_optical_constraint(
+                    updated_link.constraint_a_to_b
+                ),
+                optical_constraint_b_to_a=_to_optical_constraint(
+                    updated_link.constraint_b_to_a
+                ),
+                satellite_a=updated_link.satellite_a,
+                satellite_b=updated_link.satellite_b,
+                temporary_unavailable=updated_link.temporary_unavailable,
+                recovery_time=updated_link.recovery_time,
+                distance_km=distances_km[id(updated_link)],
+                optical_link_model=updated_link.optical_link_model,
+            )
+
+        for new_link in update_result.new_links:
+            self.create_and_add_inter_satellite_link_connection(
+                satellite_a=new_link.satellite_a,
+                satellite_b=new_link.satellite_b,
+                terminal_a=new_link.terminal_a,
+                terminal_b=new_link.terminal_b,
+                satellite_a_constraint=_to_optical_constraint(
+                    new_link.constraint_a_to_b
+                ),
+                satellite_b_constraint=_to_optical_constraint(
+                    new_link.constraint_b_to_a
+                ),
+                inter_satellite_link_direction=new_link.direction,
+                distance_km=distances_km[id(new_link)],
+                optical_link_model=new_link.optical_link_model,
+            )
+
+    def __inter_satellite_distances_km(self, associations) -> dict[int, float]:
+        """
+        Distance of each association, keyed by id(association). ADVANCED links
+        reuse the range of their constraints; BASIC links get the straight-line
+        distance from the satellites ECI positions, in one batch.
+        """
+        distances = {}
+        basic = []
+        for association in associations:
+            if (
+                association.optical_link_model
+                == OpticalInterSatelliteLinkModel.ADVANCED
+            ):
+                distances[id(association)] = (
+                    association.constraint_a_to_b.range_distance_km
                 )
+            else:
+                basic.append(association)
+
+        computed = self.satellite_state_cache.distances_km(
+            [(a.satellite_a, a.satellite_b) for a in basic]
+        )
+        for association, distance in zip(basic, computed):
+            distances[id(association)] = float(distance)
+        return distances
 
     def update_ground_station_links(self):
         """
-        Update the ground station links. This will connect ground station to satellites based on their position and their
-        range.
+        Update the ground station links with the connection strategy of each ground object domain.
         :return:
         """
 
-        if self.static_ground_station_link_mode:
-            if len(self.get_ground_stations_links()) == 0:
-                self.connect_every_satellite_with_every_ground_stations()
-
-            self.__update_ground_stations_in_static_mode()
-        else:
-            self.__update_ground_stations_default()
+        self.__update_ground_station_links_default()
 
     def update_satellites(self):
         """
@@ -1084,13 +1549,10 @@ class SimulationManager:
             user_terminal.update()
 
     def update_user_terminal_links(self):
-        if self.static_ground_station_link_mode:
-            if len(self.get_user_terminal_links()) == 0:
-                self.connect_every_satellite_with_every_ground_stations()
+        self.__update_user_terminal_links_default()
 
-            self.__update_user_terminal_links_in_static_mode()
-        else:
-            self.__update_user_terminal_links_default()
+    def update_inter_satellite_links(self):
+        self.__update_inter_satellite_links_default()
 
     def add_to_update_protocol(self, callable_update: Callable):
         self.enabled_update_functions.append(callable_update)
@@ -1114,15 +1576,13 @@ class SimulationManager:
             self.update_user_terminal,
             self.update_ground_station_links,
             self.update_user_terminal_links,
+            self.update_inter_satellite_links,
         ]
-
-    def add_walker_shell(self, walker_shell: WalkerShell):
-        self.simulation.walker_shells.append(walker_shell)
 
     def add_ground_object_domain(self, ground_object_domain: GroundObjectDomain):
         self.simulation.ground_object_domains.append(ground_object_domain)
 
-    def get_walker_shell(self, identifier: str) -> WalkerShell:
+    def get_walker_shell(self, identifier: str) -> Shell:
         walker_shells_found = [
             walker_shell
             for walker_shell in self.simulation.walker_shells
@@ -1135,6 +1595,12 @@ class SimulationManager:
             raise WalkerShellNotFoundError("No walker shell found")
         else:
             raise ValueError("Multiple walker shells found with the same identifier")
+
+    def get_walker_shells(self) -> list[WalkerShell]:
+        return self.simulation.walker_shells
+
+    def get_sso_shells(self) -> list[DawnDuskSSOShell]:
+        return self.simulation.down_dusk_sso_shells
 
     def get_ground_object_domain(self, identifier: str) -> GroundObjectDomain:
         ground_object_domains_found = [
@@ -1152,3 +1618,12 @@ class SimulationManager:
 
     def get_point_of_presences(self):
         return self.simulation.point_of_presences
+
+    def add_walker_shell(self, walker_shell: WalkerShell):
+        self.simulation.walker_shells.append(walker_shell)
+
+    def add_sso_shell(self, sso_shell: DawnDuskSSOShell):
+        self.simulation.down_dusk_sso_shells.append(sso_shell)
+
+    def get_shells(self) -> list[Shell]:
+        return self.get_walker_shells() + self.get_sso_shells()

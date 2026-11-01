@@ -19,8 +19,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from sat_com_application.simulation_manager import SimulationManager
-from sat_com_builder.models import OrbitalConnectivityProperty, WalkerShellProperty
 
 # Modifications :
 # - Created transform_text_to_isl
@@ -29,14 +27,10 @@ from sat_com_builder.models import OrbitalConnectivityProperty, WalkerShellPrope
 
 # Source: https://github.com/snkas/hypatia
 
-from sat_com_constellation.models import (
-    WalkerConstellationProperty,
+
+from sat_com_model.models import (
+    InterSatelliteLinkDirection,
 )
-from sat_com_model.exceptions import (
-    TopologyObjectNotFoundError,
-    TopologyConnectionError,
-)
-from sat_com_model.models import InterSatelliteLinkDirection
 
 
 def generate_walker_star_constellation_grid(
@@ -144,93 +138,128 @@ def generate_walker_delta_constellation_grid(
     return list_inter_satellite_links
 
 
-def transform_grid_to_inter_satellite_links(
-    simulation_service: SimulationManager,
-    list_isl: list,
-    walker_shell_property: WalkerShellProperty,
-):
-    """
-    This function will create inter satellite links based on the ISL list previously generated.
-    :param walker_shell_property: Property of the shell
-    :param simulation_service: SimulationManager object
-    :param list_isl: list of vector like object (int, int, InterSatelliteLinkDirection)
-    :return:
-    """
-    for a, b, type_link in list_isl:
-        satellite_a = None
-        satellite_b = None
-        try:
-            satellite_a = simulation_service.get_satellite_by_object_id(
-                a, walker_shell_property.constellation_property.identifier
-            )
-        except TopologyObjectNotFoundError:
-            print("Satellite {sat_id} not found".format(sat_id=a))
+def generate_sun_synchronous_constellation_grid(
+    number_satellites_per_orbit: int,
+) -> list:
 
-        try:
-            satellite_b = simulation_service.get_satellite_by_object_id(
-                b, walker_shell_property.constellation_property.identifier
-            )
-
-        except TopologyObjectNotFoundError:
-            print("Satellite {sat_id} not found".format(sat_id=b))
-
-        if satellite_a is not None and satellite_b is not None:
-            try:
-                created_link = (
-                    simulation_service.create_and_add_inter_satellite_link_connection(
-                        satellite_a, satellite_b
-                    )
-                )
-                created_link.inter_satellite_direction = type_link
-            except TopologyConnectionError as tpe:
-                print(
-                    "Failed to connect {sat_a} and {sat_b} : {message}".format(
-                        sat_a=str(satellite_a), sat_b=str(satellite_b), message=tpe
-                    )
-                )
-
-
-def create_inter_satellite_links_for_walker_delta_constellation(
-    walker_delta_constellation: WalkerConstellationProperty,
-    connectivity_property: OrbitalConnectivityProperty,
-):
-    return generate_walker_delta_constellation_grid(
-        number_orbits=walker_delta_constellation.amount_of_orbit_plane,
-        number_satellites_per_orbit=walker_delta_constellation.amount_of_satellite_per_orbit_plane,
-        isl_shift=connectivity_property.adjacent_inter_satellite_shifting,
-    )
-
-
-def create_inter_satellite_links_for_walker_star_constellation(
-    walker_delta_constellation: WalkerConstellationProperty,
-    connectivity_property: OrbitalConnectivityProperty,
-):
-    return generate_walker_star_constellation_grid(
-        number_orbits=walker_delta_constellation.amount_of_orbit_plane,
-        number_satellites_per_orbit=walker_delta_constellation.amount_of_satellite_per_orbit_plane,
-        isl_shift=connectivity_property.adjacent_inter_satellite_shifting,
-    )
-
-
-def create_inter_satellite_links_for_walker_constellation(
-    simulation_manager: SimulationManager,
-    walker_shell_properties: WalkerShellProperty,
-):
-
-    if walker_shell_properties.type == "star":
-        generated_grid = create_inter_satellite_links_for_walker_star_constellation(
-            walker_shell_properties.constellation_property,
-            walker_shell_properties.orbital_connectivity_property,
+    list_inter_satellite_links = []
+    for i in range(number_satellites_per_orbit):
+        sat = i
+        sat_same_orbit = (i + 1) % number_satellites_per_orbit
+        list_inter_satellite_links.append(
+            (sat, sat_same_orbit, InterSatelliteLinkDirection.ORBITAL)
         )
 
-    elif walker_shell_properties.type == "delta":
-        generated_grid = create_inter_satellite_links_for_walker_delta_constellation(
-            walker_shell_properties.constellation_property,
-            walker_shell_properties.orbital_connectivity_property,
-        )
-    else:
-        raise ValueError("Unknown type of walker constellation")
+    return list_inter_satellite_links
 
-    transform_grid_to_inter_satellite_links(
-        simulation_manager, generated_grid, walker_shell_properties
-    )
+
+def generate_checkerboard_walker_delta_constellation_grid(
+    number_orbits: int, number_satellites_per_orbit: int, isl_shift: int, idx_offset=0
+) -> list:
+
+    if number_orbits < 3 or number_satellites_per_orbit < 3:
+        raise ValueError(
+            "Number of orbit and number of satellite per obit must each be at least 3"
+        )
+
+    is_number_of_orbit_even = number_orbits % 2 == 0
+
+    is_number_of_sat_per_orbit_even = number_satellites_per_orbit % 2 == 0
+
+    are_parameters_valid = is_number_of_orbit_even and is_number_of_sat_per_orbit_even
+
+    if not are_parameters_valid:
+        raise ValueError(
+            "Number of orbit and number of satellite per obit must each be even for checkerboard pattern"
+        )
+
+    list_inter_satellite_links = []
+
+    for i in range(number_orbits):
+        for j in range(number_satellites_per_orbit):
+            sat = i * number_satellites_per_orbit + j
+
+            # Same orbit neighbor
+            sat_same_orbit = i * number_satellites_per_orbit + (
+                (j + 1) % number_satellites_per_orbit
+            )
+
+            # Adjacent orbit neighbor
+            sat_adjacent_orbit = (
+                (i + 1) % number_orbits
+            ) * number_satellites_per_orbit + (
+                (j + isl_shift) % number_satellites_per_orbit
+            )
+
+            # Always keep intra-orbit links
+            list_inter_satellite_links.append(
+                (
+                    idx_offset + min(sat, sat_same_orbit),
+                    idx_offset + max(sat, sat_same_orbit),
+                    InterSatelliteLinkDirection.ORBITAL,
+                )
+            )
+
+            if (i % 2 == 0 and j % 2 == 0) or (i % 2 == 1 and j % 2 == 1):
+                list_inter_satellite_links.append(
+                    (
+                        idx_offset + min(sat, sat_adjacent_orbit),
+                        idx_offset + max(sat, sat_adjacent_orbit),
+                        InterSatelliteLinkDirection.ADJACENT,
+                    )
+                )
+
+    return list_inter_satellite_links
+
+
+def generate_checkerboard_walker_star_constellation_grid(
+    number_orbits: int, number_satellites_per_orbit: int, isl_shift: int, idx_offset=0
+):
+    if number_orbits < 3 or number_satellites_per_orbit < 3:
+        raise ValueError("Number of x and y must each be at least 3")
+
+    is_number_of_sat_per_orbit_even = number_satellites_per_orbit % 2 == 0
+
+    # Do not need to be even for the orbit number as it has a mesh anyway
+    if not is_number_of_sat_per_orbit_even:
+        raise ValueError("Number of satellite per obit must each be even")
+
+    list_inter_satellite_links = []
+
+    for i in range(number_orbits):
+        for j in range(number_satellites_per_orbit):
+            sat = i * number_satellites_per_orbit + j
+
+            # Same orbit neighbor
+            sat_same_orbit = i * number_satellites_per_orbit + (
+                (j + 1) % number_satellites_per_orbit
+            )
+
+            # Always keep intra-orbit links
+            list_inter_satellite_links.append(
+                (
+                    idx_offset + min(sat, sat_same_orbit),
+                    idx_offset + max(sat, sat_same_orbit),
+                    InterSatelliteLinkDirection.ORBITAL,
+                )
+            )
+
+            # Only connect to next orbit (no wrap-around in Walker Star)
+            has_an_inter_plane = i + 1 < number_orbits
+
+            if has_an_inter_plane:
+                sat_adjacent_orbit = (i + 1) * number_satellites_per_orbit + (
+                    (j + isl_shift) % number_satellites_per_orbit
+                )
+
+                # ✅ Apply parity rule
+                if (i % 2 == 0 and j % 2 == 0) or (i % 2 == 1 and j % 2 == 1):
+                    list_inter_satellite_links.append(
+                        (
+                            idx_offset + min(sat, sat_adjacent_orbit),
+                            idx_offset + max(sat, sat_adjacent_orbit),
+                            InterSatelliteLinkDirection.ADJACENT,
+                        )
+                    )
+
+    return list_inter_satellite_links

@@ -8,7 +8,6 @@ from sat_com_connectivity.ground_object_to_space_connectivity.base import (
     GroundToSpaceConnectionStrategy,
 )
 
-
 GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY = {
     cls.strategy_name: cls
     for name, cls in inspect.getmembers(strategies, inspect.isclass)
