@@ -8,3 +8,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: psf/black@stable
+        with:
+          # Same version as .pre-commit-config.yaml and .gitlab-ci.yml
+          version: "26.1.0"

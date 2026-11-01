@@ -44,7 +44,7 @@ default:
 lint:
   stage: lint
   script:
-    - pip install black==25.1.0 --extra-index-url "${PRIVATE_PYPI_URL}"
+    - pip install black==26.1.0 --extra-index-url "${PRIVATE_PYPI_URL}"
     - black --check .
 
 test:

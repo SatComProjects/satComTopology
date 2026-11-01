@@ -252,8 +252,7 @@ def print_summary(results):
             f"max={max(vals):.4f} {unit}  failures={n_fail}/{len(tested)}"
         )
 
-    print(
-        """
+    print("""
   HOW TO INTERPRET
   ----------------------------------------------------------------
   Inclination  delta < 0.01 deg
@@ -277,8 +276,7 @@ def print_summary(results):
     Swarm-A/C : NOT strict SSO — expect LTAN delta > 0.10 h
                 Use them only to verify inclination and precession.
     Station-keeping noise: RAAN delta 0.1-0.3 deg is normal.
-"""
-    )
+""")
 
 
 # ---------------------------------------------------------------------------
