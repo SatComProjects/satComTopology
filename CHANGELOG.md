@@ -125,6 +125,8 @@ These still work, and will be removed in a future version:
 - `configure_access_to_group_packages.sh`.
 
 ### Fixed
+- Inter-shell strategy: when the satellite at one end of an inter-shell link removed it, the terminal at the
+  other end was skipped for the tick instead of freed, so it stayed unlinked for one tick at every handover.
 - Optical constraints were reversed by the ISL update.
 - Wrong constraint used for terminal B.
 - Angular velocity was dropped from the ISL metrics.

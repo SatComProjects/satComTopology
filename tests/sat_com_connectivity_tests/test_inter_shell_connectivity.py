@@ -248,6 +248,85 @@ class TestIsInterShellCapable:
 
 # ---------------------------------------------------------------------------
 # Phase 1 — _compute_inter_shell_associations
+class TestComputeInterShellAssociationsLinkObsoletedByPeer:
+    """The satellite at one end of an inter-shell link is processed first and obsoletes the link: the other end must
+    still go back to the pool in the same tick (CASE 1.b), so it can be re-linked right away instead of one tick
+    later."""
+
+    def _scenario(self):
+        walker_shell, sso_shell = make_walker_shell(), make_sso_shell()
+        t_walker = make_terminal(is_inter_shell=True)
+        t_sso = make_terminal(is_inter_shell=True)
+        t_walker_free = make_terminal(is_inter_shell=True)
+        sat_walker = make_satellite(1, walker_shell, [t_walker])
+        sat_sso = make_satellite(2, sso_shell, [t_sso])
+        sat_walker_free = make_satellite(3, walker_shell, [t_walker_free])
+        link = make_isl(
+            sat_walker,
+            sat_sso,
+            t_walker,
+            t_sso,
+            direction=InterSatelliteLinkDirection.INTER_SHELL,
+        )
+        t_walker.link, t_walker.target_optical_link_terminal = link, t_sso
+        t_sso.link, t_sso.target_optical_link_terminal = link, t_walker
+        infeasible = make_possible_link(
+            t_walker, t_sso, temporary_unavailable=True, estimated_recover_time=6000
+        )
+        # Walker satellite first: it is the one that obsoletes the link
+        return (
+            [sat_walker, sat_sso, sat_walker_free],
+            link,
+            t_sso,
+            t_walker_free,
+            infeasible,
+        )
+
+    def test_other_end_of_obsoleted_link_joins_the_pool(self):
+        satellites, link, t_sso, _, infeasible = self._scenario()
+        with patch(
+            f"{MODULE}.compute_OISL_feasibility_for_terminal_pair",
+            return_value=infeasible,
+        ), patch(
+            f"{MODULE}.compute_OISL_links_from_terminal_pools_filtered", return_value=[]
+        ) as pools:
+            ledger = run_inter_shell(make_strategy(satellites))
+
+        sso_pool = pools.call_args.kwargs["terminals_group_1"]
+        assert t_sso in sso_pool
+        result = ledger.to_result()
+        assert [o.link for o in result.obsolete_links] == [link]
+
+    def test_other_end_of_obsoleted_link_is_relinked_in_the_same_tick(self):
+        satellites, link, t_sso, t_walker_free, infeasible = self._scenario()
+        relink = make_possible_link(t_sso, t_walker_free)
+
+        def pools(terminals_group_1, terminals_group_2, **_):
+            # a possible link only exists if both terminals were offered
+            return (
+                [relink]
+                if t_sso in terminals_group_1 and t_walker_free in terminals_group_2
+                else []
+            )
+
+        with patch(
+            f"{MODULE}.compute_OISL_feasibility_for_terminal_pair",
+            return_value=infeasible,
+        ), patch(
+            f"{MODULE}.compute_OISL_links_from_terminal_pools_filtered",
+            side_effect=pools,
+        ):
+            ledger = run_inter_shell(make_strategy(satellites))
+
+        result = ledger.to_result()
+        assert [o.link for o in result.obsolete_links] == [link]
+        assert len(result.new_links) == 1
+        assert {result.new_links[0].terminal_a, result.new_links[0].terminal_b} == {
+            t_sso,
+            t_walker_free,
+        }
+
+
 # ---------------------------------------------------------------------------
 
 
