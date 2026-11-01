@@ -437,9 +437,6 @@ class WalkerShell(Shell):
     mean_revolution_per_day: float = Field(default=14.25)
 
     adjacent_inter_satellite_shifting: int = Field(default=0)
-    maximum_inter_satellite_range_distance: Optional[float] = None
-    maximum_ground_station_range: Optional[float] = None
-    maximum_user_terminal_range: Optional[float] = None
     maximum_connected_ground_object: Optional[int] = None
     maximum_connected_user_terminal: Optional[int] = None
     maximum_connected_ground_station: Optional[int] = None
@@ -1296,3 +1293,20 @@ def create_point_of_presence(object_id: int, domain: str = "public") -> PointOfP
     created_point_of_presence.domain = domain
 
     return created_point_of_presence
+
+
+# Resolve the forward references (e.g. TopologyObject.links: list[Link]) now that every class is
+# defined. Without this, a subclass defined in another module (e.g. a user's Satellite subclass
+# built through an injected factory) cannot resolve `Link` and fails at instantiation.
+for _model in (
+    TopologyObject,
+    OrbitalObject,
+    OpticalLinkTerminal,
+    Satellite,
+    GroundObject,
+    GroundStation,
+    UserTerminal,
+    PointOfPresence,
+):
+    _model.model_rebuild()
+del _model

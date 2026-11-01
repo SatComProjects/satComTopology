@@ -46,10 +46,6 @@ def test_load_single_shell_simulation():
                 },
                 "orbital_connectivity_property": {
                     "adjacent_inter_satellite_shifting": 0,
-                    "maximum_inter_satellite_count": 4,
-                    "maximum_inter_satellite_range_distance": 1000,
-                    "maximum_ground_station_range": 5000,
-                    "maximum_user_terminal_range": 1000,
                     "maximum_connected_ground_object": 10000,
                     "maximum_connected_user_terminal": 1000,
                     "maximum_connected_ground_station": 10,
@@ -203,10 +199,6 @@ def test_load_sso_shell_simulation():
                 },
                 "orbital_connectivity_property": {
                     "adjacent_inter_satellite_shifting": 0,
-                    "maximum_inter_satellite_count": 4,
-                    "maximum_inter_satellite_range_distance": 1000,
-                    "maximum_ground_station_range": 5000,
-                    "maximum_user_terminal_range": 1000,
                     "maximum_connected_ground_object": 10000,
                     "maximum_connected_user_terminal": 1000,
                     "maximum_connected_ground_station": 10,

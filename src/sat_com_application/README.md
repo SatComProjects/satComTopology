@@ -28,6 +28,8 @@ bus = EventBus()
 manager = SimulationManager(simulation, event_bus=bus)
 ```
 
+and your own event classes, through `event_factories` (see [Customise events with event factories](#customise-events-with-event-factories)).
+
 The manager owns the simulation satellite state cache, `manager.satellite_state_cache`
 (see [sat_com_connectivity](../sat_com_connectivity/README.md#satellite-state-cache-satellite_state_cachepy)).
 It is given to every ground and ISL strategy, so satellite positions are computed
@@ -302,9 +304,6 @@ Each strategy reads the satellite positions from `manager.satellite_state_cache`
 they are computed once per tick for all ground objects. The link `distance_km` is
 the straight-line distance computed with the elevation.
 
-Set `static_ground_station_link_mode = True` to use a static mode that disables
-out-of-range links rather than removing and recreating them each tick.
-
 ---
 
 ## Routing and Flow Management
@@ -391,12 +390,130 @@ When an **EventBus** is provided, the manager publishes events on every state ch
 | `UTLCreatedEvent` | UTL created |
 | `UTLRemovedEvent` | UTL removed |
 | `UTLUpdatedEvent` | UTL elevation / duration updated |
+| `TopologyObjectCreatedEvent` | satellite / ground object added |
+| `TopologyObjectRemovedEvent` | satellite / ground object removed |
 
 Events carry `sim_time` automatically if a time manager is attached.
 
 ISL events carry the link `distance_km` and its `optical_link_model` (`"basic"` or
 `"advanced"`): for a basic link the optical fields (azimuth, elevation, angular
 velocity, range rate...) are `None` by design.
+
+### Subscribe to events
+Handlers are `async` functions, registered per `EventType`:
+
+```python
+from sat_com_application.event_bus.bus import EventBus
+from sat_com_application.event_bus.events import EventType, ISLCreatedEvent
+
+event_bus = EventBus()
+
+async def on_isl_created(event: ISLCreatedEvent):
+    print(f"[{event.sim_time}] ISL {event.satellite_a_id} <-> {event.satellite_b_id}: {event.distance_km:.0f} km")
+
+event_bus.subscribe(EventType.ISL_CREATED, on_isl_created)
+```
+
+Pass the bus to the configuration manager (`BaseConfigurationManager(..., event_bus=event_bus)`)
+or to the `SimulationManager`. Events are also published while the simulation loads, so
+subscribe before calling `load_simulation()`.
+
+### Customise events with event factories
+Every event is built by an **event factory**. Replace one to publish your own event
+class, with extra fields. The factories are grouped in `EventFactories`:
+
+| Field | Abstract factory | Default |
+|---|---|---|
+| `isl_event_factory` | `AbstractISLEventFactory` | `DefaultISLEventFactory` |
+| `gsl_event_factory` | `AbstractGSLEventFactory` | `DefaultGSLEventFactory` |
+| `utl_event_factory` | `AbstractUTLEventFactory` | `DefaultUTLEventFactory` |
+| `topology_object_event_factory` | `AbstractTopologyObjectEventFactory` | `DefaultTopologyObjectEventFactory` |
+
+Each factory has three methods: `created(obj)`, `updated(obj)`, `removed(obj)`.
+
+**Tutorial: geo-informed ISL events.** We add to every ISL event the mean position of
+the link and the shells of both satellites.
+
+1. Subclass the events. They keep their `type`, so the subscribers of
+   `EventType.ISL_CREATED` / `ISL_UPDATED` receive them.
+
+```python
+from sat_com_application.event_bus.events import ISLCreatedEvent, ISLUpdatedEvent
+
+
+class GeoInformedISLCreatedEvent(ISLCreatedEvent):
+    mean_latitude: float
+    mean_longitude: float
+
+    satellite_a_shell: str
+    satellite_b_shell: str
+
+
+class GeoInformedISLUpdatedEvent(ISLUpdatedEvent):
+    mean_latitude: float
+    mean_longitude: float
+
+    satellite_a_shell: str
+    satellite_b_shell: str
+```
+
+2. Subclass the default factory: let it build the standard event, then extend it.
+
+```python
+from sat_com_application.event_bus.events import ISLRemovedEvent
+from sat_com_application.event_bus.factories import DefaultISLEventFactory
+from sat_com_model.models import InterSatelliteLink
+
+
+class GeoInformedISLEventFactory(DefaultISLEventFactory):
+
+    @staticmethod
+    def _geo_information(link: InterSatelliteLink) -> dict:
+        source = link.source.get_coordinates()
+        destination = link.destination.get_coordinates()
+        return dict(
+            mean_latitude=(source.latitude + destination.latitude) / 2,
+            mean_longitude=(source.longitude + destination.longitude) / 2,
+            satellite_a_shell=link.get_satellite_source().shell.identifier,
+            satellite_b_shell=link.get_satellite_destination().shell.identifier,
+        )
+
+    def created(self, link: InterSatelliteLink) -> GeoInformedISLCreatedEvent:
+        event = super().created(link)
+        return GeoInformedISLCreatedEvent(**event.model_dump(), **self._geo_information(link))
+
+    def updated(self, link: InterSatelliteLink) -> GeoInformedISLUpdatedEvent:
+        event = super().updated(link)
+        return GeoInformedISLUpdatedEvent(**event.model_dump(), **self._geo_information(link))
+
+    def removed(self, link: InterSatelliteLink) -> ISLRemovedEvent:
+        return super().removed(link)
+```
+
+> The mean longitude is a plain average: for a link crossing the ±180° meridian it
+> lands on the wrong side of the Earth. Good enough for a heat map, not for geometry.
+
+3. Inject the factory. The other factories keep their default.
+
+```python
+from sat_com_application.event_bus.factories import EventFactories
+from sat_com_builder.configuration_manager import BaseConfigurationManager
+
+
+def generate_simulation_manager(event_bus: EventBus) -> SimulationManager:
+    event_factories = EventFactories()
+    event_factories.isl_event_factory = GeoInformedISLEventFactory()
+
+    configuration_manager = BaseConfigurationManager(
+        simulation_property=simulation_property,
+        event_bus=event_bus,
+        event_factories=event_factories,
+    )
+    return configuration_manager.load_simulation()
+```
+
+To customise the **topology objects** themselves (your own `Satellite` subclass), see
+[topology object factories](../sat_com_builder/README.md#inject-your-own-topology-objects).
 
 ---
 

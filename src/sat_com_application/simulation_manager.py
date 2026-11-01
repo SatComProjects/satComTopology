@@ -146,8 +146,6 @@ class SimulationManager:
 
     time_manager: SimulationTimeManager | None
 
-    static_ground_station_link_mode: bool
-
     ground_to_space_connection_strategies: dict = dict()
 
     def __init__(
@@ -163,7 +161,6 @@ class SimulationManager:
 
         self.event_bus = event_bus
         self.enabled_update_functions = None
-        self.static_ground_station_link_mode = False
         self.time_manager = None
 
         # Satellite state shared by every connectivity computation (ground
@@ -929,76 +926,6 @@ class SimulationManager:
 
         return list_link
 
-    def connect_every_satellite_with_every_ground_stations(self):
-        """
-        This method will connect every satellite with every ground station, it will clear existing ground stations
-        links
-        :return:
-        """
-        self.simulation.ground_station_links.clear()
-
-        for ground_station in self.get_ground_stations():
-            for satellite in self.get_satellites():
-                self.create_and_add_ground_station_link_connection(
-                    satellite, ground_station
-                )
-
-    def connect_every_satellite_with_every_user_terminals_and_disable_un_connected(
-        self,
-    ):
-        """
-        This method will connect every satellite with every user terminal, it will clear existing user terminals
-        links
-        :return:
-        """
-        self.simulation.ground_station_links.clear()
-
-        for user_terminal in self.get_user_terminals():
-            simulation_domain = self.get_ground_object_domain(user_terminal.domain)
-            satellites_in_range = self.simulation.get_distance_model().spatial_position_on_ground_in_range(
-                user_terminal,
-                self.get_satellites(),
-                int(simulation_domain.maximum_satellite_range_distance),
-            )
-            for satellite in self.get_satellites():
-                created_user_terminal_link = (
-                    self.create_and_add_user_terminal_link_connection(
-                        satellite, user_terminal
-                    )
-                )
-
-                created_user_terminal_link.disabled = (
-                    satellite not in satellites_in_range
-                )
-
-    def connect_every_satellite_with_every_ground_stations_and_disable_un_connected(
-        self,
-    ):
-        """
-        This method will connect every satellite with every ground station, it will clear existing ground stations
-        links
-        :return:
-        """
-        self.simulation.ground_station_links.clear()
-
-        for ground_station in self.get_ground_stations():
-            simulation_domain = self.get_ground_object_domain(ground_station.domain)
-            satellites_in_range = self.simulation.get_distance_model().spatial_position_on_ground_in_range(
-                ground_station,
-                self.get_satellites(),
-                int(simulation_domain.maximum_satellite_range_distance),
-            )
-            for satellite in self.get_satellites():
-                created_ground_station_link = (
-                    self.create_and_add_ground_station_link_connection(
-                        satellite, ground_station
-                    )
-                )
-
-                created_ground_station_link.disabled = (
-                    satellite not in satellites_in_range
-                )
-
     def get_ground_station_link(
         self, ground_station: GroundStation, satellite: Satellite
     ):
@@ -1360,24 +1287,6 @@ class SimulationManager:
             self.event_factories.isl_event_factory.updated(inter_satellite_link)
         )
 
-    def __update_user_terminal_links_in_static_mode(self):
-        """
-        This method will disable all ground station link that aren't connected
-        :return:
-        """
-        self.simulation.user_terminal_links.clear()
-
-        self.connect_every_satellite_with_every_ground_stations_and_disable_un_connected()
-
-    def __update_ground_stations_in_static_mode(self):
-        """
-        This method will disable all ground station link that aren't connected
-        :return:
-        """
-        self.simulation.ground_station_links.clear()
-
-        self.connect_every_satellite_with_every_ground_stations_and_disable_un_connected()
-
     def __current_time(self) -> datetime.datetime | None:
         return self.time_manager.current_time if self.time_manager else None
 
@@ -1609,18 +1518,11 @@ class SimulationManager:
 
     def update_ground_station_links(self):
         """
-        Update the ground station links. This will connect ground station to satellites based on their position and their
-        range.
+        Update the ground station links with the connection strategy of each ground object domain.
         :return:
         """
 
-        if self.static_ground_station_link_mode:
-            if len(self.get_ground_stations_links()) == 0:
-                self.connect_every_satellite_with_every_ground_stations()
-
-            self.__update_ground_stations_in_static_mode()
-        else:
-            self.__update_ground_station_links_default()
+        self.__update_ground_station_links_default()
 
     def update_satellites(self):
         """
@@ -1647,13 +1549,7 @@ class SimulationManager:
             user_terminal.update()
 
     def update_user_terminal_links(self):
-        if self.static_ground_station_link_mode:
-            if len(self.get_user_terminal_links()) == 0:
-                self.connect_every_satellite_with_every_ground_stations()
-
-            self.__update_user_terminal_links_in_static_mode()
-        else:
-            self.__update_user_terminal_links_default()
+        self.__update_user_terminal_links_default()
 
     def update_inter_satellite_links(self):
         self.__update_inter_satellite_links_default()

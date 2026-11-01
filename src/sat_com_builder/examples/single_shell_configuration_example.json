@@ -4,20 +4,38 @@
   "end_date": "2024-11-25 00:00:00.000000",
   "movement_model": "pyorbital",
   "distance_model": "sklearn",
+  "inter_satellite_link_connection_strategy": "intra-shell-static-connectivity",
+  "optical_inter_satellite_link_model": "basic",
+  "disable_ground_station_link_preload": false,
   "ground_objects_properties": [
     {
       "identifier": "OneWeb Ground Station",
-      "data_file": "/path/to/ground_station_data.json",
+      "data_file": "/path/to/ground_station_data.txt",
       "type": "ground_station",
       "connectivity_properties": {
         "elevation_above_horizon": 20,
+        "maximum_connected_satellites": 4,
         "ground_to_space_connections_strategy": "everything-visible"
+      }
+    },
+    {
+      "identifier": "Inline Points of Presence",
+      "type": "point_of_presence",
+      "ground_objects": [
+        {"id": 0, "label": "Paris", "latitude": 48.85, "longitude": 2.35, "altitude": 0.0},
+        {"id": 1, "label": "Toulouse", "latitude": 43.6, "longitude": 1.44, "altitude": 0.1}
+      ],
+      "connectivity_properties": {
+        "elevation_above_horizon": 20,
+        "maximum_connected_satellites": 1,
+        "ground_to_space_connections_strategy": "best-angle-until-disconnection"
       }
     }
   ],
   "walker_shells": [
     {
       "type": "delta",
+      "static_addressing_plan": "FULL_MESH_WALKER_DELTA",
       "constellation_property": {
         "identifier": "Andromeda Walker",
         "amount_of_orbit_plane": 20,
@@ -28,10 +46,6 @@
       },
       "orbital_connectivity_property": {
         "adjacent_inter_satellite_shifting": 1,
-        "maximum_inter_satellite_count": 4,
-        "maximum_inter_satellite_range_distance": 1000,
-        "maximum_ground_station_range": 5000,
-        "maximum_user_terminal_range": 1000,
         "maximum_connected_ground_object": 10000,
         "maximum_connected_user_terminal": 1000,
         "maximum_connected_ground_station": 10

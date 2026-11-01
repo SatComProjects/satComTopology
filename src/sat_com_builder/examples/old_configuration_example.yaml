@@ -8,4 +8,3 @@ movement_model: pyorbital
 distance_model: geopy
 disable_ground_station_link_preload: False
 adjacent_inter_satellite_shifting: 0
-static_ground_station_link_mode: False

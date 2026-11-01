@@ -2,7 +2,7 @@ from sat_com_application.time_managers import TimeManager
 from sat_com_constellation.models import (
     Constellation,
 )
-from sat_com_model.factories import create_satellite
+from sat_com_model.factories import create_satellite, AbstractSatelliteFactory
 from sat_com_model.models import Satellite, Shell, T_Shell
 from sat_com_trajectopy.orbital_models import PyOrbitalModel
 
@@ -13,6 +13,7 @@ def create_satellite_from_tle(
     shell: T_Shell,
     timer_manager: TimeManager,
     domain: str = "public",
+    satellite_factory: AbstractSatelliteFactory = None,
 ) -> Satellite[T_Shell] | None:
     """
     Create a Satellite from a TLE dict, instantiating the PyOrbitalModel internally.
@@ -30,6 +31,8 @@ def create_satellite_from_tle(
         Simulation clock passed to the movement model.
     domain : str
         Constellation identifier / owner domain.
+    satellite_factory : AbstractSatelliteFactory
+        Factory used to build the satellite. Defaults to sat_com_model.factories.create_satellite.
     """
     try:
         movement_model = PyOrbitalModel(tle, timer_manager)
@@ -39,7 +42,12 @@ def create_satellite_from_tle(
         )
         return None
 
-    return create_satellite(
+    create = (
+        satellite_factory.create_satellite
+        if satellite_factory is not None
+        else create_satellite
+    )
+    return create(
         satellite_name=movement_model.satellite_name,
         object_id=object_id,
         shell=shell,
@@ -49,7 +57,10 @@ def create_satellite_from_tle(
 
 
 def generate_satellites_from_walker_constellation(
-    constellation: Constellation, timer_manager: TimeManager, shell: Shell
+    constellation: Constellation,
+    timer_manager: TimeManager,
+    shell: Shell,
+    satellite_factory: AbstractSatelliteFactory = None,
 ) -> list[Satellite]:
     satellites = []
     for id_index, tle in enumerate(constellation.generated_two_line_elements):
@@ -59,6 +70,7 @@ def generate_satellites_from_walker_constellation(
             shell=shell,
             timer_manager=timer_manager,
             domain=constellation.identifier,
+            satellite_factory=satellite_factory,
         )
         if satellite is not None:
             satellites.append(satellite)

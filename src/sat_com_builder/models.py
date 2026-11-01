@@ -1,14 +1,32 @@
+import warnings
 from datetime import datetime, timedelta
 from enum import Enum
 
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional
+from typing import ClassVar, Optional
 
 from sat_com_constellation.models import (
     WalkerConstellationProperty,
     DawnDuskSunSynchronousOrbitConstellationProperty,
 )
 from sat_com_model.models import OpticalInterSatelliteLinkModel
+
+
+def _drop_unused_parameters(data, parameters: tuple[str, ...], section: str):
+    """
+    Remove parameters that are no longer part of the configuration, with a warning,
+    so an old configuration file still loads.
+    """
+    if not isinstance(data, dict):
+        return data
+    unused = [parameter for parameter in parameters if parameter in data]
+    for parameter in unused:
+        warnings.warn(
+            f"Parameter `{parameter}` ({section}) was never used and will be removed. It is ignored.",
+            FutureWarning,
+            stacklevel=2,
+        )
+    return {key: value for key, value in data.items() if key not in unused}
 
 
 class InterSatelliteLinkOrientationProperty(str, Enum):
@@ -32,7 +50,7 @@ class InterSatelliteLinkOrientationProperty(str, Enum):
         if isinstance(value, str):
             value = value.lower()
             for member in cls:
-                if member.value == value:
+                if member.value.lower() == value:
                     return member
         return None
 
@@ -149,21 +167,27 @@ class GroundConnectivityProperty(BaseModel):
 
 
 class OrbitalConnectivityProperty(BaseModel):
-    # Should be kept
+    # Parameters that were never used: accepted in a configuration, but ignored with a warning.
+    UNUSED_PARAMETERS: ClassVar[tuple[str, ...]] = (
+        "maximum_inter_satellite_count",
+        "maximum_inter_satellite_range_distance",
+        "maximum_ground_station_range",
+        "maximum_user_terminal_range",
+    )
+
     adjacent_inter_satellite_shifting: int = Field(default=0)
-
-    # Will be removed
-    maximum_inter_satellite_count: int = Field(default=4)
-    maximum_inter_satellite_range_distance: Optional[float] = None
-
-    # Will be removed
-    maximum_ground_station_range: Optional[float] = None
-    maximum_user_terminal_range: Optional[float] = None
 
     # Can be kept for now
     maximum_connected_ground_object: Optional[int] = None
     maximum_connected_user_terminal: Optional[int] = None
     maximum_connected_ground_station: Optional[int] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_unused_parameters(cls, data):
+        return _drop_unused_parameters(
+            data, cls.UNUSED_PARAMETERS, "orbital_connectivity_property"
+        )
 
 
 class GroundObjectProperty(BaseModel):
@@ -176,16 +200,31 @@ class GroundObjectProperty(BaseModel):
     Usually, a ground_station is also called "Gateway". But in the Starlink ecosystem,
     a ground station can be a point of presence and not necessarily a gateway.
 
-    `data_file`: path of file with ground station data.
+    `data_file`: path of file with ground object data (id,label,latitude,longitude,altitude per line).
+
+    `ground_objects`: ground objects written directly in the configuration.
+
+    At least one of `data_file` and `ground_objects` must be set. When both are set,
+    the ground objects of the file are loaded first, then the inline ones.
 
     `identifier`: should be a unique string, e.g., "Starlink Default Users",
     "Starlink Maritime Users", "Star Link PoP".
     """
 
     identifier: str
-    data_file: str
+    data_file: Optional[str] = None
     type: str
     connectivity_properties: GroundConnectivityProperty
+
+    ground_objects: Optional[list[GroundObjectData]] = None
+
+    @model_validator(mode="after")
+    def check_ground_object_source(self):
+        if self.data_file is None and self.ground_objects is None:
+            raise ValueError(
+                f"Ground objects '{self.identifier}': set `data_file`, `ground_objects`, or both."
+            )
+        return self
 
 
 class AddressingPlanType(str, Enum):
@@ -200,7 +239,7 @@ class AddressingPlanType(str, Enum):
         if isinstance(value, str):
             value = value.lower()
             for member in cls:
-                if member.value == value:
+                if member.value.lower() == value:
                     return member
         return None
 
@@ -235,7 +274,7 @@ class WalkerShellType(str, Enum):
         if isinstance(value, str):
             value = value.lower()
             for member in cls:
-                if member.value == value:
+                if member.value.lower() == value:
                     return member
         return None
 
@@ -306,7 +345,6 @@ class SimulationProperty(BaseModel):
     )
 
     disable_ground_station_link_preload: bool = Field(default=False)
-    static_ground_station_link_mode: bool = Field(default=False)
 
     ground_connectivity_properties: list[GroundConnectivity] = Field(
         default_factory=list
@@ -324,3 +362,10 @@ class SimulationProperty(BaseModel):
     optical_inter_satellite_link_model: OpticalInterSatelliteLinkModel = Field(
         default=OpticalInterSatelliteLinkModel.BASIC
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_unused_parameters(cls, data):
+        return _drop_unused_parameters(
+            data, ("static_ground_station_link_mode",), "simulation properties"
+        )

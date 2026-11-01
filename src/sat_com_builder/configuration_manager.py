@@ -15,16 +15,22 @@ from sat_com_builder import (
     POINT_OF_PRESENCE_TYPES_STR,
     USER_TERMINAL_TYPES_STR,
 )
+from sat_com_builder.factories import TopologyObjectFactories
 from sat_com_builder.ground_objects.generate_ground_stations import (
-    generate_ground_stations_from_file,
+    generate_ground_stations_from_ground_objects,
 )
 from sat_com_builder.ground_objects.generate_point_of_presences import (
-    generate_point_of_presences,
+    generate_point_of_presences_from_ground_objects,
 )
 from sat_com_builder.ground_objects.generate_user_terminals import (
-    generate_user_terminal_from_file,
+    generate_user_terminals_from_ground_objects,
 )
-from sat_com_builder.models import SimulationProperty
+from sat_com_builder.ground_objects.utils import generate_ground_object_from_file
+from sat_com_builder.models import (
+    SimulationProperty,
+    GroundObjectProperty,
+    GroundObjectData,
+)
 from sat_com_builder.utils import parse_date
 from sat_com_connectivity.ground_object_to_space_connectivity.ground_connection_strategy_registry import (
     GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY,
@@ -77,10 +83,15 @@ class BaseConfigurationManager(ConfigurationManager):
         simulation_property: SimulationProperty,
         event_bus: EventBus = None,
         event_factories: EventFactories = None,
+        topology_object_factories: TopologyObjectFactories = None,
     ):
         self.simulation_property = simulation_property
 
         self.event_factories = event_factories
+
+        self.topology_object_factories = (
+            topology_object_factories or TopologyObjectFactories()
+        )
 
         self.event_bus = event_bus
 
@@ -195,13 +206,25 @@ class BaseConfigurationManager(ConfigurationManager):
         :return:
         """
 
-        simulation_manager.static_ground_station_link_mode = (
-            self.simulation_property.static_ground_station_link_mode
-        )
-
         if not self.simulation_property.disable_ground_station_link_preload:
             simulation_manager.update_ground_station_links()
             simulation_manager.update_user_terminal_links()
+
+    @staticmethod
+    def __read_ground_object_data(
+        ground_object: GroundObjectProperty,
+    ) -> list[GroundObjectData]:
+        """
+        Collect the ground object data of a domain: the data file first, then the inline ground objects.
+        """
+        ground_object_data = []
+        if ground_object.data_file is not None:
+            ground_object_data.extend(
+                generate_ground_object_from_file(ground_object.data_file)
+            )
+        if ground_object.ground_objects is not None:
+            ground_object_data.extend(ground_object.ground_objects)
+        return ground_object_data
 
     def __load_ground_object_configuration(self, simulation_manager: SimulationManager):
         """
@@ -249,26 +272,31 @@ class BaseConfigurationManager(ConfigurationManager):
                 ground_object_domain=ground_object_domain
             )
 
+            ground_object_data = self.__read_ground_object_data(ground_object)
+
             if ground_object.type in GROUND_STATION_TYPES_STR:
-                ground_stations = generate_ground_stations_from_file(
-                    ground_station_file_path=ground_object.data_file,
+                ground_stations = generate_ground_stations_from_ground_objects(
+                    ground_objects=ground_object_data,
                     ground_object_domain=ground_object_domain,
+                    factory=self.topology_object_factories.ground_station_factory,
                 )
 
                 simulation_manager.add_all_ground_stations(ground_stations)
 
             elif ground_object.type in USER_TERMINAL_TYPES_STR:
 
-                user_terminals = generate_user_terminal_from_file(
-                    user_terminal_file_path=ground_object.data_file,
+                user_terminals = generate_user_terminals_from_ground_objects(
+                    ground_objects=ground_object_data,
                     ground_object_domain=ground_object_domain,
+                    factory=self.topology_object_factories.user_terminal_factory,
                 )
                 simulation_manager.add_all_user_terminals(user_terminals)
 
             elif ground_object.type in POINT_OF_PRESENCE_TYPES_STR:
-                point_of_presences = generate_point_of_presences(
-                    point_of_presence_file_path=ground_object.data_file,
+                point_of_presences = generate_point_of_presences_from_ground_objects(
+                    ground_objects=ground_object_data,
                     ground_object_domain=ground_object_domain,
+                    factory=self.topology_object_factories.point_of_presence_factory,
                 )
                 simulation_manager.add_all_point_of_presences(point_of_presences)
 
@@ -310,6 +338,7 @@ class BaseConfigurationManager(ConfigurationManager):
                     constellation=sun_synchronous_orbit,
                     timer_manager=simulation_manager.time_manager,
                     shell=sso_shell,
+                    satellite_factory=self.topology_object_factories.satellite_factory,
                 )
             else:
                 raise ValueError("Invalid movement model: " + str(movement_model))
@@ -356,6 +385,7 @@ class BaseConfigurationManager(ConfigurationManager):
                     constellation=shell_constellation,
                     timer_manager=simulation_manager.time_manager,
                     shell=walker_shell,
+                    satellite_factory=self.topology_object_factories.satellite_factory,
                 )
             else:
                 raise ValueError("Invalid movement model: " + str(movement_model))
@@ -530,9 +560,19 @@ class YamlConfigurationManager(BaseConfigurationManager):
 
     configuration_path: str
 
-    def __init__(self, configuration_path: str):
+    def __init__(
+        self,
+        configuration_path: str,
+        event_bus: EventBus = None,
+        event_factories: EventFactories = None,
+        topology_object_factories: TopologyObjectFactories = None,
+    ):
         with open(configuration_path, "r") as file:
             plain_configuration = yaml.safe_load(file)
-            self.configuration_path = configuration_path
-            super().__init__(SimulationProperty(**plain_configuration))
-            file.close()
+        self.configuration_path = configuration_path
+        super().__init__(
+            SimulationProperty(**plain_configuration),
+            event_bus=event_bus,
+            event_factories=event_factories,
+            topology_object_factories=topology_object_factories,
+        )

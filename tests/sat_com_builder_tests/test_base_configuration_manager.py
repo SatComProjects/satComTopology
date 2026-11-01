@@ -16,12 +16,21 @@ from tests.sat_com_builder_tests.multishell_config import multi_shell_config
 
 
 class TestBaseConfigurationManager:
-    @patch("sat_com_builder.configuration_manager.generate_user_terminal_from_file")
-    @patch("sat_com_builder.configuration_manager.generate_ground_stations_from_file")
+    @patch(
+        "sat_com_builder.configuration_manager.generate_ground_object_from_file",
+        return_value=[],
+    )
+    @patch(
+        "sat_com_builder.configuration_manager.generate_user_terminals_from_ground_objects"
+    )
+    @patch(
+        "sat_com_builder.configuration_manager.generate_ground_stations_from_ground_objects"
+    )
     def test_base_configuration_manager_create_multi_shell_constellation(
         self,
         generate_ground_stations_from_file,
         generate_user_terminal_from_file,
+        _generate_ground_object_from_file,
     ):
         GROUND_TO_SPACE_CONNECTION_STRATEGY_REGISTRY.update(
             {"fake_strategy": FakeGroundToSpaceConnectionStrategy}
