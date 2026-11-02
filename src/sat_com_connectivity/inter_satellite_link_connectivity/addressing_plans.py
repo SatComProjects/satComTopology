@@ -1154,8 +1154,27 @@ class CheckerboardWalkerDeltaStaticAddressingPlan(WalkerStaticAddressingPlan):
         )
 
 
-class EmptyAddressingPlan(WalkerStaticAddressingPlan):
+class EmptyAddressingPlan(StaticAddressingPlan):
+    """
+    Addressing plan with no intra-shell link, for a Walker or an SSO shell.
+
+    Its satellites only get the links other parts of the simulation give them
+    (e.g. inter-shell links), and the shell plan never warns about intra-shell
+    links it cannot satisfy.
+    """
+
     name = "EMPTY"
+
+    def __init__(
+        self,
+        walker_shell: WalkerShell | None = None,
+        sso_shell: DawnDuskSSOShell | None = None,
+        optical_link_model: OpticalInterSatelliteLinkModel = OpticalInterSatelliteLinkModel.BASIC,
+    ):
+        self.walker_shell = walker_shell
+        self.sso_shell = sso_shell
+        self.shell = walker_shell if walker_shell is not None else sso_shell
+        self.optical_link_model = optical_link_model
 
     def get_link_associations(
         self,
@@ -1166,13 +1185,6 @@ class EmptyAddressingPlan(WalkerStaticAddressingPlan):
 
     def get_type(self) -> str:
         return "EMPTY"
-
-    def __init__(
-        self,
-        walker_shell: WalkerShell,
-        optical_link_model: OpticalInterSatelliteLinkModel = OpticalInterSatelliteLinkModel.BASIC,
-    ):
-        super().__init__(walker_shell, optical_link_model)
 
 
 class AvailableAddressingPlans(str, Enum):
