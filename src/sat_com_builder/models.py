@@ -246,6 +246,7 @@ class AddressingPlanType(str, Enum):
     FULL_MESH_WALKER_DELTA = "FULL_MESH_WALKER_DELTA"
     FULL_MESH_WALKER_STAR = "FULL_MESH_WALKER_STAR"
     LINKED_SSO = "LINKED_SSO"
+    EMPTY = "EMPTY"
 
     @classmethod
     def _missing_(cls, value):
