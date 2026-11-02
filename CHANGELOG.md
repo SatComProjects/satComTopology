@@ -43,6 +43,8 @@ their terminals, inter-shell links, and a much faster tick.
 - **Static addressing plans** per shell (`static_addressing_plan`):
   `CHECKERBOARD_WALKER_DELTA`, `CHECKERBOARD_WALKER_STAR`, `FULL_MESH_WALKER_DELTA`,
   `FULL_MESH_WALKER_STAR` (Walker default), `LINKED_SSO` (SSO default).
+  `EMPTY` (no intra-shell link) works for a Walker or an SSO shell, e.g. SSO satellites that
+  only link to a Walker shell: no more warning per satellite for ORBITAL links they have no terminal for.
 - Walker shell `type` is validated (`delta`, `star`).
 
 #### Optical inter-satellite links
