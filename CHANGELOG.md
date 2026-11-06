@@ -127,6 +127,9 @@ These still work, and will be removed in a future version:
 - `configure_access_to_group_packages.sh`.
 
 ### Fixed
+- Ground links kept by an until-disconnection strategy (`best-angle-until-disconnection*`) never
+  published `GSL_UPDATED` / `UTL_UPDATED`: their distance and elevation were refreshed, but event
+  subscribers kept the values of the link creation. They now publish one update per tick.
 - Inter-shell strategy: when the satellite at one end of an inter-shell link removed it, the terminal at the
   other end was skipped for the tick instead of freed, so it stayed unlinked for one tick at every handover.
 - Optical constraints were reversed by the ISL update.

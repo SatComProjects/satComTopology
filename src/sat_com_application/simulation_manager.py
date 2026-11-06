@@ -1349,6 +1349,9 @@ class SimulationManager:
                     seconds=float(delay)
                 )
 
+        # Links that already published their event (created or updated) this tick.
+        published_link_ids = set()
+
         for ground_object, _, result in computed:
             for link in result.obsolete_links:
                 self.remove_link(link)
@@ -1360,7 +1363,7 @@ class SimulationManager:
                     duration = (disconnection_time - now).total_seconds()
                 else:
                     duration = constraints.estimated_connection_time or -1
-                create_link(
+                created_link = create_link(
                     new_connection.satellite,
                     ground_object,
                     elevation_above_horizon_angle=constraints.elevation_angle_above_horizon
@@ -1369,10 +1372,12 @@ class SimulationManager:
                     distance_km=constraints.distance_km or -1,
                     estimated_disconnection_time=disconnection_time,
                 )
+                published_link_ids.add(id(created_link))
 
             for update in result.updated_links:
                 if not isinstance(update.ground_to_space_link, link_type):
                     raise TypeError(f"A {link_type.__name__} was expected")
+                published_link_ids.add(id(update.ground_to_space_link))
                 if link_type is GroundStationLink:
                     self.update_ground_station_link(
                         ground_to_space_link=update.ground_to_space_link,
@@ -1386,13 +1391,24 @@ class SimulationManager:
 
         # Links kept without an update (until-disconnection strategies): their
         # elevation and distance were refreshed by the strategy, refresh the
-        # remaining duration too.
+        # remaining duration too, then publish their update (GSL_UPDATED /
+        # UTL_UPDATED), so that event subscribers follow the new distance.
+        if link_type is GroundStationLink:
+            event_factory = self.event_factories.gsl_event_factory
+        else:
+            event_factory = self.event_factories.utl_event_factory
         for ground_object in ground_objects:
             for link in ground_object.links:
                 if isinstance(link, GroundToSpaceLink):
                     remaining = self.__remaining_duration(link)
                     if remaining is not None:
                         link.estimated_link_duration = remaining
+                    if (
+                        self.event_bus is not None
+                        and isinstance(link, link_type)
+                        and id(link) not in published_link_ids
+                    ):
+                        self.__publish_event(event_factory.updated(link))
 
     def __update_user_terminal_links_default(self):
         """
