@@ -1096,6 +1096,7 @@ class FullMeshWalkerDeltaStaticAddressingPlan(WalkerStaticAddressingPlan):
             number_orbits=self.walker_shell.amount_of_orbit_plane,
             number_satellites_per_orbit=self.walker_shell.amount_of_satellite_per_orbit_plane,
             isl_shift=self.walker_shell.adjacent_inter_satellite_shifting,
+            phasing_factor=self.walker_shell.phasing_factor,
         )
 
 
@@ -1151,6 +1152,7 @@ class CheckerboardWalkerDeltaStaticAddressingPlan(WalkerStaticAddressingPlan):
             number_orbits=self.walker_shell.amount_of_orbit_plane,
             number_satellites_per_orbit=self.walker_shell.amount_of_satellite_per_orbit_plane,
             isl_shift=self.walker_shell.adjacent_inter_satellite_shifting,
+            phasing_factor=self.walker_shell.phasing_factor,
         )
 
 
