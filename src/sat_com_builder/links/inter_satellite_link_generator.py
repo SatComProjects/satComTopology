@@ -28,6 +28,8 @@
 # Source: https://github.com/snkas/hypatia
 
 
+from typing import Optional
+
 from sat_com_model.models import (
     InterSatelliteLinkDirection,
 )
@@ -85,8 +87,34 @@ def generate_walker_star_constellation_grid(
     return list_inter_satellite_links
 
 
+def _walker_delta_wrap_shift(
+    number_orbits: int,
+    number_satellites_per_orbit: int,
+    phasing_factor: Optional[int],
+) -> int:
+    """Index shift for the last-plane -> first-plane seam.
+
+    A Walker Delta with harmonic factor ``F`` accumulates a phase offset of
+    ``360 F (P-1) / (P Q)`` between the last and first plane.  Reusing the
+    ordinary adjacent-plane shift there creates a long chord that can pass
+    through the Earth.  Return the nearest along-track index shift for the
+    seam instead.
+    """
+    if phasing_factor is None or number_orbits < 2:
+        return 0
+    raw = phasing_factor * (number_orbits - 1) / number_orbits
+    shift = int(round(raw)) % number_satellites_per_orbit
+    if shift > number_satellites_per_orbit / 2:
+        shift -= number_satellites_per_orbit
+    return shift
+
+
 def generate_walker_delta_constellation_grid(
-    number_orbits: int, number_satellites_per_orbit: int, isl_shift: int, idx_offset=0
+    number_orbits: int,
+    number_satellites_per_orbit: int,
+    isl_shift: int,
+    idx_offset=0,
+    phasing_factor: Optional[int] = None,
 ) -> list:
     """
     This code generate a grid that represent inter-satellite links. This code come from Hypatia software.
@@ -103,8 +131,13 @@ def generate_walker_delta_constellation_grid(
     if number_orbits < 3 or number_satellites_per_orbit < 3:
         raise ValueError("Number of x and y must each be at least 3")
 
+    wrap_shift = _walker_delta_wrap_shift(
+        number_orbits, number_satellites_per_orbit, phasing_factor
+    )
     list_inter_satellite_links = []
     for i in range(number_orbits):
+        next_orbit = (i + 1) % number_orbits
+        pair_shift = isl_shift + (wrap_shift if next_orbit == 0 else 0)
         for j in range(number_satellites_per_orbit):
             sat = i * number_satellites_per_orbit + j
 
@@ -112,10 +145,8 @@ def generate_walker_delta_constellation_grid(
             sat_same_orbit = i * number_satellites_per_orbit + (
                 (j + 1) % number_satellites_per_orbit
             )
-            sat_adjacent_orbit = (
-                (i + 1) % number_orbits
-            ) * number_satellites_per_orbit + (
-                (j + isl_shift) % number_satellites_per_orbit
+            sat_adjacent_orbit = next_orbit * number_satellites_per_orbit + (
+                (j + pair_shift) % number_satellites_per_orbit
             )
 
             # Same orbit
@@ -154,7 +185,11 @@ def generate_sun_synchronous_constellation_grid(
 
 
 def generate_checkerboard_walker_delta_constellation_grid(
-    number_orbits: int, number_satellites_per_orbit: int, isl_shift: int, idx_offset=0
+    number_orbits: int,
+    number_satellites_per_orbit: int,
+    isl_shift: int,
+    idx_offset=0,
+    phasing_factor: Optional[int] = None,
 ) -> list:
 
     if number_orbits < 3 or number_satellites_per_orbit < 3:
@@ -173,9 +208,14 @@ def generate_checkerboard_walker_delta_constellation_grid(
             "Number of orbit and number of satellite per obit must each be even for checkerboard pattern"
         )
 
+    wrap_shift = _walker_delta_wrap_shift(
+        number_orbits, number_satellites_per_orbit, phasing_factor
+    )
     list_inter_satellite_links = []
 
     for i in range(number_orbits):
+        next_orbit = (i + 1) % number_orbits
+        pair_shift = isl_shift + (wrap_shift if next_orbit == 0 else 0)
         for j in range(number_satellites_per_orbit):
             sat = i * number_satellites_per_orbit + j
 
@@ -185,10 +225,8 @@ def generate_checkerboard_walker_delta_constellation_grid(
             )
 
             # Adjacent orbit neighbor
-            sat_adjacent_orbit = (
-                (i + 1) % number_orbits
-            ) * number_satellites_per_orbit + (
-                (j + isl_shift) % number_satellites_per_orbit
+            sat_adjacent_orbit = next_orbit * number_satellites_per_orbit + (
+                (j + pair_shift) % number_satellites_per_orbit
             )
 
             # Always keep intra-orbit links

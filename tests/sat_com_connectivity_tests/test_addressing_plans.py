@@ -113,6 +113,7 @@ def make_walker_shell(
     shell.amount_of_orbit_plane = orbits
     shell.amount_of_satellite_per_orbit_plane = sats_per_orbit
     shell.adjacent_inter_satellite_shifting = isl_shift
+    shell.phasing_factor = None
     return shell
 
 
@@ -304,7 +305,10 @@ class TestWalkerStaticAddressingPlanGridBuilding:
             )
 
         mock_delta.assert_called_once_with(
-            number_orbits=5, number_satellites_per_orbit=4, isl_shift=0
+            number_orbits=5,
+            number_satellites_per_orbit=4,
+            isl_shift=0,
+            phasing_factor=None,
         )
         mock_star.assert_not_called()
 

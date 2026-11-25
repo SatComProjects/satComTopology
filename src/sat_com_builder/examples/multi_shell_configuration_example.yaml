@@ -50,6 +50,13 @@ simulation_property:
         inclination: 53.0
         phase_difference_between_satellites: false
         mean_revolution_per_day: 15.7
+        design:
+          method: "ballard"
+          min_elevation_deg: 15.0
+          coverage_multiplicity: 1
+          time_samples: 360
+          search_effort: "fast"
+          finalists: 3
       orbital_connectivity_property:
         adjacent_inter_satellite_shifting: 1
         maximum_connected_ground_object: 10000

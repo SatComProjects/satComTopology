@@ -38,6 +38,17 @@ their terminals, inter-shell links, and a much faster tick.
   `estimated_disconnection_time` (absolute).
 
 #### Constellations
+- **Ballard Delta design** with two modes:
+  - `mode: "layout"` (default) keeps the configured plane count, satellites per
+    plane, inclination and mean motion fixed and selects the inter-plane phasing
+    `F`. Reproduces Ballard's 12/3/1 with `F=1` (`Rmax = 47.90 deg`).
+  - `mode: "sizing"` co-designs `T/P/Q`, inclination and altitude with the fast
+    hierarchical search (a 264-satellite design takes about 3 seconds). It also
+    enforces same-plane ISL clearance: the altitude is raised when necessary so
+    adjacent satellites in a plane can see each other above the atmosphere.
+- **Walker phasing factor** (`phasing_factor`): explicit `T/P/F` phasing
+  (`360 F k / T`) in the TLE generator; when set, the legacy odd-plane and polar
+  heuristics are disabled.
 - **Dawn-dusk sun-synchronous shells** (`dawn_dusk_sso_shells`): altitude, number of
   satellites, epoch (defaults to the simulation start).
 - **Static addressing plans** per shell (`static_addressing_plan`):

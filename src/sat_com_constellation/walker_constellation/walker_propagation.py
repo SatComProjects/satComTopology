@@ -1,4 +1,5 @@
 import math
+from typing import Optional
 
 from sgp4.exporter import export_tle
 from sgp4.functions import jday
@@ -19,17 +20,41 @@ def generate_two_line_elements(
     eccentricity: float = 0.00001,
     argument_of_perigee_degree: float = 0.0,
     orbit_spreading_degree: float = 360,
+    phasing_factor: Optional[int] = None,
+    raan_offset_degree: float = 0.0,
+    argument_of_latitude_offset_degree: float = 0.0,
 ) -> list[TwoLineElement]:
+    """Generate Walker TLEs.
+
+    Parameters
+    ----------
+    phasing_factor
+        When provided, use the classical Walker Delta phasing
+        ``360 * F * k / (P * Q)`` for plane ``k`` and disable the legacy
+        odd-plane / polar tailoring.  When omitted, the historical
+        ``phase_difference`` behaviour is kept for backward compatibility.
+    raan_offset_degree, argument_of_latitude_offset_degree
+        Global rotations of the pattern, used to reproduce a numerically
+        designed constellation exactly.
+    """
     satellite_counter = 0
     two_line_elements = []
+
+    total_satellites = number_of_orbits * number_of_satellites_per_plane
 
     minimum_elevation_angle = 10
 
     for orbit in range(0, number_of_orbits):
         # Orbit-dependent
-        raan_degree = orbit * orbit_spreading_degree / number_of_orbits
+        raan_degree = (
+            raan_offset_degree + orbit * orbit_spreading_degree / number_of_orbits
+        )
         orbit_wise_shift = 0
-        if orbit % 2 == 1:
+        if phasing_factor is not None:
+            # Classical Walker Delta phasing.  The odd-plane and polar
+            # tailoring below are legacy heuristics and must not override it.
+            orbit_wise_shift = 360.0 * phasing_factor * orbit / total_satellites
+        elif orbit % 2 == 1:
             if phase_difference:
                 orbit_wise_shift = orbit_spreading_degree / (
                     number_of_satellites_per_plane * 2.0
@@ -38,7 +63,8 @@ def generate_two_line_elements(
         # For each satellite in the orbit
         for n_sat in range(0, number_of_satellites_per_plane):
             if (
-                inclination_degree > 80
+                phasing_factor is None
+                and inclination_degree > 80
                 and inclination_degree < 100
                 and (
                     number_of_satellites_per_plane > 1.3 * number_of_orbits
@@ -78,12 +104,20 @@ def generate_two_line_elements(
                 )
                 phi = half_cone_angle + delta
 
-                raan_degree = orbit * phi
+                raan_degree = raan_offset_degree + orbit * phi
 
             else:  # For non-polar orbits
-                mean_anomaly_degree = orbit_wise_shift + (
-                    n_sat * 360 / number_of_satellites_per_plane
+                mean_anomaly_degree = (
+                    argument_of_latitude_offset_degree
+                    + orbit_wise_shift
+                    + n_sat * 360 / number_of_satellites_per_plane
                 )
+
+            # sgp4's TLE exporter requires all angles in [0, 360).  With many
+            # planes and a Walker phasing factor the accumulated phase easily
+            # exceeds one revolution.
+            raan_degree %= 360.0
+            mean_anomaly_degree %= 360.0
 
             # Epoch is set to the year 2000
             # This conveniently in TLE format gives 00001.00000000

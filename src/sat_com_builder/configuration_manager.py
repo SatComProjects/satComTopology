@@ -369,13 +369,31 @@ class BaseConfigurationManager(ConfigurationManager):
             else:
                 raise ValueError("Walker constellation type not found: " + shell.type)
 
+            # A numerical design may change P, Q, inclination, mean motion and
+            # phasing.  The shell must describe the constellation that was
+            # actually generated, not the raw configuration values.
+            constellation_property = shell.constellation_property.model_copy(
+                update={
+                    "amount_of_orbit_plane": (
+                        shell_constellation.amount_of_orbit_plane
+                    ),
+                    "amount_of_satellite_per_orbit_plane": (
+                        shell_constellation.amount_of_satellite_per_orbit_plane
+                    ),
+                    "inclination": shell_constellation.inclination,
+                    "mean_revolution_per_day": (
+                        shell_constellation.mean_revolution_per_day
+                    ),
+                    "phasing_factor": shell_constellation.phasing_factor,
+                }
+            )
             walker_shell = WalkerShell(
                 satellite_configuration=SatelliteConfiguration(
                     **shell.satellite_property.model_dump()
                 ),
-                **shell.constellation_property.model_dump(),
+                **constellation_property.model_dump(),
                 **shell.orbital_connectivity_property.model_dump(),
-                **shell.model_dump(),
+                **shell.model_dump(exclude={"constellation_property"}),
             )
 
             simulation_manager.add_walker_shell(walker_shell)

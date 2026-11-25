@@ -1,0 +1,43 @@
+# Ballard Delta distribution with fixed mission values.
+#
+# The design block does NOT change the constellation size, inclination or
+# altitude. It keeps 3 planes x 4 satellites, 50.73 deg and 6.7553 rev/day,
+# and selects only the inter-plane Walker phasing F that minimises the
+# worst-case coverage gap of that exact geometry.
+start_date: "2024-11-18 00:00:00.000000"
+end_date: "2024-11-25 00:00:00.000000"
+movement_model: "pyorbital"
+distance_model: "sklearn"
+ground_objects_properties:
+  - identifier: "Ballard Ground Stations"
+    type: "point_of_presence"
+    ground_objects:
+      - { id: 0, label: "Paris", latitude: 48.85, longitude: 2.35, altitude: 0.0 }
+      - { id: 1, label: "Toulouse", latitude: 43.60, longitude: 1.44, altitude: 0.1 }
+      - { id: 2, label: "Kourou", latitude: 5.16, longitude: -52.65, altitude: 0.0 }
+      - { id: 3, label: "Perth", latitude: -31.95, longitude: 115.86, altitude: 0.0 }
+    connectivity_properties:
+      elevation_above_horizon: 10
+      ground_to_space_connections_strategy: "everything-visible"
+
+walker_shells:
+  - type: "delta"
+    constellation_property:
+      identifier: "Ballard Delta Layout 12/3/1"
+      amount_of_orbit_plane: 3
+      amount_of_satellite_per_orbit_plane: 4
+      inclination: 50.73
+      phase_difference_between_satellites: false
+      mean_revolution_per_day: 6.7553
+      design:
+        method: "ballard"
+        min_elevation_deg: 10.0
+        coverage_multiplicity: 1
+        time_samples: 360
+        search_effort: "fast"
+    orbital_connectivity_property:
+      adjacent_inter_satellite_shifting: 1
+      maximum_connected_ground_object: 10
+      maximum_connected_user_terminal: 5
+      maximum_connected_ground_station: 1
+    ground_object_white_list: []
