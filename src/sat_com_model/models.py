@@ -435,6 +435,7 @@ class WalkerShell(Shell):
     amount_of_satellite_per_orbit_plane: int
     inclination: float = Field(default=98.7)
     mean_revolution_per_day: float = Field(default=14.25)
+    phasing_factor: Optional[int] = None
 
     adjacent_inter_satellite_shifting: int = Field(default=0)
     maximum_connected_ground_object: Optional[int] = None
