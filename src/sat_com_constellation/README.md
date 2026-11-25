@@ -69,6 +69,121 @@ for two_line_set in walker_star_constellation.generated_two_line_elements:
     print("Line 2", two_line_set.line2)
 ```
 
+### Numerical Delta design (Ballard rosettes)
+
+The Ballard block has two modes:
+
+- `mode: "layout"` (default) distributes the configured constellation. The
+  plane count, satellites per plane, inclination and mean motion are fixed
+  inputs; only the inter-plane phasing `F` is selected. Input values are never
+  changed.
+- `mode: "sizing"` co-designs the constellation. It may change the `T/P/Q`
+  factorization, inclination and altitude. The default fast search returns a
+  264-satellite design in about 3 seconds.
+
+Given `T = P x Q` satellites, the distribution is:
+
+- RAAN of plane `k`: `360 k / P`
+- argument of latitude of satellite `j` in plane `k`:
+  `360 j / Q + 360 F k / T`
+
+`F` is selected by evaluating that exact geometry over one orbital period and
+minimising the worst-case coverage gap (largest empty spherical circumcircle
+of the subsatellite points). For the published 12-satellite rosette, with the
+inputs fixed at `3 x 4`, `50.73 deg` and `6.7553 rev/day`, the block selects
+`F=1` and obtains `Rmax = 47.90 deg`.
+
+```yaml
+walker_shells:
+  - type: "delta"
+    constellation_property:
+      identifier: "Ballard Delta Layout"
+      amount_of_orbit_plane: 3
+      amount_of_satellite_per_orbit_plane: 4
+      inclination: 50.73
+      phase_difference_between_satellites: false
+      mean_revolution_per_day: 6.7553
+      design:
+        method: "ballard"
+        min_elevation_deg: 10.0
+        coverage_multiplicity: 1
+        time_samples: 360
+        search_effort: "fast"
+```
+
+The shell built by `BaseConfigurationManager` keeps the same `P`, `Q`,
+inclination and mean motion. Only `phasing_factor` is added to the generated
+TLEs. `design_result.meets_elevation_requirement` reports whether the fixed
+geometry reaches the requested elevation; the distribution does **not** change
+the altitude to force it.
+
+To pin a specific phasing instead of selecting one, set
+`phasing_factors: [F]` in the design block. A precomputed distribution can be
+used without a design block:
+
+```yaml
+constellation_property:
+  identifier: "Ballard Delta"
+  amount_of_orbit_plane: 3
+  amount_of_satellite_per_orbit_plane: 4
+  inclination: 50.73
+  phase_difference_between_satellites: false
+  mean_revolution_per_day: 6.755
+  phasing_factor: 1
+```
+
+`phasing_factor` alone requests the classical Walker Delta phasing
+`360 F k / T`; the legacy odd-plane and polar heuristics are disabled.
+
+#### `mode: "sizing"` — optimize the geometry
+
+Sizing differs from layout: it searches plane counts, phasing, inclination and
+(for `altitude_mode: "solve"`) the altitude required to meet the minimum
+elevation. It is useful when the fleet size is fixed but the shell geometry is
+not.
+
+```yaml
+design:
+  method: "ballard"
+  mode: "sizing"
+  min_elevation_deg: 10.0
+  coverage_multiplicity: 1
+  altitude_mode: "solve"            # or "fixed" with altitude_km
+  max_altitude_km: 5880.0
+  inclination_min_deg: 20.0
+  inclination_max_deg: 80.0
+  inclination_step_deg: 5.0
+  time_samples: 360
+  search_effort: "fast"
+```
+
+In sizing mode the constellation object replaces `amount_of_orbit_plane`,
+`amount_of_satellite_per_orbit_plane`, `inclination`,
+`phasing_factor` and `mean_revolution_per_day` with the result before the TLEs
+are generated. `search_effort: "thorough"` keeps the exhaustive search.
+
+Sizing also enforces same-plane ISL clearance. Adjacent satellites in a plane
+are separated by `360 / Q`; if the coverage-driven altitude is too low for that
+chord to clear the atmosphere, the altitude is raised to the clearance value
+(fixed-altitude mode raises an error instead). For IRIS2 `264` satellites, the
+`33 x 8` geometry at `76.7°` needs about **613 km** instead of the 469 km pure
+coverage altitude, so its `45°` same-plane links clear the Earth. Plane counts
+whose required clearance exceeds `max_altitude_km` are skipped.
+
+#### Performance
+
+Layout mode ranks `F in [0, P)` on a cached Fibonacci grid and re-evaluates a
+few finalists with the exact Delaunay geometry. Sizing mode ranks the
+shortlisted `P x F x inclination` grid the same way, then re-evaluates a narrow
+inclination scan and a few finalists exactly. `search_effort: "fast"` is the
+default for both; `search_effort: "thorough"` evaluates the full candidate set.
+A 264-satellite sizing design takes about 3 seconds.
+
+> **Near-Earth propagation.** Layout mode preserves the input altitude; sizing
+> mode can change it. The `pyorbital` movement model cannot propagate deep-space
+> TLEs (period >= 225 min). In sizing mode, set `max_altitude_km: 5880` to turn
+> that into an explicit design error.
+
 ### Sun Synchronous Constellation (Dawn Dusk SSO)
 ## Sun-Synchronous Constellation (Dawn-Dusk SSO)
 

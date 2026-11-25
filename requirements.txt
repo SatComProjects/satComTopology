@@ -1,6 +1,7 @@
 geopy==2.4.1
 networkx==3.3
 numpy==2.2.5
+scipy==1.15.3
 pydantic==2.11.4
 pyorbital==1.8.2
 pytz==2025.2
